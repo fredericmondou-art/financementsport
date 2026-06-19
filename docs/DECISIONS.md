@@ -24,3 +24,13 @@ sans bloquer sur ce point — ce test devra être exécuté en CI (GitHub Action
 l'accès réseau nécessaire) ou en local avant la mise en prod. Pas un problème
 de sécurité, d'argent ou de données de mineurs : ne remonte pas dans
 QUESTIONS.md.
+
+## 2026-06-19 — Nouveau système de clés API Supabase
+Supabase a remplacé les clés JWT `anon`/`service_role` par des clés
+`sb_publishable_...` / `sb_secret_...` (fonctionnellement équivalentes, mêmes
+usages : publishable = navigateur + RLS, secret = serveur, contourne RLS).
+Frédéric a fourni des clés du nouveau format. Décision : les mapper directement
+sur les variables d'environnement existantes (`NEXT_PUBLIC_SUPABASE_ANON_KEY`,
+`SUPABASE_SERVICE_ROLE_KEY`) sans renommer — `@supabase/supabase-js` les
+accepte de façon interchangeable dans `createClient()`. Pas d'impact sur le
+code applicatif.
