@@ -51,3 +51,23 @@ généré par `supabase gen types typescript --linked`, car aucun projet
 Supabase réel n'était encore connecté. Un commentaire en tête du fichier
 l'indique explicitement. À refaire avec la commande officielle maintenant que
 les identifiants du projet sont connus (prochaine étape).
+
+## 2026-06-19 — Accès réseau à *.supabase.co bloqué dans le bac à sable (Tâche 0.3)
+Comme pour les navigateurs Playwright, la politique réseau du bac à sable
+bloque aussi les appels sortants vers `*.supabase.co` (403 « blocked-by-
+allowlist » sur le proxy). Conséquence : je ne peux pas exécuter ici de test
+qui appelle réellement Supabase Auth (signup/login). `lib/auth/permissions.ts`
+(la logique pure, cœur de la tâche) est testée unitairement sans dépendance
+réseau — 15 tests verts. Le test e2e `tests/e2e/auth.spec.ts` est écrit mais
+doit être exécuté en CI ou en local, comme `tests/e2e/home.spec.ts` (Tâche
+0.1). Pas un problème de sécurité/argent/mineurs : ne remonte pas dans
+QUESTIONS.md.
+
+## 2026-06-19 — Création de profil : trigger SQL plutôt qu'insert applicatif
+Pour garantir qu'AUCUNE inscription (UI, future API admin, import) ne puisse
+créer un `auth.users` sans `profiles` lié, le lien est créé par un trigger
+PostgreSQL (`on_auth_user_created`) plutôt que par du code applicatif après
+`supabase.auth.signUp()`. Si l'appel applicatif échouait après la création du
+compte auth, on se retrouverait avec un compte sans profil — le trigger
+élimine ce risque structurellement. Fichier :
+`supabase/migrations/0002_auth_profile_trigger.sql`.

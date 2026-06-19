@@ -34,13 +34,7 @@ export type UserRole =
 
 export type BeneficiaryType = 'athlete' | 'team' | 'club';
 
-export type CampaignType =
-  | 'team'
-  | 'club'
-  | 'athlete'
-  | 'event'
-  | 'annual'
-  | 'reorder';
+export type CampaignType = 'team' | 'club' | 'athlete' | 'event' | 'annual' | 'reorder';
 
 export type CampaignStatus =
   | 'draft'
@@ -66,12 +60,7 @@ export type OrderStatus =
   | 'partially_refunded'
   | 'error';
 
-export type CreditStatus =
-  | 'pending'
-  | 'active'
-  | 'expired'
-  | 'cancelled'
-  | 'refunded';
+export type CreditStatus = 'pending' | 'active' | 'expired' | 'cancelled' | 'refunded';
 
 export type PayoutStatus =
   | 'calculated'

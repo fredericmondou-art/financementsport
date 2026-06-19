@@ -17,7 +17,4 @@
  * erreur explicite si une variable requise est absente (pas de valeur par
  * défaut silencieuse, voir `getEnv` dans supabase-client.ts).
  */
-export {
-  createSupabaseBrowserClient,
-  createSupabaseServiceClient,
-} from './supabase-client';
+export { createSupabaseBrowserClient, createSupabaseServiceClient } from './supabase-client';

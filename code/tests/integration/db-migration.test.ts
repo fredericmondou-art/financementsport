@@ -23,10 +23,7 @@ import os from 'node:os';
 import path from 'node:path';
 import net from 'node:net';
 
-const MIGRATION_PATH = path.resolve(
-  __dirname,
-  '../../supabase/migrations/0001_initial_schema.sql',
-);
+const MIGRATION_PATH = path.resolve(__dirname, '../../supabase/migrations/0001_initial_schema.sql');
 const SEED_PATH = path.resolve(__dirname, '../../supabase/seed.sql');
 
 /** Trouve un port TCP libre sur localhost pour éviter les collisions entre
@@ -75,9 +72,7 @@ describe('migration + seed sur Postgres embarqué', () => {
 
     // Stub minimal d'auth.users — JAMAIS dans le fichier de migration réel.
     await client.query('CREATE SCHEMA IF NOT EXISTS auth;');
-    await client.query(
-      'CREATE TABLE auth.users (id uuid primary key default gen_random_uuid());',
-    );
+    await client.query('CREATE TABLE auth.users (id uuid primary key default gen_random_uuid());');
     // gen_random_uuid() nécessite pgcrypto ; la migration la crée aussi, mais
     // le stub auth.users est créé avant la migration donc on l'active ici.
     await client.query('CREATE EXTENSION IF NOT EXISTS "pgcrypto";');
@@ -117,7 +112,7 @@ describe('migration + seed sur Postgres embarqué', () => {
     expect(result.rows[0]?.status).toBe('active');
   });
 
-  it("v_campaign_progress renvoie raised_cents = 0 pour la campagne créée (aucun crédit encore émis)", async () => {
+  it('v_campaign_progress renvoie raised_cents = 0 pour la campagne créée (aucun crédit encore émis)', async () => {
     const campaignResult = await client.query<{ id: string }>(
       "SELECT id FROM campaigns WHERE status = 'active'",
     );
@@ -128,9 +123,10 @@ describe('migration + seed sur Postgres embarqué', () => {
       campaign_id: string;
       goal_cents: number;
       raised_cents: string;
-    }>('SELECT campaign_id, goal_cents, raised_cents FROM v_campaign_progress WHERE campaign_id = $1', [
-      campaignId,
-    ]);
+    }>(
+      'SELECT campaign_id, goal_cents, raised_cents FROM v_campaign_progress WHERE campaign_id = $1',
+      [campaignId],
+    );
 
     expect(progressResult.rows).toHaveLength(1);
     expect(Number(progressResult.rows[0]?.raised_cents)).toBe(0);
