@@ -34,3 +34,20 @@ sur les variables d'environnement existantes (`NEXT_PUBLIC_SUPABASE_ANON_KEY`,
 `SUPABASE_SERVICE_ROLE_KEY`) sans renommer — `@supabase/supabase-js` les
 accepte de façon interchangeable dans `createClient()`. Pas d'impact sur le
 code applicatif.
+
+## 2026-06-19 — Seed `tax_rates` : une ligne combinée plutôt que deux
+Le cahier des charges suggère implicitement TPS (5 %) et TVQ (9,975 %) comme
+deux taux. Mais le schéma fourni impose `UNIQUE (province, effective_at)` sur
+`tax_rates` : deux lignes pour QC à la même date sont rejetées. Décision : une
+seule ligne combinée à 1498 bps (5 % + 9,975 %, arrondi réglementaire), avec le
+détail TPS/TVQ documenté dans la colonne `label` et en commentaire SQL. Je n'ai
+pas touché à la contrainte du schéma fourni (interdit par CLAUDE.md section
+9.2 / règle de ne pas modifier la logique du schéma). À revoir si la
+plateforme doit un jour distinguer les deux taxes séparément sur une facture.
+
+## 2026-06-19 — Types TypeScript de la base dérivés manuellement (Tâche 0.2)
+`lib/db/types.ts` a été écrit à la main à partir du schéma SQL plutôt que
+généré par `supabase gen types typescript --linked`, car aucun projet
+Supabase réel n'était encore connecté. Un commentaire en tête du fichier
+l'indique explicitement. À refaire avec la commande officielle maintenant que
+les identifiants du projet sont connus (prochaine étape).
