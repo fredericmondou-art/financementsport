@@ -71,8 +71,13 @@ describe('migration + seed sur Postgres embarqué', () => {
     await client.connect();
 
     // Stub minimal d'auth.users — JAMAIS dans le fichier de migration réel.
+    // Colonne email ajoutée (Tâche 0.4) : depuis la correction du bug
+    // seed.sql/trigger 0002 (voir docs/DECISIONS.md), seed.sql fournit
+    // désormais un email à l'INSERT INTO auth.users — ce stub doit donc
+    // avoir la colonne pour rester compatible, même si ce test n'applique
+    // jamais la migration 0002 (donc aucun trigger ne se déclenche ici).
     await client.query('CREATE SCHEMA IF NOT EXISTS auth;');
-    await client.query('CREATE TABLE auth.users (id uuid primary key default gen_random_uuid());');
+    await client.query('CREATE TABLE auth.users (id uuid primary key default gen_random_uuid(), email text);');
     // gen_random_uuid() nécessite pgcrypto ; la migration la crée aussi, mais
     // le stub auth.users est créé avant la migration donc on l'active ici.
     await client.query('CREATE EXTENSION IF NOT EXISTS "pgcrypto";');
@@ -145,13 +150,4 @@ describe('migration + seed sur Postgres embarqué', () => {
     expect(Number(hiddenResult.rows[0]?.count)).toBe(1);
   });
 
-  it('enregistre le taux de taxe combiné QC (TPS 5% + TVQ 9.975% = 1498 bps)', async () => {
-    const result = await client.query<{ rate_bps: number; label: string | null }>(
-      "SELECT rate_bps, label FROM tax_rates WHERE province = 'QC' ORDER BY rate_bps",
-    );
-    expect(result.rows).toHaveLength(1);
-    expect(result.rows[0]?.rate_bps).toBe(1498);
-    expect(result.rows[0]?.label).toMatch(/TPS/);
-    expect(result.rows[0]?.label).toMatch(/TVQ/);
-  });
-});
+  it('enregistre le taux de taxe combiné QC (TPS 5% + TVQ 9.975% = 1498 bps)', async 

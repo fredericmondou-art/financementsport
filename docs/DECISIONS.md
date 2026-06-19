@@ -71,3 +71,45 @@ PostgreSQL (`on_auth_user_created`) plutôt que par du code applicatif après
 compte auth, on se retrouverait avec un compte sans profil — le trigger
 élimine ce risque structurellement. Fichier :
 `supabase/migrations/0002_auth_profile_trigger.sql`.
+
+## 2026-06-19 — Bug découvert : interaction seed.sql / trigger 0002 (Tâche 0.4)
+En validant la Tâche 0.4 sur Postgres embarqué (migrations 0001→0002→0003 puis
+seed, dans l'ordre réel de déploiement), `seed.sql` échouait : son
+`INSERT INTO auth.users (id)` (sans email) déclenche désormais le trigger
+`on_auth_user_created` (Tâche 0.3) qui crée immédiatement un `profiles` avec
+`email = NULL` — violation de la contrainte NOT NULL — avant même que l'INSERT
+explicite suivant dans `profiles` ne s'exécute. Et même corrigé, ce dernier
+INSERT (sans `ON CONFLICT`) aurait ensuite échoué en doublon sur `id`, puisque
+le trigger aurait déjà créé la ligne. Décision : (1) fournir un `email` réel
+dans l'INSERT `auth.users` du seed, et (2) ajouter
+`ON CONFLICT (id) DO UPDATE SET ...` à l'INSERT `profiles` du seed, pour que
+celui-ci reste la source de vérité finale (rôle, consentements) et reste
+idempotent, que le trigger existe ou non. Corrigé dans
+`supabase/seed.sql`. Ce bug n'était pas visible aux tâches 0.2/0.3 car leurs
+tests n'appliquaient jamais la migration 0002 avant le seed dans le même
+parcours — c'est la Tâche 0.4 qui, en testant le déploiement complet, l'a
+révélé. Pas un problème de sécurité/argent, mais aurait cassé un futur
+re-seed du vrai projet Supabase une fois le trigger collé.
+
+## 2026-06-19 — Politiques RLS : vues publiques plutôt qu'accès direct anon (Tâche 0.4)
+Toutes les 24 tables ont RLS activé sans aucune policy `anon` directe sur les
+tables sensibles (athletes, profiles, orders, order_credits, campaigns, etc.) :
+le visiteur anonyme n'a accès qu'aux vues `v_public_athlete`, `v_public_team`,
+`v_public_club` (qui respectent les `hide_*`) et aux vues d'agrégat déjà
+existantes (`v_campaign_progress`, `v_beneficiary_credit_totals`), créées par
+un rôle `BYPASSRLS` et accordées en `SELECT` à `anon`/`authenticated` — le
+mécanisme standard Supabase pour exposer une lecture publique filtrée
+sans jamais accorder de SELECT direct sur les tables de base. Lacune
+identifiée et **reportée à la tâche 1.6** : la table `campaigns` elle-même
+n'est pas publique (seul le staff scope la voit) — la page publique de
+progression de campagne devra s'appuyer uniquement sur les vues
+`v_campaign_progress`/`v_beneficiary_credit_totals` + les vues d'athlète/
+équipe/club, ou alors une nouvelle vue `v_public_campaign` sera nécessaire.
+À trancher à la tâche 1.6, pas avant.
+
+## 2026-06-19 — Politiques RLS : club public seulement si `approved_at IS NOT NULL`
+Les policies `anon`/`authenticated` sur les vues publiques de club/équipe ne
+remontent que les clubs dont `approved_at IS NOT NULL` (donc approuvés par un
+admin). Un club en attente d'approbation ne doit pas être visible
+publiquement avant validation par le back-office — cohérent avec le
+processus d'approbation déjà prévu dans le schéma (`clubs.approved_at`).

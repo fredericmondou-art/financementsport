@@ -12,18 +12,14 @@
       partiel : logique de permissions testée unitairement (15/15 verts),
       trigger SQL écrit mais pas encore collé dans Supabase par Frédéric,
       e2e écrit mais non exécutable en sandbox).
+- [x] 0.4 Politiques RLS — voir rapports/RAPPORT-0.4.md (statut partiel :
+      24 tables RLS + 3 vues publiques + 18 tests d'intégration verts sur
+      Postgres embarqué, mais pas encore collé dans le vrai projet Supabase
+      par Frédéric). Bug seed.sql/trigger 0002 découvert et corrigé au
+      passage (voir docs/DECISIONS.md).
 
 ## En cours
 - [ ] Frédéric doit coller `code/supabase/a-coller-manuellement/2-trigger-auth-profiles.sql`
       dans l'éditeur SQL Supabase pour activer la création automatique de
       profil à l'inscription.
-
-## À venir
-- [ ] 0.4 Politiques RLS
-- [ ] 1.1 Gestion des entités club / équipe / athlète
-- [ ] 1.2 Catalogue : produits et packs
-- [ ] 1.3 Moteur de crédit
-- [ ] 1.4 Panier et répartition entre bénéficiaires
-- [ ] 1.5 Paiement Stripe, création de commande et écriture des crédits
-- [ ] 1.6 Pages publiques (athlète, équipe, club) et page d'accueil
-- [ ] 1.7 Création de campagne (assistant)
+- [ ] Frédéric doit coller `code/supabase/a-coller-manuelleme

@@ -11,15 +11,28 @@
 -- trigger/route applicatif insérerait la ligne profiles correspondante.
 -- -----------------------------------------------------------------------------
 
-INSERT INTO auth.users (id) VALUES
-  ('11111111-1111-1111-1111-111111111101'),
-  ('11111111-1111-1111-1111-111111111102'),
-  ('11111111-1111-1111-1111-111111111103');
+-- NOTE (Tâche 0.4) : depuis la migration 0002, un INSERT dans auth.users
+-- déclenche le trigger on_auth_user_created qui crée immédiatement une ligne
+-- profiles (id, email, full_name). On fournit donc l'email ici pour que ce
+-- profil auto-créé soit valide (NOT NULL), et l'INSERT INTO profiles
+-- ci-dessous utilise ON CONFLICT ... DO UPDATE pour rester la source de
+-- vérité finale (role, consentements) — idempotent que le trigger existe ou
+-- non, donc compatible avec une ré-exécution du seed.
+INSERT INTO auth.users (id, email) VALUES
+  ('11111111-1111-1111-1111-111111111101', 'parent1.corsaires@example.com'),
+  ('11111111-1111-1111-1111-111111111102', 'parent2.corsaires@example.com'),
+  ('11111111-1111-1111-1111-111111111103', 'parent3.corsaires@example.com');
 
 INSERT INTO profiles (id, email, full_name, role, consent_email, consent_sms) VALUES
   ('11111111-1111-1111-1111-111111111101', 'parent1.corsaires@example.com', 'Parent Un Tremblay', 'client', TRUE, FALSE),
   ('11111111-1111-1111-1111-111111111102', 'parent2.corsaires@example.com', 'Parent Deux Gagnon',  'client', TRUE, FALSE),
-  ('11111111-1111-1111-1111-111111111103', 'parent3.corsaires@example.com', 'Parent Trois Roy',    'client', TRUE, FALSE);
+  ('11111111-1111-1111-1111-111111111103', 'parent3.corsaires@example.com', 'Parent Trois Roy',    'client', TRUE, FALSE)
+ON CONFLICT (id) DO UPDATE SET
+  email = EXCLUDED.email,
+  full_name = EXCLUDED.full_name,
+  role = EXCLUDED.role,
+  consent_email = EXCLUDED.consent_email,
+  consent_sms = EXCLUDED.consent_sms;
 
 -- -----------------------------------------------------------------------------
 -- Club
