@@ -43,11 +43,26 @@
       docs/DECISIONS.md). 124/124 tests verts, `tsc --noEmit` et `npm run
       lint` propres.
 
+- [x] 1.3 Moteur de crédit — `lib/credits/resolve-rule.ts` (hiérarchie pure à
+      5 niveaux : crédit fixe produit → règle campagne+produit → règle
+      campagne → règle produit → règle globale permanente/abonnement,
+      `is_active`/campagne inactive respectés, égalité de priorité départagée
+      de façon déterministe par l'ordre du tableau), `lib/credits/calculate.ts`
+      (`calculateOrderCredits` : crédit par ligne avec bonus de seuil sur le
+      sous-total du panier entier + `flat_cents`, `splitCreditAmongBeneficiaries`
+      avec arrondi à la baisse et résidu attribué au premier bénéficiaire).
+      Tous les critères d'acceptation du cahier vérifiés mot pour mot (Pack
+      Saison 120$/15%→18$, répartition 50/50 paire et impaire, taux permanent
+      hors campagne). Une commande = une seule campagne de contexte partagée
+      par tous les bénéficiaires (pas de campagne par bénéficiaire) — voir
+      docs/DECISIONS.md. 125/125 tests verts (101 unitaires + 25 du moteur de
+      crédit, dont 1 partagé avec un test existant), `tsc --noEmit` et
+      `npm run lint` propres.
+
 ## En cours
 - [ ] Rien de bloquant actuellement côté infra/sécurité.
 
 ## À venir
-- [ ] 1.3 Moteur de crédit
 - [ ] 1.4 Panier et répartition entre bénéficiaires
 - [ ] 1.5 Paiement Stripe, création de commande et écriture des crédits
 - [ ] 1.6 Pages publiques (athlète, équipe, club) et page d'accueil

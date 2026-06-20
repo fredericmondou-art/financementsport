@@ -294,3 +294,48 @@ visiteur ou un client.** `getProduct()` (route `GET /api/products/:id`) ne
 révèle pas qu'un produit retiré du catalogue existe à qui n'a pas le droit de
 le voir — même traitement qu'un id inexistant, pour ne pas faire fuiter
 d'information sur le catalogue interne.
+
+## 2026-06-19 — Tâche 1.3
+
+**Une commande a UNE seule campagne de contexte, partagée par tous ses
+bénéficiaires (pas de campagne distincte par ligne `cart_beneficiaries`).**
+Le schéma permet `cart_beneficiaries.campaign_id` par bénéficiaire, mais
+l'énoncé de la Tâche 1.3 parle explicitement d'une fonction « pour une
+commande donnée (lignes + répartition entre bénéficiaires + campagne) » —
+au singulier. Le moteur (`calculateOrderCredits`) prend donc `campaignId`/
+`isCampaignActive` comme paramètres uniques au niveau de la commande,
+cohérent avec `orders.primary_campaign_id`. Si un futur besoin réel exige des
+campagnes différentes par bénéficiaire dans une même commande, il faudra
+re-découper l'appel par bénéficiaire (plusieurs appels à la fonction), pas
+changer sa signature — décision à revisiter explicitement si ce cas se
+présente, pas à anticiper maintenant (section 10 du cahier).
+
+**Les produits à crédit fixe (`fixed_credit_cents`) ne reçoivent jamais le
+bonus de seuil (`bonus_percent_bps`).** Le bonus est un pourcentage appliqué
+au taux d'une règle `credit_rules` ; un crédit fixe par unité n'a pas de
+« taux » sur lequel l'appliquer. Testé explicitement
+(`tests/credits/calculate.test.ts`, « le crédit fixe d'un produit ignore le
+bonus de seuil »).
+
+**Fichiers de test placés à `tests/credits/*.test.ts` (pas
+`tests/unit/credits-*.test.ts`).** Le cahier des charges (section TÂCHE 1.3
+de `03-prompts-phase-0-et-1.md`) nomme explicitement ce chemin, à la
+différence des Tâches 1.1/1.2 qui utilisaient la convention
+`tests/unit`/`tests/integration`. `vitest.config.ts` a été étendu pour inclure
+`tests/credits/**/*.test.ts`.
+
+**Répartition de l'arrondi : toujours au premier bénéficiaire du tableau
+(jamais au plus gros montant, ni proportionnel).** Choix déterministe simple,
+explicitement vérifié par les critères d'acceptation du cahier (« 9,01$ → 4,51$
++ 4,50$ »). `splitCreditAmongBeneficiaries()` ne valide pas que
+`SUM(shareBps) = 10000` — cette validation appartient à la couche panier
+(Tâche 1.4), qui doit bloquer le checkout avant l'appel au moteur de crédit.
+
+**Bug de troncature silencieuse confirmé sur `Edit` (pas `Write`) — réaffirmé.**
+`vitest.config.ts` (fichier existant, suivi par git) a été tronqué en plein
+milieu d'une chaîne après un appel `Edit` ; `git status` ne signalait même pas
+de modification. Les fichiers neufs créés via `Write` (`lib/credits/*.ts`,
+`tests/credits/*.test.ts`) n'ont montré aucun symptôme. Procédure retenue :
+après tout `Edit` sur un fichier déjà suivi par git dans le dossier monté,
+vérifier le contenu réel sur disque (`cat`/`git diff`) avant de continuer ; en
+cas de troncature, réécrire le fichier en entier via heredoc bash.
