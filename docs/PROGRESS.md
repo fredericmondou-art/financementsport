@@ -152,6 +152,22 @@
       5 nouveaux d'intégration contre une vraie transaction Postgres),
       `tsc --noEmit` et `npm run lint` propres.
 
+- [x] Audit complet du code (Tâches 0.0–1.7) et refactorisation
+      structurelle — voir docs/AUDIT-1.0.md pour le rapport complet et
+      docs/DECISIONS.md pour le détail de chaque correction. Aucun
+      changement à la logique métier déjà testée. Résumé : suppression de
+      `supabase/a-coller-manuellement/` (superseded par les migrations) et
+      de `lib/validation/` (jamais peuplé, code mort) ; mise à jour de 5
+      README de stub devenus faux ; factorisation de `getEnv()` dans
+      `lib/env.ts` ; nettoyage de 4 `.gitkeep` redondants ; déplacement des
+      pages publiques dans `app/(public)/` (sans impact sur les URLs) ;
+      harmonisation de l'emplacement des tests `credits` vers
+      `tests/unit/`. Deux nouvelles manifestations du bug de cache
+      mount/git rencontrées et réparées au passage (cette fois sur
+      `.git/index` lui-même) — voir docs/DECISIONS.md. 281/281 tests
+      verts, `tsc --noEmit` et `npm run lint` propres après chaque
+      changement.
+
 ## En cours
 - [ ] Rien de bloquant actuellement côté infra/sécurité.
 

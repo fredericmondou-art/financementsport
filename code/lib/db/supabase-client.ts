@@ -9,14 +9,7 @@
  *   scripts admin). Ne jamais importer ce fichier dans un composant client.
  */
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-
-function getEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) {
-    throw new Error(`Variable d'environnement manquante : ${name}`);
-  }
-  return value;
-}
+import { getEnv } from '@/lib/env';
 
 export function createSupabaseBrowserClient(): SupabaseClient {
   const url = getEnv('NEXT_PUBLIC_SUPABASE_URL');

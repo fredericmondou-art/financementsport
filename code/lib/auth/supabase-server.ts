@@ -9,14 +9,7 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import type { SupabaseClient } from '@supabase/supabase-js';
-
-function getEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) {
-    throw new Error(`Variable d'environnement manquante : ${name}`);
-  }
-  return value;
-}
+import { getEnv } from '@/lib/env';
 
 /**
  * À appeler uniquement dans un contexte serveur (Server Component, Route

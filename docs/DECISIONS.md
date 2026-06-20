@@ -669,3 +669,95 @@ réécriture, `tsc --noEmit`/`npm run lint`/`npx vitest run` (281/281) sont
 repassés propres. Confirme que ce contournement doit rester actif pour toute
 tâche future touchant ce dépôt, pas seulement pour les fichiers déjà
 committés.
+
+## Audit complet et refactorisation structurelle (post-Tâche 1.7)
+
+Demande de Frédéric : « révision complète du code, structurée comme un
+expert développeur ». Clarifié via question : portée = tout le projet
+(Tâches 0.0–1.7), action = audit ET refactorisation directe (pas
+audit-only, pas d'attente d'un go séparé). Rapport complet :
+`docs/AUDIT-1.0.md`.
+
+Principe directeur : ne pas toucher à la logique métier déjà testée et
+partiellement déployée (calcul de crédit, RLS, transactions atomiques) —
+seulement la structure, la cohérence, la dette de documentation et le code
+mort. Aucune des corrections ci-dessous ne change un comportement observable
+de l'application ; toutes sont vérifiées par 281/281 tests verts +
+`tsc --noEmit` + `npm run lint` propres après coup.
+
+1. **`code/supabase/a-coller-manuellement/` supprimé.** Bootstrap manuel
+   pré-migrations, intégralement repris et déjà appliqué en production via
+   `supabase/migrations/0001-0003`. Le garder créait un risque de double
+   source de vérité divergente. Les rapports historiques qui le mentionnent
+   (`rapports/RAPPORT-0.3.md`, `0.4.md`) restent inchangés (comptes-rendus
+   datés).
+2. **`lib/validation/` supprimé.** Annoncé comme futur module de schémas
+   zod partagés, jamais créé (0 import nulle part, confirmé par grep). La
+   convention réelle du projet — déjà appliquée partout depuis la Tâche
+   1.1 — est zod colocalisé par module, jamais centralisé. Actée
+   explicitement ici plutôt que de créer le module a posteriori : aucun
+   signal dans le cahier des charges ni dans l'usage du projet ne justifie
+   un schéma partagé, et la colocalisation facilite la relecture (logique +
+   validation au même endroit).
+3. **README de stub mis à jour** pour `lib/credits`, `lib/orders`,
+   `lib/payments`, `lib/taxes`, `lib/email` — tous annonçaient encore « à
+   implémenter dans une tâche ultérieure » alors qu'ils sont pleinement
+   implémentés et testés depuis les Tâches 1.3/1.5. Remplacés par une
+   description factuelle du contenu réel + renvoi vers les tests
+   correspondants.
+4. **`getEnv()` factorisé dans `lib/env.ts`** (nouveau fichier, 9 lignes).
+   Était dupliqué à l'identique dans `lib/db/supabase-client.ts` et
+   `lib/auth/supabase-server.ts` — DRY simple, comportement strictement
+   identique (même message d'erreur).
+5. **4 `.gitkeep` supprimés** (`app/(shop)/`, `app/(portails)/`,
+   `app/api/`, `components/`) — dossiers non vides depuis longtemps,
+   fichiers redondants. Conservés : `app/(financement)/.gitkeep` et
+   `app/(operations)/.gitkeep` (groupes réellement vides, réservés à des
+   phases futures, cahier §63).
+6. **Pages publiques déplacées dans `app/(public)/`** (`page.tsx`,
+   `[athleteSlug]/`, `team/[slug]/`, `club/[slug]/`) — elles vivaient à la
+   racine de `app/` alors que le groupe `(public)` existait déjà, vide,
+   pour les recevoir, incohérent avec `(auth)`/`(shop)`/`(portails)` qui
+   regroupent bien leurs pages. Vérifié avant déplacement : un seul
+   `layout.tsx` existe dans tout le projet (racine), donc les groupes de
+   route n'ont aucun effet d'héritage de layout ; aucune URL ne change
+   (les parenthèses sont retirées par Next.js) ; aucun fichier `lib/` ou
+   `tests/` n'importait ces pages par chemin (routage par convention de
+   dossier, jamais par import). Risque nul, changement purement
+   organisationnel.
+7. **`tests/credits/*.test.ts` déplacés vers `tests/unit/`** avec
+   renommage (`credits-calculate.test.ts`, `credits-resolve-rule.test.ts`)
+   pour respecter la convention `<domaine>-<fonction>.test.ts` déjà en
+   usage partout ailleurs depuis la Tâche 1.4. `tests/credits/` était le
+   seul dossier de test hors `unit/`/`integration/`/`e2e/`.
+8. **Conservés sans changement** (évalués puis jugés déjà corrects) :
+   séparation `lib/db/supabase-client.ts` (anon/service_role) vs
+   `lib/auth/supabase-server.ts` (SSR/cookies) — ce n'est pas une
+   duplication mais une séparation voulue ; `lib/format-cents.ts` et
+   `lib/slug.ts` au niveau racine de `lib/` (utilitaires transverses sans
+   dépendance métier) ; `lib/db/client.ts` (shim de ré-export documenté,
+   Tâche 0.2) ; `lib/db/types.ts` (types manuels avec avertissement de
+   régénération déjà en tête de fichier — régénération via
+   `supabase gen types typescript --linked` laissée pour une tâche future
+   avec un flux CI, pas un risque actif aujourd'hui).
+9. **Bug de cache mount/git rencontré une 4e et 5e fois pendant ce
+   passage** : (a) `.git/index` corrompu (« bad signature », « index file
+   corrupt ») à deux reprises lors d'opérations `git rm -r` récursives —
+   réparé par `rm .git/index && git reset` (reconstruit l'index depuis
+   HEAD sans toucher l'arbre de travail), confirmé propre par
+   `git fsck --full`. Constat : ce coup-ci la corruption a touché les
+   métadonnées internes de git elles-mêmes, pas seulement un fichier
+   source — leçon retenue : préférer les opérations fichier brutes
+   (`mv`/`rm`/`cp -r` plain, pas `git mv`/`git rm -r`) pour les
+   réorganisations de masse, et ne faire le `git add` qu'en une seule
+   passe propre juste avant le commit final. (b) 5 fichiers `README.md`
+   et les 2 fichiers de client Supabase édités sont apparus tronqués
+   (octets nuls en fin de fichier) côté bash après édition, alors que le
+   contenu lu par l'outil Read était complet et correct — réparés par
+   réécriture directe via heredoc sur le mount, vérifiés ensuite par un
+   scan Python (`b"\x00" in data`) sur tout `code/` (0 occurrence après
+   réparation). `grep -P '\x00'` s'est montré peu fiable pour détecter ces
+   octets dans ce contexte (a rapporté « clean » sur des fichiers
+   confirmés corrompus par `tail -c | cat -A`) — pour toute vérification
+   future de ce type, préférer un scan binaire Python ou `tail -c N | cat
+   -A` plutôt que `grep -P`.
