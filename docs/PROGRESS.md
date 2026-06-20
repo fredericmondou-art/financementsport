@@ -33,11 +33,20 @@
       (unitaires + intégration via repos en mémoire, réseau Supabase bloqué
       en sandbox), `tsc --noEmit` et `npm run lint` propres.
 
+- [x] 1.2 Catalogue : produits et packs — `lib/catalog/products.ts` (CRUD
+      admin + lecture publique `listPublicProducts`, tri pur testable
+      price_asc/price_desc/credit_desc/popularity), routes
+      `app/api/products` (GET public, POST admin) et
+      `app/api/products/[productId]` (GET public si actif sinon admin, PATCH
+      admin), page `app/(shop)/boutique` + `components/product-card.tsx`.
+      Aucun changement à `lib/auth/permissions.ts` (déjà correct, voir
+      docs/DECISIONS.md). 124/124 tests verts, `tsc --noEmit` et `npm run
+      lint` propres.
+
 ## En cours
 - [ ] Rien de bloquant actuellement côté infra/sécurité.
 
 ## À venir
-- [ ] 1.2 Catalogue : produits et packs
 - [ ] 1.3 Moteur de crédit
 - [ ] 1.4 Panier et répartition entre bénéficiaires
 - [ ] 1.5 Paiement Stripe, création de commande et écriture des crédits

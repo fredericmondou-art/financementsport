@@ -255,3 +255,42 @@ générés par les repos en mémoire (`createFakeClubRepo`/`createFakeTeamRepo`/
 `teamManager`, identifiants ad hoc) utilisent maintenant `randomUUID()` (module
 `node:crypto`). Aucun changement à `lib/entities/*` ni aux schémas zod —
 uniquement aux données de test.
+
+## 2026-06-19 — Tâche 1.2 : catalogue produits/packs (3 choix mineurs, aucun ne touche argent/sécurité/mineurs de façon ambiguë)
+**Aucune modification de `lib/auth/permissions.ts`.** Le `case 'product'` de
+`can()` (écrit à la Tâche 0.3, jamais modifié depuis) court-circuite déjà
+`platform_admin` à `true` en tête de fonction et refuse explicitement toute
+action (create/read/update/delete) à tout autre rôle — exactement la policy
+RLS `products_admin_all` (migration 0003). La lecture publique du catalogue
+(`listPublicProducts` dans `lib/catalog/products.ts`) ne passe pas du tout par
+`can()` : elle interroge uniquement `is_active = true`, comme
+`products_public_read`. Confirmé par lecture du code existant avant d'écrire
+quoi que ce soit — la tâche « étendre permissions.ts pour product » du plan
+initial s'est révélée un no-op, documenté ici plutôt que silencieusement
+ignoré.
+
+**Catégories (`product_categories`) : champ conservé, pas d'endpoint CRUD en
+V1.** Le seed ne contient aucune catégorie et les critères d'acceptation de la
+Tâche 1.2 (lister, filtrer, trier les 4 packs) ne l'exigent pas. `categoryId`
+reste un champ optionnel nullable sur `productInputSchema`/`listProductsQuerySchema`
+(la FK existe déjà dans le schéma), pour ne pas bloquer une Tâche future qui
+ajouterait la gestion des catégories sans migration supplémentaire.
+
+**Tri « popularité » sans données de vente (Tâche 1.5 pas encore livrée).**
+`ProductRepo.getUnitsSoldByProductId()` interroge `order_items`/`orders` (statut
+`paid`) et retourne une `Map` vide tant qu'aucune commande payée n'existe — pas
+un bug, le comportement correct en attendant les vraies ventes. La logique de
+tri elle-même (`sortProducts`) est une fonction pure testée unitairement,
+indépendante de la disponibilité des données.
+
+**Tri « crédit généré » utilise `fixed_credit_cents ?? 0`.** Seul le crédit
+fixe (renseigné pour les 4 packs du seed) est connu avant le moteur de crédit
+de la Tâche 1.3 ; un produit à crédit variable (futures règles `credit_rules`)
+est traité comme 0$ pour ce tri précis seulement — à revisiter explicitement à
+la Tâche 1.3 quand le crédit indicatif variable sera calculable.
+
+**Produit inactif : `NotFoundError`, jamais `PermissionError`, pour un
+visiteur ou un client.** `getProduct()` (route `GET /api/products/:id`) ne
+révèle pas qu'un produit retiré du catalogue existe à qui n'a pas le droit de
+le voir — même traitement qu'un id inexistant, pour ne pas faire fuiter
+d'information sur le catalogue interne.
