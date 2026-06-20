@@ -113,3 +113,72 @@ remontent que les clubs dont `approved_at IS NOT NULL` (donc approuvés par un
 admin). Un club en attente d'approbation ne doit pas être visible
 publiquement avant validation par le back-office — cohérent avec le
 processus d'approbation déjà prévu dans le schéma (`clubs.approved_at`).
+
+## 2026-06-19 — Régression de sécurité découverte et corrigée : migration 0004 cassait RLS pour `anon` (Tâche 0.4, durcissement)
+**Contexte.** L'advisor de sécurité Supabase a signalé que les 10 fonctions
+d'aide RLS (`current_user_role`, `is_platform_admin`, `manages_*`, `owns_*`,
+toutes `SECURITY DEFINER`) ainsi que `handle_new_auth_user` étaient
+exécutables directement par `anon`/`authenticated` via l'API REST
+(`/rest/v1/rpc/...`). Migration 0004 a corrigé ce lint en révoquant `EXECUTE`
+sur ces fonctions pour `anon`/`authenticated` et a été appliquée au vrai
+projet Supabase.
+
+**Bug découvert.** En réécrivant `tests/integration/rls-policies.test.ts`
+pour couvrir ce nouveau comportement, j'ai découvert que Postgres exige le
+privilège `EXECUTE` pour TOUT appel d'une fonction — y compris depuis
+l'INTÉRIEUR d'une expression de policy RLS lors de l'évaluation d'une requête
+SELECT/UPDATE/DELETE ordinaire. `SECURITY DEFINER` ne change que le contexte
+d'exécution du CORPS de la fonction (quelles données elle peut voir), jamais
+qui a le droit de l'appeler. Conséquence : la migration 0004, déjà déployée
+en production, cassait silencieusement RLS lui-même pour `anon` sur TOUTE
+table dont une policy référence l'une de ces fonctions (`campaigns`, `clubs`,
+`teams`, `athletes`, `orders`, `order_credits`, ...) — au lieu de filtrer à
+zéro ligne comme attendu, Postgres renvoyait une erreur SQL `permission
+denied for function ...`. Confirmé en direct sur le projet de production
+avant correction : `SET ROLE anon; SELECT * FROM campaigns;` →
+`ERROR 42501: permission denied for function is_platform_admin`. Impact réel
+limité : les pages publiques utilisent des vues dédiées qui ne référencent
+pas ces fonctions (non affectées), mais tout appel REST direct d'un visiteur
+anonyme sur les tables brutes recevait une erreur 500 au lieu d'un tableau
+vide.
+
+**Correction.** Migration `0005_move_rls_helpers_to_private_schema.sql` :
+déplace les 10 fonctions d'aide vers un schéma `private` (motif standard
+Supabase/PostgREST), avec `EXECUTE` accordé largement à
+`anon`/`authenticated`/`service_role` (nécessaire pour que RLS continue de
+fonctionner sur toutes les tables), et les 27 policies de la migration 0003
+recréées pour référencer `private.*` au lieu de `public.*` (comportement
+logique strictement identique). La protection contre l'appel RPC direct ne
+vient plus d'un `REVOKE` SQL (qui casse RLS) mais du fait que PostgREST
+n'expose par défaut que le schéma `public` (et `graphql_public`) — `private`
+n'apparaît jamais dans `/rest/v1/rpc/...`. `handle_new_auth_user` reste dans
+`public` (fonction de trigger uniquement, jamais appelée via RLS ni en
+RPC direct, donc non concernée par ce bug). Migration appliquée directement
+au projet Supabase de production via le connecteur MCP (autorisation déjà
+accordée par Frédéric pour ce type de correctif de sécurité), puis vérifiée
+en direct (`SET ROLE anon` sur `campaigns`/`orders`/`profiles` → 0 ligne,
+sans erreur). Tests d'intégration mis à jour en conséquence (52/52 verts),
+`tsc --noEmit` et `npm run lint` propres.
+
+**Note méthodologique.** `ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE
+EXECUTE ON FUNCTIONS FROM PUBLIC` ne suffit PAS à retirer le grant implicite
+que Postgres accorde à `PUBLIC` à la création d'une fonction — vérifié
+empiriquement sur Postgres embarqué. Seul un `REVOKE EXECUTE ON FUNCTION
+<nom> FROM PUBLIC` explicite, après la création, fonctionne. Pas pertinent
+pour la migration 0005 (elle ne repose pas sur ce mécanisme), mais à garder
+en tête pour tout futur durcissement de privilèges sur fonction.
+
+**Point non bloquant relevé en aparté** : l'advisor signale aussi (niveau
+ERROR) que les vues publiques `v_public_athlete`, `v_public_team`,
+`v_public_club`, `v_campaign_progress`, `v_beneficiary_credit_totals` sont
+`SECURITY DEFINER`. C'est intentionnel et conforme à la section 5 de
+CLAUDE.md (« les pages publiques passent par des vues qui respectent les
+hide_* ») : ces vues contournent délibérément le RLS restrictif des tables
+de base pour exposer une lecture publique filtrée à `anon`, qui n'a par
+ailleurs aucune policy `SELECT` directe sur `athletes`/`teams`/`clubs`.
+Basculer ces vues en `security_invoker = true` casserait l'accès public
+(RLS des tables de base refuserait `anon`). Décision : laisser tel quel,
+accepté comme la troisième finding « connue » avec `extension_in_public` et
+`auth_leaked_password_protection` — aucune action requise avant la mise en
+production, mais à mentionner explicitement lors d'une revue de sécurité
+professionnelle (CLAUDE.md section 2, mineurs).

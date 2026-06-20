@@ -150,4 +150,13 @@ describe('migration + seed sur Postgres embarqué', () => {
     expect(Number(hiddenResult.rows[0]?.count)).toBe(1);
   });
 
-  it('enregistre le taux de taxe combiné QC (TPS 5% + TVQ 9.975% = 1498 bps)', async 
+  it('enregistre le taux de taxe combiné QC (TPS 5% + TVQ 9.975% = 1498 bps)', async () => {
+    const result = await client.query<{ rate_bps: number; label: string | null }>(
+      "SELECT rate_bps, label FROM tax_rates WHERE province = 'QC' ORDER BY rate_bps",
+    );
+    expect(result.rows).toHaveLength(1);
+    expect(result.rows[0]?.rate_bps).toBe(1498);
+    expect(result.rows[0]?.label).toMatch(/TPS/);
+    expect(result.rows[0]?.label).toMatch(/TVQ/);
+  });
+});

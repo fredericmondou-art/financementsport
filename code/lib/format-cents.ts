@@ -1,9 +1,11 @@
 /**
  * Formate un montant en centimes (integer) vers une chaîne lisible en
- * dollars/euros, ex: 150000 -> "1 500,00 $".
+ * dollars canadiens (CAD), ex: 150000 -> "1 500,00 $".
  *
- * Fonction pure, testable, illustrant la convention "tout montant est un
- * integer en centimes" — jamais de float pour l'argent.
+ * Devise du projet : CAD uniquement (entreprise établie au Québec, voir
+ * CLAUDE.md section 2). Locale par défaut fr-CA. Fonction pure, testable,
+ * illustrant la convention "tout montant est un integer en centimes" —
+ * jamais de float pour l'argent.
  */
 export function formatCents(amountCents: number, locale = 'fr-CA', currency = 'CAD'): string {
   if (!Number.isInteger(amountCents)) {

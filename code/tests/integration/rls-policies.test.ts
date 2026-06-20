@@ -132,10 +132,10 @@ describe('Politiques RLS + vues publiques (Tâche 0.4)', () => {
     await client.query('GRANT USAGE ON SCHEMA auth TO anon, authenticated, service_role;');
 
     // --- Migrations réelles ---
-    const migrationFiles = ['0001_initial_schema.sql', '0002_auth_profile_trigger.sql', '0003_rls_policies.sql'];
+    const migrationFiles = ['0001_initial_schema.sql', '0002_auth_profile_trigger.sql', '0003_rls_policies.sql', '0004_harden_function_grants.sql', '0005_move_rls_helpers_to_private_schema.sql'];
     for (const file of migrationFiles) {
+      await client.query(fs.readFileSync(path.join(MIGRATIONS_DIR, file), 'utf-8'));
       if (file === '0001_initial_schema.sql') {
-        await client.query(fs.readFileSync(path.join(MIGRATIONS_DIR, file), 'utf-8'));
         // Comme sur un vrai projet Supabase neuf : anon/authenticated ont par
         // défaut SELECT/INSERT/UPDATE/DELETE sur les tables publiques. RLS
         // est le SEUL filtre réel (reproduit ici pour un test fidèle).
@@ -146,9 +146,17 @@ describe('Politiques RLS + vues publiques (Tâche 0.4)', () => {
         await client.query(
           'GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated, service_role;',
         );
-      } else {
-        await client.query(fs.readFileSync(path.join(MIGRATIONS_DIR, file), 'utf-8'));
       }
+      // Note migration 0005 : aucun grant supplémentaire à reproduire ici —
+      // 0005 accorde elle-même EXECUTE sur les fonctions private.* à
+      // anon/authenticated/service_role (nécessaire pour que RLS continue de
+      // fonctionner), exactement comme le ferait une vraie migration
+      // Supabase. La protection contre l'appel RPC direct ne vient plus d'un
+      // grant SQL (qui casserait RLS, voir docs/DECISIONS.md) mais du fait
+      // que le schéma `private` n'est pas dans la liste des schémas exposés
+      // par l'API REST de Supabase (seul `public` l'est par défaut) — non
+      // testable via ce harnais SQL direct, voir le describe ci-dessous qui
+      // vérifie à la place que les fonctions vivent bien hors de `public`.
     }
 
     await client.query(fs.readFileSync(SEED_PATH, 'utf-8'));
@@ -228,6 +236,56 @@ describe('Politiques RLS + vues publiques (Tâche 0.4)', () => {
     it('anon lit le catalogue public (products actifs) sans restriction RLS particulière', async () => {
       const rows = await asRole('anon', null, 'SELECT * FROM products WHERE is_active = true');
       expect(rows.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe("Fonctions d'aide RLS déplacées hors de public (migration 0005, suite à 0004)", () => {
+    // Lints advisor Supabase anon_security_definer_function_executable /
+    // authenticated_security_definer_function_executable : ces fonctions
+    // SECURITY DEFINER ne doivent servir qu'à l'évaluation des policies RLS,
+    // jamais à un appel RPC direct par un client (anon ou authenticated).
+    //
+    // Migration 0004 (REVOKE EXECUTE FROM anon, authenticated) a d'abord
+    // semblé corriger ça, mais cassait en réalité TOUTE requête anon sur une
+    // table dont la policy RLS invoque l'une de ces fonctions : Postgres
+    // exige EXECUTE pour tout appel de fonction, y compris depuis l'intérieur
+    // d'une expression de policy — anon recevait "permission denied for
+    // function" au lieu d'un résultat vide. D'où la migration 0005 : déplacer
+    // ces fonctions vers le schéma `private` (EXECUTE largement accordé, RLS
+    // continue de fonctionner) — la vraie protection contre l'appel RPC
+    // direct vient du fait que PostgREST n'expose par défaut QUE le schéma
+    // `public` (et `graphql_public`), pas `private`. Ce mécanisme PostgREST
+    // n'est pas testable via ce harnais SQL direct (qui contourne PostgREST),
+    // donc ce test vérifie plutôt la condition nécessaire qu'il exploite :
+    // ces fonctions ne sont effectivement plus dans le schéma `public`.
+    it.each([
+      'current_user_role',
+      'is_platform_admin',
+      'manages_team',
+      'manages_club',
+      'manages_athlete',
+      'manages_beneficiary',
+      'manages_campaign',
+      'manages_qr_target',
+      'owns_cart',
+      'owns_order',
+    ])('%s() vit dans le schéma private, plus dans public (non exposé par PostgREST)', async (fnName) => {
+      const rows = await client.query<{ nspname: string }>(
+        `SELECT n.nspname FROM pg_proc p
+         JOIN pg_namespace n ON n.oid = p.pronamespace
+         WHERE p.proname = $1`,
+        [fnName],
+      );
+      expect(rows.rows.map((r) => r.nspname)).toEqual(['private']);
+    });
+
+    it('anon peut appeler private.current_user_role() en SQL direct (nécessaire pour que RLS fonctionne)', async () => {
+      // Ce test documente que le SQL direct n'est PAS la ligne de défense ici
+      // (anon a bien EXECUTE, sinon campaigns/clubs/teams/orders renverraient
+      // une erreur au lieu d'un résultat vide pour anon) — la défense réelle
+      // est l'absence de route PostgREST pour le schéma `private`.
+      const rows = await asRole('anon', null, 'SELECT private.current_user_role()');
+      expect(rows).toHaveLength(1);
     });
   });
 
