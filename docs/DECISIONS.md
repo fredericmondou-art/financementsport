@@ -417,3 +417,120 @@ Changement cosmétique, sans risque (texte d'affichage uniquement, aucun
 calcul d'argent touché) — corrigé directement plutôt que noté pour plus tard,
 conformément à CLAUDE.md section 9 (seuls les choix ambigus touchant
 argent/sécurité/mineurs doivent être posés en question).
+
+## 2026-06-20 — Tâche 1.6 : pages publiques (athlète, équipe, club) et page d'accueil
+
+**Vues publiques `v_public_campaign` / `v_public_campaign_products` (migration
+0007) : même pattern que les vues publiques existantes (entrée du
+2026-06-19), donc deux nouvelles advisories `SECURITY DEFINER` ERROR-level
+acceptées sans changement.** `get_advisors` confirme que ces deux vues
+produisent exactement le même type d'avertissement que `v_public_athlete`/
+`v_public_team`/`v_public_club` : Postgres signale qu'une vue accessible à
+`anon`/`authenticated` s'exécute avec les droits de son créateur plutôt que
+de l'appelant. C'est le mécanisme recherché ici (la vue filtre déjà
+`status = 'active'` et ne projette que des colonnes non sensibles ; aucune
+table sous-jacente n'est exposée directement à `anon`). Point non bloquant,
+déjà accepté pour les vues précédentes — extension du même choix, pas une
+nouvelle décision.
+
+**Sélection de la campagne pertinente quand plusieurs campagnes `active`
+ciblent le même bénéficiaire direct : la plus récemment démarrée
+(`starts_at` décroissant), départagée par `id` en cas d'égalité exacte
+(`lib/public/campaign-progress.ts`, `pickMostRelevantCampaign`).** Le schéma
+n'empêche pas plusieurs campagnes simultanément actives pour un même
+`(beneficiary_type, beneficiary_id)`, et rien dans le cahier des charges
+n'indique de notion de priorité éditoriale entre elles. Une page publique
+n'affiche qu'un seul objectif à la fois (une seule barre de progression) :
+choix autonome raisonnable, à revisiter explicitement si ce cas se présente
+en pratique avec un besoin de priorité différent.
+
+**`athletes.show_team_only = true` : la page individuelle de l'athlète
+retourne 404 (`notFound()`), pas une redirection vers la page d'équipe.**
+`lib/public/profile.ts` charge et expose ce champ sans décider quoi en
+faire (`loadPublicAthleteProfile` retourne quand même le profil) ; c'est
+`app/[athleteSlug]/page.tsx` qui appelle `notFound()` après coup. Choix :
+un slug d'athlète qui ne doit pas avoir de page individuelle n'existe
+simplement pas publiquement, plutôt que de rediriger silencieusement vers
+l'équipe (qui pourrait laisser croire que l'URL athlète est une route
+canonique valide). Cohérent avec la sémantique `hide_*` déjà établie
+(masquer = absent, pas redirigé).
+
+**`athletes.hide_amounts = true` masque les montants à la couche de
+chargement (`applyAmountsMask`), pas seulement à l'affichage.** Un montant
+masqué ne doit jamais atteindre le JSX, même par erreur de rendu futur
+(CLAUDE.md section 5). `hide_amounts` reste pour l'instant le seul champ de
+masquage de montant porté par `athletes` (pas de pendant sur `teams`/
+`clubs` dans le schéma fourni) — pas un oubli, juste l'état actuel du
+schéma : `lib/public/campaign-progress.ts` n'applique ce masquage que côté
+profil athlète.
+
+**Pré-sélection du bénéficiaire depuis le lien "Encourager" : n'écrase
+JAMAIS une répartition déjà choisie.** Le lien "Encourager" d'une page
+publique ajoute `?beneficiaryType=&beneficiaryId=` à l'URL boutique, reporté
+en champs cachés sur chaque formulaire "Ajouter au panier"
+(`app/(shop)/boutique/page.tsx`). `addItemAction`
+(`app/(shop)/panier/actions.ts`) n'attache ce bénéficiaire à 100 % que si
+`listCartBeneficiaries` retourne une liste vide pour ce panier — une
+répartition multi-bénéficiaires déjà choisie délibérément (Tâche 1.4,
+"répartir entre deux enfants") n'est jamais remplacée silencieusement par un
+clic "Encourager" ultérieur sur un autre profil.
+
+**Contenu textuel de la page d'accueil (`app/page.tsx`) : laissé à ma
+discrétion, hors du texte mandaté par le cahier des charges.** Le cahier
+des charges spécifie la fonction (remplacer le placeholder "en
+construction" par une vraie page d'accueil, lien vers la boutique) sans
+fournir de copie exacte. Contenu rédigé : slogan, court paragraphe
+explicatif, lien "Voir la boutique", et une section "Comment ça fonctionne"
+en 4 étapes reprenant le cœur fonctionnel décrit à la section 1 du présent
+fichier. À ajuster librement si une copie marketing officielle est fournie
+plus tard.
+
+**`campaign_participants` (athlètes multiples sur une campagne d'équipe)
+explicitement hors-scope de cette tâche.** Les pages publiques de cette
+tâche affichent la progression d'une campagne pour SON bénéficiaire direct
+uniquement (`beneficiary_type`/`beneficiary_id` sur `campaigns`), pas
+l'agrégation par athlète participant à une campagne d'équipe/club. Cette
+agrégation (si nécessaire) appartient à une tâche ultérieure documentée
+séparément — non traitée ici pour ne pas élargir le scope au-delà de la
+section 64 du cahier des charges pour la Tâche 1.6.
+
+**Découverte (et réparation) : le bug de cache du mount documenté depuis la
+Tâche 1.5 (voir entrées précédentes et la mémoire persistante associée)
+corrompt aussi la vue de `git` lui-même, pas seulement `tsc`/les copies de
+build.** En vérifiant `git status` avant de committer cette tâche,
+`app/page.tsx` n'apparaissait PAS comme modifié alors qu'il avait été
+réécrit avec le nouveau contenu de la page d'accueil. Diagnostic : `cat`
+en bash montrait un contenu tronqué (ni l'ancien placeholder, ni le nouveau
+contenu complet), `git show HEAD:...` montrait bien l'ancien placeholder,
+mais `git diff` ne signalait aucune différence — preuve que la détection de
+modification de `git` (qui lit le fichier via la même couche bash que
+`cat`) voit elle aussi un état figé/corrompu, distinct à la fois du commit
+et du contenu réel. Un balayage systématique (`wc -l`/`tail -c` comparé au
+contenu vérifié par l'outil Read) sur les 16 fichiers touchés par cette
+tâche a trouvé 6 fichiers ainsi corrompus en vue bash
+(`app/page.tsx`, `tests/e2e/home.spec.ts`, `lib/db/types.ts`,
+`app/(shop)/boutique/page.tsx`, `app/(shop)/panier/actions.ts`,
+`lib/public/campaign-progress.ts`), et — fait nouveau et plus inquiétant —
+2 fichiers d'une tâche précédente (Tâche 1.4/1.5,
+`lib/cart/cart.ts`/`tests/integration/cart.test.ts`) montrant le même
+symptôme alors qu'ils n'avaient pas été touchés cette session : leur
+contenu réel (vérifié par Read) incluait `markCartConverted`
+(Tâche 1.5) que `git` ne voyait jamais comme un changement non commité —
+un ajout réel et déjà fait s'était donc rendu invisible à `git` depuis sa
+création, jusqu'à ce balayage. Réparation : réécriture directe de ces 8
+fichiers sur le mount via heredoc bash (`cat > <chemin> << 'EOF'`), en
+utilisant le contenu vérifié par l'outil Read comme seule source de vérité
+— *pas* via `/tmp/code-build` comme le préconisait le contournement
+précédent, puisque c'est la vue du mount elle-même (et donc ce que `git`
+committera) qu'il fallait corriger. Après réécriture, `git status`/
+`git diff` détectent correctement tous les changements réels. Le
+contournement précédent ("ne jamais écrire directement dans le mount via
+bash") reste valable pour éviter d'INTRODUIRE de la corruption, mais ne
+suffit plus pour la RÉPARER une fois qu'elle a déjà figé la vue de `git` —
+dans ce cas précis, écrire directement sur le mount via heredoc est la
+seule façon de resynchroniser ce que `git` committera avec la réalité.
+Vérification post-réparation : `tsc --noEmit`, `npm run lint` et
+`npx vitest run` (lancés depuis un `/tmp/code-build` reconstruit par
+`rsync` + `npm install` frais, le `node_modules` du mount étant compilé
+pour Windows et inutilisable tel quel dans ce bac à sable Linux) passent
+tous les trois sans erreur, 263/263 tests verts.

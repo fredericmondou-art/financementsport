@@ -85,10 +85,55 @@
       répartition/validation, crédit estimé, intégration panier via repos en
       mémoire), `tsc --noEmit` et `npm run lint` propres.
 
+- [x] 1.5 Paiement Stripe, création de commande et écriture des crédits —
+      `app/api/checkout/route.ts` (session Stripe Checkout, validation/blocage
+      stock à la création), `app/api/webhooks/stripe/route.ts` (CŒUR : seul
+      point d'écriture de commande/crédit, signature vérifiée sur le corps
+      brut, re-validation en direct, jamais bloquant post-paiement),
+      `lib/orders/create-order.ts` (appel `supabase.rpc('create_paid_order')`),
+      `supabase/migrations/0006_stripe_events_and_order_credit_function.sql`
+      (fonction plpgsql atomique : idempotence par `stripe_events.id`,
+      décrément de stock `FOR UPDATE` avec plancher à 0, `order_items` +
+      `order_credits` + `credit_audit_log`), `lib/credits/persist.ts`
+      (agrégation `applied_rule_id`/notes par bénéficiaire),
+      `lib/email/build-confirmation-content.ts` +
+      `lib/email/send-order-confirmation.ts` (SendGrid, échec non bloquant).
+      Décisions autonomes nombreuses (atomicité par RPC unique, divergence du
+      traitement du stock épuisé checkout vs. webhook, métadonnées Stripe
+      minimalistes, province de taxation par défaut QC, etc.) — voir
+      docs/DECISIONS.md. 229/229 tests verts (dont un nouveau test
+      d'intégration ciblant directement la fonction SQL `create_paid_order` :
+      idempotence, répartition à deux bénéficiaires, stock insuffisant au
+      paiement confirmé), `tsc --noEmit` et `npm run lint` propres.
+
+- [x] 1.6 Pages publiques (athlète, équipe, club) et page d'accueil —
+      `lib/public/profile.ts` (chargement profil + campagne la plus
+      pertinente + progression + packs recommandés, un seul repo par type de
+      bénéficiaire), `lib/public/campaign-progress.ts`
+      (`pickMostRelevantCampaign` : campagne la plus récemment démarrée,
+      `computeCampaignProgress`, `applyAmountsMask` pour `hide_amounts`,
+      `computeDaysRemaining`), `lib/public/recommended-products.ts`
+      (curation par campagne si définie, sinon catalogue actif complet,
+      trié `credit_desc`), pages `app/[athleteSlug]/page.tsx` (404 si
+      `show_team_only`), `app/team/[slug]/page.tsx`, `app/club/[slug]/
+      page.tsx`, nouvelle page d'accueil `app/page.tsx` (remplace le
+      placeholder "en construction" de la Tâche 0.1), migration
+      `0007_public_campaign_views.sql` (`v_public_campaign`/
+      `v_public_campaign_products`, advisories `SECURITY DEFINER` attendues
+      — même pattern que les vues publiques existantes), lien "Encourager"
+      relié à `app/(shop)/panier/actions.ts` (`addItemAction` pré-attache le
+      bénéficiaire à 100 % uniquement si le panier n'a encore aucune
+      répartition). Décisions autonomes (voir docs/DECISIONS.md) :
+      tie-break de sélection de campagne, 404 plutôt que redirection pour
+      `show_team_only`, `campaign_participants` hors scope, contenu
+      éditorial de la page d'accueil. Un bug de cache mount/git découvert et
+      réparé au passage (voir docs/DECISIONS.md) a aussi révélé et restauré
+      un ajout (Tâche 1.5, `markCartConverted`) resté invisible à git depuis
+      sa création. 263/263 tests verts, `tsc --noEmit` et `npm run lint`
+      propres.
+
 ## En cours
 - [ ] Rien de bloquant actuellement côté infra/sécurité.
 
 ## À venir
-- [ ] 1.5 Paiement Stripe, création de commande et écriture des crédits
-- [ ] 1.6 Pages publiques (athlète, équipe, club) et page d'accueil
 - [ ] 1.7 Création de campagne (assistant)

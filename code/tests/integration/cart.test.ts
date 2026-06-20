@@ -81,6 +81,11 @@ function createFakeCartRepo(): CartRepo {
       if (!existing) throw new Error('panier introuvable (fake repo)');
       carts.set(cartId, { ...existing, status: 'abandoned', updated_at: new Date().toISOString() });
     },
+    async markCartConverted(cartId) {
+      const existing = carts.get(cartId);
+      if (!existing) throw new Error('panier introuvable (fake repo)');
+      carts.set(cartId, { ...existing, status: 'converted', updated_at: new Date().toISOString() });
+    },
   };
 }
 

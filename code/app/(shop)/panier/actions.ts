@@ -15,6 +15,7 @@ import { createSupabaseProductRepo, getProduct } from '@/lib/catalog/products';
 import {
   beneficiarySplitInputSchema,
   createSupabaseCartBeneficiariesRepo,
+  listCartBeneficiaries,
   setCartBeneficiarySplit,
 } from '@/lib/cart/beneficiaries';
 import { createSupabaseCartRepo, getCartForIdentity, getOrCreateCart } from '@/lib/cart/cart';
@@ -37,15 +38,26 @@ function redirectWithError(error: unknown): never {
   redirect(`${PANIER_PATH}?erreur=${encodeURIComponent(message)}`);
 }
 
+/**
+ * `beneficiaryType`/`beneficiaryId` sont optionnels et alimentés par le lien
+ * "Encourager" des pages publiques athlète/équipe/club (Tâche 1.6) : champs
+ * cachés transmis via `?beneficiaryType=&beneficiaryId=` sur la boutique,
+ * reportés sur chaque formulaire "Ajouter au panier" — voir
+ * `app/(shop)/boutique/page.tsx` et `lib/public/profile.ts`.
+ */
 const addItemSchema = z.object({
   productId: z.string().uuid(),
   quantity: z.coerce.number().int().min(1),
+  beneficiaryType: z.enum(['athlete', 'team', 'club']).optional(),
+  beneficiaryId: z.string().uuid().optional(),
 });
 
 export async function addItemAction(formData: FormData): Promise<void> {
   const parsed = addItemSchema.safeParse({
     productId: formData.get('productId'),
     quantity: formData.get('quantity') || 1,
+    beneficiaryType: formData.get('beneficiaryType') || undefined,
+    beneficiaryId: formData.get('beneficiaryId') || undefined,
   });
   if (!parsed.success) {
     redirectWithError(new BusinessRuleError('Produit ou quantité invalide.'));
@@ -70,6 +82,25 @@ export async function addItemAction(formData: FormData): Promise<void> {
       parsed.data.quantity,
       createSupabaseCartItemsRepo(supabase),
     );
+
+    // Pré-sélection "Encourager" (Tâche 1.6) : on attache automatiquement le
+    // bénéficiaire ciblé à 100 % UNIQUEMENT si le panier n'a encore AUCUNE
+    // répartition -- jamais écraser une répartition multi-bénéficiaires déjà
+    // choisie délibérément (ex. "répartir entre deux enfants", Tâche 1.4).
+    // Une fois ce premier article ajouté, le client reste libre de modifier
+    // la répartition normalement depuis /panier.
+    if (parsed.data.beneficiaryType && parsed.data.beneficiaryId) {
+      const beneficiariesRepo = createSupabaseCartBeneficiariesRepo(supabase);
+      const existing = await listCartBeneficiaries(cart, identity, beneficiariesRepo);
+      if (existing.length === 0) {
+        await setCartBeneficiarySplit(
+          cart,
+          identity,
+          [{ beneficiaryType: parsed.data.beneficiaryType, beneficiaryId: parsed.data.beneficiaryId, shareBps: 10000 }],
+          beneficiariesRepo,
+        );
+      }
+    }
   } catch (error) {
     redirectWithError(error);
   }

@@ -31,6 +31,10 @@ export interface CartRepo {
   insertCart(identity: CartIdentity): Promise<CartRow>;
   attachCartToUser(cartId: string, userId: string): Promise<CartRow>;
   markCartAbandoned(cartId: string): Promise<void>;
+  /** Panier ayant abouti à une commande payée (Tâche 1.5) -- distinct de
+   * `markCartAbandoned` : un panier "converti" n'a pas été délaissé, il a
+   * réussi. Évite qu'il soit relu comme panier `open` actif de l'identité. */
+  markCartConverted(cartId: string): Promise<void>;
 }
 
 export function createSupabaseCartRepo(supabase: SupabaseClient): CartRepo {
@@ -95,6 +99,13 @@ export function createSupabaseCartRepo(supabase: SupabaseClient): CartRepo {
       const { error } = await supabase
         .from('carts')
         .update({ status: 'abandoned', updated_at: new Date().toISOString() })
+        .eq('id', cartId);
+      if (error) throw error;
+    },
+    async markCartConverted(cartId) {
+      const { error } = await supabase
+        .from('carts')
+        .update({ status: 'converted', updated_at: new Date().toISOString() })
         .eq('id', cartId);
       if (error) throw error;
     },

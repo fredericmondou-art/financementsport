@@ -749,16 +749,14 @@ export interface StripeEventsTable {
 }
 
 // =============================================================================
-// VUES (lecture seule — pas d'Insert/Update)
+// VIEWS
 // =============================================================================
 
 export interface VBeneficiaryCreditTotalsView {
   Row: {
     beneficiary_type: BeneficiaryType;
     beneficiary_id: string;
-    campaign_id: string | null;
-    active_cents: number;
-    pending_cents: number;
+    total_active_cents: number;
   };
 }
 
@@ -770,8 +768,79 @@ export interface VCampaignProgressView {
   };
 }
 
+export interface VPublicAthleteView {
+  Row: {
+    id: string;
+    team_id: string | null;
+    first_name: string;
+    last_name: string;
+    display_name: string;
+    slug: string;
+    sport: string | null;
+    city: string | null;
+    photo_url: string | null;
+    personal_message: string | null;
+    hide_amounts: boolean;
+    show_team_only: boolean;
+  };
+}
+
+export interface VPublicTeamView {
+  Row: {
+    id: string;
+    club_id: string | null;
+    name: string;
+    slug: string;
+    sport: string | null;
+    category: string | null;
+    logo_url: string | null;
+    city: string | null;
+    province: string | null;
+  };
+}
+
+export interface VPublicClubView {
+  Row: {
+    id: string;
+    name: string;
+    slug: string;
+    description: string | null;
+    logo_url: string | null;
+    city: string | null;
+    province: string | null;
+  };
+}
+
+/**
+ * Ajoutée par la migration 0007 (Tâche 1.6) : variante publique de
+ * `campaigns`, filtrée sur `status = 'active'` -- les pages publiques ne
+ * doivent jamais lire la table `campaigns` directement (RLS + CLAUDE.md
+ * section 5 : passer par une vue qui respecte les `hide_*`).
+ */
+export interface VPublicCampaignView {
+  Row: {
+    id: string;
+    type: CampaignType;
+    name: string;
+    slug: string;
+    public_message: string | null;
+    beneficiary_type: BeneficiaryType;
+    beneficiary_id: string;
+    goal_cents: number | null;
+    starts_at: string | null;
+    ends_at: string | null;
+  };
+}
+
+export interface VPublicCampaignProductsView {
+  Row: {
+    campaign_id: string;
+    product_id: string;
+  };
+}
+
 // =============================================================================
-// DATABASE — agrégat dans le style `supabase gen types typescript`
+// DATABASE
 // =============================================================================
 
 export interface Database {
@@ -796,16 +865,21 @@ export interface Database {
       orders: OrdersTable;
       order_items: OrderItemsTable;
       order_credits: OrderCreditsTable;
-      stripe_events: StripeEventsTable;
       credit_audit_log: CreditAuditLogTable;
       tax_rates: TaxRatesTable;
       distribution_lists: DistributionListsTable;
       payouts: PayoutsTable;
       email_log: EmailLogTable;
+      stripe_events: StripeEventsTable;
     };
     Views: {
       v_beneficiary_credit_totals: VBeneficiaryCreditTotalsView;
       v_campaign_progress: VCampaignProgressView;
+      v_public_athlete: VPublicAthleteView;
+      v_public_team: VPublicTeamView;
+      v_public_club: VPublicClubView;
+      v_public_campaign: VPublicCampaignView;
+      v_public_campaign_products: VPublicCampaignProductsView;
     };
     Enums: {
       user_role: UserRole;
