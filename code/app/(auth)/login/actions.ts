@@ -3,6 +3,10 @@
 import { z } from 'zod';
 import { redirect } from 'next/navigation';
 import { createSupabaseServerClient } from '@/lib/auth/supabase-server';
+import { attachGuestCartToUser } from '@/lib/cart/attach-guest-cart';
+import { createSupabaseCartRepo } from '@/lib/cart/cart';
+import { getExistingGuestSessionToken } from '@/lib/cart/identity';
+import { createSupabaseCartItemsRepo } from '@/lib/cart/items';
 
 const loginSchema = z.object({
   email: z.string().trim().email("L'adresse courriel n'est pas valide."),
@@ -21,7 +25,7 @@ export async function loginAction(formData: FormData): Promise<void> {
   }
 
   const supabase = createSupabaseServerClient();
-  const { error } = await supabase.auth.signInWithPassword({
+  const { data, error } = await supabase.auth.signInWithPassword({
     email: parsed.data.email,
     password: parsed.data.password,
   });
@@ -29,6 +33,19 @@ export async function loginAction(formData: FormData): Promise<void> {
   if (error) {
     const message = 'Courriel ou mot de passe incorrect.';
     redirect(`/login?error=${encodeURIComponent(message)}`);
+  }
+
+  // Tâche 1.4 : rattache un éventuel panier invité (cookie de session posé
+  // avant la connexion) au compte qui vient de se connecter. Échec
+  // silencieux côté UX (ne doit jamais bloquer une connexion réussie) ; les
+  // erreurs Supabase réelles (pas "aucun panier invité", qui est un retour
+  // normal `null`) sont laissées remonter aux logs serveur Next.js.
+  const guestSessionToken = getExistingGuestSessionToken();
+  if (guestSessionToken && data.user) {
+    await attachGuestCartToUser(guestSessionToken, data.user.id, {
+      carts: createSupabaseCartRepo(supabase),
+      items: createSupabaseCartItemsRepo(supabase),
+    });
   }
 
   redirect('/compte');

@@ -59,11 +59,36 @@
       crédit, dont 1 partagé avec un test existant), `tsc --noEmit` et
       `npm run lint` propres.
 
+- [x] 1.4 Panier et répartition entre bénéficiaires — `lib/cart/cart.ts`
+      (récupération/création, `assertCartOwnership` SANS `can()` : panier
+      connecté comparé à `user_id`, panier invité à `session_token`, jamais
+      l'inverse — `platform_admin` n'a aucun droit spécial sur un panier
+      tiers), `lib/cart/items.ts` (ajout/retrait/maj quantité, prix et statut
+      actif toujours chargés depuis `lib/catalog/products.ts`, jamais fournis
+      par le client, stock validé avant ajout), `lib/cart/beneficiaries.ts`
+      (`assertSplitTotals10000`, remplacement complet de la répartition),
+      `lib/cart/identity.ts` (cookie `panier_session` httpOnly pour
+      l'invité), `lib/cart/attach-guest-cart.ts` (rattachement automatique à
+      la connexion, fusion par addition des quantités si l'utilisateur a
+      déjà un panier ouvert, répartition jamais fusionnée), `lib/cart/
+      estimate-credit.ts` (assemble `lib/credits/calculate.ts`, aucun calcul
+      dupliqué). Routes `app/api/cart/*` (surface REST, utile pour Stripe/
+      mobile à venir) ET page `app/(shop)/panier` + Server Actions +
+      `components/beneficiary-split.tsx` (même style que `app/(auth)/login`,
+      aucun composant client dans tout le projet). Rattachement câblé
+      automatiquement dans `loginAction`. Décisions autonomes (voir
+      docs/DECISIONS.md) : contrôle d'accès panier hors système de rôles,
+      sémantique de fusion du panier invité, seul `hide_last_name` respecté
+      dans le contexte panier (pas les autres `hide_*`, qui régissent les
+      pages publiques de la Tâche 1.6), saisie de la répartition en points de
+      base plutôt qu'en pourcentages. 189/189 tests verts (40 nouveaux :
+      répartition/validation, crédit estimé, intégration panier via repos en
+      mémoire), `tsc --noEmit` et `npm run lint` propres.
+
 ## En cours
 - [ ] Rien de bloquant actuellement côté infra/sécurité.
 
 ## À venir
-- [ ] 1.4 Panier et répartition entre bénéficiaires
 - [ ] 1.5 Paiement Stripe, création de commande et écriture des crédits
 - [ ] 1.6 Pages publiques (athlète, équipe, club) et page d'accueil
 - [ ] 1.7 Création de campagne (assistant)

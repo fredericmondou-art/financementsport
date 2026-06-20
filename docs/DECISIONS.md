@@ -339,3 +339,81 @@ de modification. Les fichiers neufs créés via `Write` (`lib/credits/*.ts`,
 après tout `Edit` sur un fichier déjà suivi par git dans le dossier monté,
 vérifier le contenu réel sur disque (`cat`/`git diff`) avant de continuer ; en
 cas de troncature, réécrire le fichier en entier via heredoc bash.
+
+## 2026-06-20 — Tâche 1.4 : panier et répartition entre bénéficiaires
+
+**Contrôle d'accès au panier volontairement HORS du système `can()`.** Un
+panier connecté est comparé à `user.id`, un panier invité à un
+`session_token` exact (cookie httpOnly `panier_session`) — jamais l'un pour
+l'autre, jamais de croisement (`assertCartOwnership`, seul point de contrôle
+d'accès de `lib/cart/*.ts`). `platform_admin` n'a AUCUN droit spécial sur le
+panier d'un tiers : contrairement aux clubs/équipes/produits, un panier n'est
+jamais une ressource qu'un admin gère pour le compte d'un client — il n'existe
+même pas de cas d'usage où un admin aurait besoin de lire/modifier le panier
+en cours d'un visiteur avant son paiement.
+
+**Fusion du panier invité au moment de la connexion : articles additionnés,
+répartition jamais fusionnée.** Si l'utilisateur qui se connecte a déjà un
+panier ouvert sur un autre appareil, les quantités des produits identiques
+s'additionnent (comportement panier standard) et le panier invité passe à
+`status = 'abandoned'`. La répartition entre bénéficiaires (`cart_
+beneficiaries`) n'est PAS fusionnée : celle déjà présente sur le panier de
+l'utilisateur est conservée telle quelle, l'utilisateur devra reconfirmer.
+Fusionner deux répartitions en points de base provenant de paniers distincts
+n'a pas de résultat « correct » évident à inventer (CLAUDE.md section 9 :
+prudence dès qu'un choix touche l'argent) — mieux vaut redemander
+confirmation que deviner une règle de fusion arbitraire.
+`attachGuestCartToUser` ne prend que le jeton de session invité (pas de
+`cartId` en paramètre) : elle retrouve elle-même le panier `open`
+correspondant, ce qui permet de l'appeler automatiquement depuis
+`loginAction` sans plomberie supplémentaire côté formulaire de connexion. Un
+invité sans panier `open` (cas le plus fréquent) retourne simplement `null`,
+pas une erreur.
+
+**Seul `hide_last_name` est respecté dans l'affichage du panier — pas les
+autres `hide_*`.** Le panier (et son message de message de crédit « Votre
+achat générera X$ pour [bénéficiaire] ») est visible par un invité non
+authentifié, donc une « surface publique » au sens strict de CLAUDE.md
+section 5 pour ce qui concerne le nom affiché — `lib/cart/beneficiary-
+labels.ts` applique donc l'abréviation `Prénom N.` quand `hide_last_name` est
+vrai. `hide_amounts`/`hide_photo`/`hide_city`/`show_team_only` ne sont PAS
+appliqués ici : ces champs régissent l'affichage du PROFIL PUBLIC de
+l'athlète (Tâche 1.6 — photo, ville, montants levés affichés sur sa page),
+pas la confirmation d'achat du client qui choisit lui-même ce bénéficiaire.
+Mélanger les deux aurait masqué au client des informations sur SON propre
+geste de don, ce qui n'est pas le but de ces champs.
+
+**Saisie de la répartition en points de base (0-10000), pas en
+pourcentages.** `components/beneficiary-split.tsx` prend `shareBps`
+directement plutôt que de faire convertir un pourcentage par l'utilisateur
+puis re-convertir en points de base côté serveur (aller-retour flottant
+inutile, même si `share_bps` n'est pas un montant d'argent — cohérent avec la
+discipline anti-`float` de CLAUDE.md section 4). Limite connue : pas de
+sélecteur de recherche pour choisir un bénéficiaire (l'UUID est saisi
+directement) — à améliorer à la Tâche 1.6 avec des liens « Soutenir cet
+athlète » pré-remplis depuis les pages publiques.
+
+**Bug de troncature silencieuse confirmé de nouveau, sur trois fichiers
+distincts (`app/(auth)/login/actions.ts`, `app/(shop)/panier/actions.ts`,
+`app/(shop)/panier/page.tsx`, puis `tests/unit/cart-estimate-credit.test.ts`
+lors de la rédaction des tests).** Chaque fois : `tsc`/`eslint` signalent une
+erreur de syntaxe en fin de fichier après un appel `Edit`, le fichier sur
+disque est tronqué en plein milieu d'une chaîne/instruction, mais l'outil
+`Read` continue d'afficher le contenu correct complet (preuve de la
+divergence de cache entre bash et les outils fichiers sur ce dossier monté).
+Correction systématique : réécriture intégrale du fichier via heredoc bash
+(`cat > fichier << 'EOF' ... EOF`), `sleep 2`, puis vérification par
+`wc -l`/`tail`/`cat -A` avant de refaire confiance au fichier. Procédure
+documentée dans la mémoire persistante du projet — à appliquer pour tout
+fichier de ce dossier monté qui sera ensuite suivi par git ou compilé.
+
+**Bug cosmétique trouvé et corrigé en écrivant les tests : double point final
+dans `formatCreditMessage` quand le libellé se termine déjà par un point.**
+`lib/cart/beneficiary-labels.ts` abrège un nom de famille masqué en
+`Prénom N.` (avec point) ; `formatCreditMessage` ajoutait son propre point
+final sans vérifier, produisant « ... pour Thomas T.. » (deux points). Corrigé
+en retirant un point final déjà présent sur le libellé avant d'en ajouter un.
+Changement cosmétique, sans risque (texte d'affichage uniquement, aucun
+calcul d'argent touché) — corrigé directement plutôt que noté pour plus tard,
+conformément à CLAUDE.md section 9 (seuls les choix ambigus touchant
+argent/sécurité/mineurs doivent être posés en question).
