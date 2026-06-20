@@ -182,3 +182,76 @@ accepté comme la troisième finding « connue » avec `extension_in_public` et
 `auth_leaked_password_protection` — aucune action requise avant la mise en
 production, mais à mentionner explicitement lors d'une revue de sécurité
 professionnelle (CLAUDE.md section 2, mineurs).
+
+## 2026-06-19 — Correction du modèle de permission club/équipe : pas d'auto-service (Tâche 1.1)
+**Contexte.** En écrivant `lib/auth/permissions.ts` et
+`lib/entities/clubs.ts`/`teams.ts`, j'avais d'abord supposé un modèle
+auto-service : n'importe quel utilisateur authentifié peut créer un club ou
+une équipe indépendante, et en devient automatiquement `club_admin`/
+`team_manager` via un membership auto-inséré.
+
+**Découverte.** En relisant les policies RLS déjà déployées (migration 0003)
+avant d'écrire les routes API, j'ai constaté que ce modèle contredit le schéma
+de sécurité déjà en production :
+- `clubs_insert_admin` : `WITH CHECK (is_platform_admin())` — création de club
+  réservée à platform_admin, sans exception.
+- `teams_insert` : `WITH CHECK (is_platform_admin() OR manages_club(club_id))`
+  — et `manages_club(NULL)` vaut toujours faux. Une équipe indépendante
+  (`club_id IS NULL`) ne peut donc être créée que par platform_admin, jamais
+  par auto-service.
+- `memberships_write_admin` : `FOR ALL USING (is_platform_admin())` — TOUTE
+  écriture sur `memberships` (y compris l'auto-attribution d'un rôle au
+  créateur) est réservée à platform_admin. Le mécanisme d'auto-membership que
+  j'avais codé aurait donc échoué pour tout non-admin, même si la création du
+  club/équipe avait été permise.
+
+**Correction.** `lib/auth/permissions.ts` (cases `club`/`team` de `can()`) et
+`lib/entities/clubs.ts`/`teams.ts` (suppression de la logique
+d'auto-insertion de membership dans `createClub`/`createTeam`) ont été
+réécrits pour refléter EXACTEMENT les policies RLS : club → platform_admin
+uniquement ; équipe avec `clubId` → platform_admin ou club_admin de ce club ;
+équipe sans `clubId` → platform_admin uniquement. La suppression de club/équipe
+est encore plus restrictive que la lecture/mise à jour (club : platform_admin
+seul ; équipe : platform_admin ou club_admin, jamais team_manager — reflète
+`clubs_delete_admin` et `teams_delete`). L'attribution d'un rôle
+`club_admin`/`team_manager` à un utilisateur devient une opération
+strictement admin, hors du périmètre de fichiers de la Tâche 1.1 (aucun
+endpoint `memberships` n'y est listé) — modèle d'intégration piloté par
+l'admin, cohérent avec la philosophie « versements manuels en V1 » de
+CLAUDE.md section 9.2.
+
+**Par contraste**, le modèle pour `athlete` était déjà correct dès la
+première version : `athletes_insert` autorise `guardian_id = auth.uid()` (le
+parent inscrit lui-même son athlète) OU `manages_team(team_id)` (un gérant
+d'équipe inscrit les athlètes de son équipe), sans cascade club_admin à
+l'insertion (différence notable avec `manages_athlete`, utilisé pour
+lecture/mise à jour/suppression, qui ajoute la cascade club_admin via le club
+de l'équipe). `lib/auth/permissions.ts` distingue maintenant explicitement
+ces deux portées (création vs. lecture/mise à jour/suppression) pour
+l'athlète, alors qu'avant les deux utilisaient la même portée trop large
+(incluant club_admin) y compris à la création.
+
+**Pourquoi documenté ici plutôt que dans QUESTIONS.md** : le schéma RLS déjà
+déployé en production est la source de vérité (CLAUDE.md section 2, « ne pas
+rediscuter les décisions d'architecture déjà prises ») — il n'y avait pas
+d'ambiguïté à deux interprétations plausibles, seulement une divergence entre
+mon hypothèse initiale et un fait déjà tranché ailleurs dans le projet.
+Aucune table ni colonne modifiée, uniquement la logique applicative alignée
+sur l'existant.
+
+## 2026-06-19 — Bug de test découvert à l'exécution : identifiants de fixtures non-UUID (Tâche 1.1)
+En exécutant `tests/integration/entities.test.ts`, `athleteInputSchema.parse`
+et `teamInputSchema.parse` rejetaient systématiquement les données de test
+avec `ZodError: Invalid uuid` sur `clubId`/`teamId`/`guardianId`. Cause : les
+repos en mémoire du test généraient des identifiants lisibles (`club-1`,
+`team-1`, `guardian-1`, ...) au lieu de vrais UUID, alors que les schémas zod
+(`teamInputSchema.clubId`, `athleteInputSchema.teamId`/`guardianId`/`userId`)
+exigent `.uuid()` — alignés sur les colonnes Postgres réelles, toujours des
+UUID générés par Supabase. Ce n'est pas un bug de logique métier : le schéma
+de validation est correct et ne doit pas être assoupli (un vrai `clubId`
+malformé doit être rejeté en production). Correction : tous les identifiants
+générés par les repos en mémoire (`createFakeClubRepo`/`createFakeTeamRepo`/
+`createFakeAthleteRepo`) et les fixtures (`guardian`, `otherGuardian`,
+`teamManager`, identifiants ad hoc) utilisent maintenant `randomUUID()` (module
+`node:crypto`). Aucun changement à `lib/entities/*` ni aux schémas zod —
+uniquement aux données de test.

@@ -49,7 +49,19 @@ export type Resource =
   | { type: 'campaign'; clubId: string | null; teamId: string | null }
   | { type: 'product' }
   | { type: 'credit_rule' }
-  | { type: 'payout' };
+  | { type: 'payout' }
+  // Tâche 1.1 — `id: null` signifie "pas encore créé" (vérification au
+  // moment du `create`, avant qu'un id existe).
+  | { type: 'club'; id: string | null }
+  | { type: 'team'; id: string | null; clubId: string | null }
+  | {
+      type: 'athlete';
+      id: string | null;
+      teamId: string | null;
+      clubId: string | null;
+      guardianId: string | null;
+      athleteUserId: string | null;
+    };
 
 function hasMembershipScope(
   user: AuthUser,
@@ -120,7 +132,98 @@ export function can(user: AuthUser | null, action: Action, resource: Resource): 
       }
       return false;
 
+    case 'club':
+      // Aligné EXACTEMENT sur les policies RLS déjà déployées (migration
+      // 0003) : `clubs_insert_admin` (platform_admin uniquement, pas
+      // d'auto-service — un club est créé par l'admin, qui assigne ensuite
+      // un club_admin via `memberships`, écriture elle-même réservée à
+      // platform_admin par `memberships_write_admin`). Voir
+      // docs/DECISIONS.md (Tâche 1.1) : une première version de ce fichier
+      // permettait l'auto-création par n'importe quel utilisateur, corrigée
+      // après relecture du schéma RLS réellement déployé.
+      if (action === 'create') {
+        return false;
+      }
+      if (action === 'read' || action === 'update') {
+        // `clubs_select` / `clubs_update_scoped` : platform_admin (déjà
+        // court-circuité) OU club_admin scopé sur ce club.
+        return hasMembershipScope(user, 'club_admin', resource.id, null);
+      }
+      // delete : `clubs_delete_admin` = platform_admin uniquement.
+      return false;
+
+    case 'team':
+      if (action === 'create') {
+        // `teams_insert` : platform_admin OU club_admin du club visé.
+        // `manages_club(NULL)` vaut toujours faux côté RLS : une équipe
+        // indépendante (`clubId === null`) ne peut être créée que par
+        // platform_admin.
+        if (resource.clubId === null) {
+          return false;
+        }
+        return hasMembershipScope(user, 'club_admin', resource.clubId, null);
+      }
+      if (action === 'read' || action === 'update') {
+        // `teams_select` / `teams_update` : club_admin du club OU
+        // team_manager de cette équipe précise.
+        return (
+          hasMembershipScope(user, 'team_manager', null, resource.id) ||
+          hasMembershipScope(user, 'club_admin', resource.clubId, null)
+        );
+      }
+      // delete : `teams_delete` = platform_admin OU club_admin (PAS
+      // team_manager — un gérant ne peut pas supprimer sa propre équipe).
+      return hasMembershipScope(user, 'club_admin', resource.clubId, null);
+
+    case 'athlete':
+      if (action === 'create') {
+        // `athletes_insert` : platform_admin OU `guardian_id = auth.uid()`
+        // OU `manages_team(team_id)` (team_manager DIRECT de l'équipe
+        // visée — PAS de cascade club_admin à l'insertion, contrairement à
+        // la lecture/mise à jour ci-dessous).
+        if (resource.guardianId === user.id) {
+          return true;
+        }
+        return hasMembershipScope(user, 'team_manager', null, resource.teamId);
+      }
+      if (action === 'read' || action === 'update' || action === 'delete') {
+        // `athletes_select` / `_update` / `_delete` via `manages_athlete` :
+        // guardian, athlète majeur lui-même, team_manager direct, OU
+        // club_admin (cascade via le club de l'équipe).
+        if (resource.guardianId === user.id || resource.athleteUserId === user.id) {
+          return true;
+        }
+        return (
+          hasMembershipScope(user, 'team_manager', null, resource.teamId) ||
+          hasMembershipScope(user, 'club_admin', resource.clubId, null)
+        );
+      }
+      return false;
+
     default:
       return false;
   }
+}
+
+/**
+ * Règle spécifique Tâche 1.1 : les champs `hide_*` d'un athlète (contrôles
+ * de confidentialité d'un mineur) ne sont modifiables QUE par son
+ * parent/tuteur (`guardian_id`), par l'athlète lui-même s'il est majeur et
+ * gère son propre profil (`user_id`), ou par `platform_admin`. À la
+ * différence de `can()` pour `athlete`/`update`, un `team_manager` ou
+ * `club_admin` scopé sur l'équipe N'A PAS ce droit — ces champs touchent à
+ * la confidentialité des données d'un mineur (CLAUDE.md section 2 et 5), pas
+ * à la gestion d'effectif ordinaire.
+ */
+export function canEditHiddenAthleteFields(
+  user: AuthUser | null,
+  athlete: { guardianId: string | null; athleteUserId: string | null },
+): boolean {
+  if (!user) {
+    return false;
+  }
+  if (user.role === 'platform_admin') {
+    return true;
+  }
+  return athlete.guardianId === user.id || athlete.athleteUserId === user.id;
 }

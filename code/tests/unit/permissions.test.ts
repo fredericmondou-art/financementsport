@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { can, type AuthUser } from '@/lib/auth/permissions';
+import { can, canEditHiddenAthleteFields, type AuthUser } from '@/lib/auth/permissions';
 
 const client: AuthUser = { id: 'user-client-1', role: 'client', memberships: [] };
 const otherClient: AuthUser = { id: 'user-client-2', role: 'client', memberships: [] };
@@ -100,5 +100,223 @@ describe('can() — deny-by-default sur les combinaisons non prévues', () => {
 
   it('refuse à accounting de modifier les versements', () => {
     expect(can(accountant, 'update', { type: 'payout' })).toBe(false);
+  });
+});
+
+// Tâche 1.1 — extension club / équipe / athlète, alignée EXACTEMENT sur les
+// policies RLS déjà déployées (migration 0003 : `clubs_insert_admin`,
+// `teams_insert`, `teams_delete`, `athletes_insert`, `manages_athlete`). Voir
+// docs/DECISIONS.md pour la correction du modèle club/équipe (pas
+// d'auto-service).
+describe('can() — club : créer un club est réservé à platform_admin', () => {
+  it('refuse à un client de créer un club', () => {
+    expect(can(client, 'create', { type: 'club', id: null })).toBe(false);
+  });
+
+  it('refuse à un club_admin (déjà admin d’un autre club) de créer un club', () => {
+    expect(can(clubAdmin, 'create', { type: 'club', id: null })).toBe(false);
+  });
+
+  it('autorise platform_admin à créer un club', () => {
+    expect(can(platformAdmin, 'create', { type: 'club', id: null })).toBe(true);
+  });
+});
+
+describe('can() — club : lecture/mise à jour scopées au club_admin', () => {
+  it('autorise le club_admin scopé à lire/modifier son club', () => {
+    expect(can(clubAdmin, 'read', { type: 'club', id: 'club-corsaires' })).toBe(true);
+    expect(can(clubAdmin, 'update', { type: 'club', id: 'club-corsaires' })).toBe(true);
+  });
+
+  it('refuse au club_admin de lire/modifier un autre club', () => {
+    expect(can(clubAdmin, 'read', { type: 'club', id: 'club-rival' })).toBe(false);
+    expect(can(clubAdmin, 'update', { type: 'club', id: 'club-rival' })).toBe(false);
+  });
+
+  it('refuse la suppression d’un club au club_admin (réservée à platform_admin, `clubs_delete_admin`)', () => {
+    expect(can(clubAdmin, 'delete', { type: 'club', id: 'club-corsaires' })).toBe(false);
+  });
+});
+
+describe('can() — équipe : créer une équipe', () => {
+  it('autorise le club_admin scopé à créer une équipe dans son club', () => {
+    expect(can(clubAdmin, 'create', { type: 'team', id: null, clubId: 'club-corsaires' })).toBe(
+      true,
+    );
+  });
+
+  it('refuse au club_admin de créer une équipe dans un autre club', () => {
+    expect(can(clubAdmin, 'create', { type: 'team', id: null, clubId: 'club-rival' })).toBe(false);
+  });
+
+  it('refuse à un client de créer une équipe indépendante (clubId null réservé à platform_admin)', () => {
+    expect(can(client, 'create', { type: 'team', id: null, clubId: null })).toBe(false);
+  });
+
+  it('refuse même à un club_admin (d’un autre club) de créer une équipe indépendante', () => {
+    expect(can(clubAdmin, 'create', { type: 'team', id: null, clubId: null })).toBe(false);
+  });
+
+  it('autorise platform_admin à créer une équipe indépendante', () => {
+    expect(can(platformAdmin, 'create', { type: 'team', id: null, clubId: null })).toBe(true);
+  });
+});
+
+describe('can() — équipe : lecture/mise à jour/suppression', () => {
+  it('autorise le team_manager à lire/modifier sa propre équipe', () => {
+    expect(can(teamManager, 'read', { type: 'team', id: 'team-u11', clubId: null })).toBe(true);
+    expect(can(teamManager, 'update', { type: 'team', id: 'team-u11', clubId: null })).toBe(true);
+  });
+
+  it('refuse au team_manager la suppression de sa propre équipe (`teams_delete` = platform_admin ou club_admin uniquement)', () => {
+    expect(can(teamManager, 'delete', { type: 'team', id: 'team-u11', clubId: null })).toBe(false);
+  });
+
+  it('autorise le club_admin à lire/modifier/supprimer une équipe de son club (cascade)', () => {
+    expect(can(clubAdmin, 'read', { type: 'team', id: 'team-x', clubId: 'club-corsaires' })).toBe(
+      true,
+    );
+    expect(
+      can(clubAdmin, 'delete', { type: 'team', id: 'team-x', clubId: 'club-corsaires' }),
+    ).toBe(true);
+  });
+
+  it('refuse au team_manager la lecture d’une autre équipe', () => {
+    expect(can(teamManager, 'read', { type: 'team', id: 'team-u9', clubId: null })).toBe(false);
+  });
+});
+
+describe('can() — athlète : créer (pas de cascade club_admin à l’insertion)', () => {
+  const guardian: AuthUser = { id: 'user-guardian-1', role: 'client', memberships: [] };
+
+  it('autorise un tuteur à inscrire son propre athlète', () => {
+    expect(
+      can(guardian, 'create', {
+        type: 'athlete',
+        id: null,
+        teamId: null,
+        clubId: null,
+        guardianId: guardian.id,
+        athleteUserId: null,
+      }),
+    ).toBe(true);
+  });
+
+  it('autorise le team_manager direct de l’équipe visée à inscrire un athlète', () => {
+    expect(
+      can(teamManager, 'create', {
+        type: 'athlete',
+        id: null,
+        teamId: 'team-u11',
+        clubId: null,
+        guardianId: null,
+        athleteUserId: null,
+      }),
+    ).toBe(true);
+  });
+
+  it('refuse au club_admin (sans être team_manager direct) d’inscrire un athlète via la cascade club — `athletes_insert` n’inclut pas manages_club', () => {
+    expect(
+      can(clubAdmin, 'create', {
+        type: 'athlete',
+        id: null,
+        teamId: 'team-x',
+        clubId: 'club-corsaires',
+        guardianId: null,
+        athleteUserId: null,
+      }),
+    ).toBe(false);
+  });
+
+  it('refuse à un tiers sans lien ni scope d’inscrire un athlète', () => {
+    expect(
+      can(otherClient, 'create', {
+        type: 'athlete',
+        id: null,
+        teamId: null,
+        clubId: null,
+        guardianId: 'user-guardian-1',
+        athleteUserId: null,
+      }),
+    ).toBe(false);
+  });
+});
+
+describe('can() — athlète : lecture/mise à jour/suppression (cascade club_admin incluse)', () => {
+  it('autorise le club_admin via la cascade club sur la lecture/mise à jour d’un athlète existant', () => {
+    expect(
+      can(clubAdmin, 'update', {
+        type: 'athlete',
+        id: 'athlete-1',
+        teamId: 'team-x',
+        clubId: 'club-corsaires',
+        guardianId: null,
+        athleteUserId: null,
+      }),
+    ).toBe(true);
+  });
+
+  it('autorise l’athlète majeur lui-même à lire/modifier son propre profil', () => {
+    expect(
+      can(client, 'update', {
+        type: 'athlete',
+        id: 'athlete-1',
+        teamId: null,
+        clubId: null,
+        guardianId: null,
+        athleteUserId: client.id,
+      }),
+    ).toBe(true);
+  });
+
+  it('refuse à un tiers sans lien la lecture d’un athlète', () => {
+    expect(
+      can(otherClient, 'read', {
+        type: 'athlete',
+        id: 'athlete-1',
+        teamId: null,
+        clubId: null,
+        guardianId: 'user-guardian-1',
+        athleteUserId: null,
+      }),
+    ).toBe(false);
+  });
+});
+
+describe('canEditHiddenAthleteFields() — hide_* et parental_consent_at réservés au tuteur/athlète/admin', () => {
+  it('autorise le tuteur', () => {
+    expect(
+      canEditHiddenAthleteFields(client, { guardianId: client.id, athleteUserId: null }),
+    ).toBe(true);
+  });
+
+  it('autorise l’athlète majeur lui-même', () => {
+    expect(
+      canEditHiddenAthleteFields(client, { guardianId: null, athleteUserId: client.id }),
+    ).toBe(true);
+  });
+
+  it('autorise platform_admin', () => {
+    expect(
+      canEditHiddenAthleteFields(platformAdmin, { guardianId: 'autre', athleteUserId: null }),
+    ).toBe(true);
+  });
+
+  it('refuse au team_manager de l’équipe (même s’il peut par ailleurs modifier l’athlète)', () => {
+    expect(
+      canEditHiddenAthleteFields(teamManager, { guardianId: 'autre', athleteUserId: null }),
+    ).toBe(false);
+  });
+
+  it('refuse au club_admin', () => {
+    expect(
+      canEditHiddenAthleteFields(clubAdmin, { guardianId: 'autre', athleteUserId: null }),
+    ).toBe(false);
+  });
+
+  it('refuse à un visiteur non authentifié', () => {
+    expect(canEditHiddenAthleteFields(null, { guardianId: null, athleteUserId: null })).toBe(
+      false,
+    );
   });
 });

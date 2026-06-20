@@ -22,12 +22,21 @@
       où 0004 cassait RLS lui-même pour `anon` — voir docs/DECISIONS.md pour
       le détail complet). Les deux migrations sont appliquées en production.
       52/52 tests d'intégration verts, `tsc`/`lint` propres.
+- [x] 1.1 Gestion des entités club / équipe / athlète — `lib/slug.ts` (slug
+      unique avec suffixe de collision), `lib/auth/permissions.ts` étendu
+      (club/équipe/athlète, aligné exactement sur les policies RLS 0003, avec
+      la nuance création vs. lecture/mise à jour/suppression pour l'athlète),
+      `lib/entities/clubs.ts`/`teams.ts`/`athletes.ts` (CRUD + validation zod
+      + règle mineur/guardian_id/consentement), routes
+      `app/api/{clubs,teams,athletes}`. Modèle de création admin-driven (pas
+      d'auto-service) — voir docs/DECISIONS.md. 104/104 tests verts
+      (unitaires + intégration via repos en mémoire, réseau Supabase bloqué
+      en sandbox), `tsc --noEmit` et `npm run lint` propres.
 
 ## En cours
 - [ ] Rien de bloquant actuellement côté infra/sécurité.
 
 ## À venir
-- [ ] 1.1 Gestion des entités club / équipe / athlète
 - [ ] 1.2 Catalogue : produits et packs
 - [ ] 1.3 Moteur de crédit
 - [ ] 1.4 Panier et répartition entre bénéficiaires
