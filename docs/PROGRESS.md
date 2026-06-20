@@ -132,8 +132,27 @@
       sa création. 263/263 tests verts, `tsc --noEmit` et `npm run lint`
       propres.
 
+- [x] 1.7 Création de campagne (assistant) — `supabase/migrations/
+      0008_campaign_creation_assistant.sql` (fonction atomique
+      `create_campaign_with_details` SECURITY INVOKER : campagne + participants
+      + packs + règle de crédit optionnelle + QR codes en une seule
+      transaction ; policies `credit_rules_campaign_manager_insert`/`_update`
+      self-service plafonné 50 %/100 $ ; correction au passage du bug RLS
+      `credit_rules` sans policy SELECT client/invité), `lib/campaigns/
+      create-campaign.ts` (validation zod + plafonds + périmètre athlètes/
+      bénéficiaire), `lib/campaigns/manager-scope.ts`, `lib/campaigns/
+      qr-codes.ts`, route `app/api/campaigns`, assistant
+      `app/(portails)/campagnes/nouvelle`. Statut toujours `active` à la
+      création (pas de brouillon), génération de l'image QR différée à la
+      Phase 1.5 (seule la couche de données est dans le scope). Décisions
+      autonomes et confirmées par Frédéric (plafonds self-service) — voir
+      docs/DECISIONS.md. Une troisième manifestation du bug de cache mount/git
+      rencontrée et réparée (octets nuls en fin de fichier après une édition)
+      — voir docs/DECISIONS.md. 281/281 tests verts (13 nouveaux unitaires +
+      5 nouveaux d'intégration contre une vraie transaction Postgres),
+      `tsc --noEmit` et `npm run lint` propres.
+
 ## En cours
 - [ ] Rien de bloquant actuellement côté infra/sécurité.
 
 ## À venir
-- [ ] 1.7 Création de campagne (assistant)

@@ -534,3 +534,138 @@ Vérification post-réparation : `tsc --noEmit`, `npm run lint` et
 `rsync` + `npm install` frais, le `node_modules` du mount étant compilé
 pour Windows et inutilisable tel quel dans ce bac à sable Linux) passent
 tous les trois sans erreur, 263/263 tests verts.
+
+## Tâche 1.7 — Création de campagne (assistant)
+
+**Règle de crédit propre à une campagne : self-service plafonné (décision de
+Frédéric, choix engageant l'argent — CLAUDE.md section 9b).** `credit_rules_
+admin_write` (migration 0005) réservait TOUTE écriture sur `credit_rules` à
+`platform_admin`, mais le cahier (sections 17/53) demande que l'assistant
+laisse le responsable (team_manager/club_admin) définir la règle de crédit de
+SA campagne. Deux options soumises : (a) aucune règle propre à l'assistant, le
+crédit suit uniquement les règles produit/globale déjà en vigueur ; (b)
+self-service plafonné (taux/bonus max 50 %, montant fixe max 100 $), portée
+strictement « campagne » (jamais globale/produit). Frédéric a tranché pour
+(b). Implémenté en deux couches redondantes (migration
+`0008_campaign_creation_assistant.sql`) : policies RLS
+`credit_rules_campaign_manager_insert`/`_update` (plafonds en dur dans le
+`WITH CHECK`, scope `private.manages_campaign(campaign_id)`) ET les mêmes
+plafonds dans `lib/campaigns/create-campaign.ts`
+(`SELF_SERVICE_PERCENT_BPS_CAP`/`SELF_SERVICE_FLAT_CENTS_CAP`/
+`SELF_SERVICE_BONUS_BPS_CAP`, via `.refine()` zod) pour un message d'erreur
+clair avant même d'atteindre la DB. `platform_admin` garde un accès total non
+plafonné via `credit_rules_admin_write` (policy distincte, inchangée). Niveau
+de risque jugé acceptable parce que les versements restent MANUELS en V1
+(CLAUDE.md section 2) : un admin valide et paie à la main avant que l'argent
+ne sorte réellement, donc un taux excessif reste rattrapable avant paiement.
+
+**Bug RLS pré-existant corrigé au passage (depuis la Tâche 1.3/0.4) :
+`credit_rules` n'avait AUCUNE policy SELECT pour un client/invité normal.**
+`lib/cart/credit-context.ts` interroge `credit_rules` avec le client de
+session de l'utilisateur courant (pas `service_role`) pour estimer le crédit
+au panier ; sous RLS, cette requête renvoyait donc toujours un tableau vide
+pour un client/invité, et l'estimation de crédit affichée au panier était
+silencieusement nulle pour toute règle non liée à `fixed_credit_cents` d'un
+produit — un trou direct dans le cœur fonctionnel de la plateforme (CLAUDE.md
+section 1 : « calculer le crédit automatiquement »). Corrigé par la nouvelle
+policy `credit_rules_read_active` (`USING (is_active = true)`) : les
+pourcentages de crédit ne sont pas une donnée personnelle/sensible (ils sont
+de toute façon affichés publiquement comme argument de vente) ; les règles
+inactives restent réservées à `platform_admin`/`accounting` via
+`credit_rules_staff_read`. Même classe de correction que le bug seed.sql/
+trigger de la Tâche 0.4 et la régression 0004→0005.
+
+**Statut de campagne : toujours `active` directement à la création, aucune
+étape brouillon/approbation.** Le cahier (Tâche 1.7) demande d'« activer » la
+campagne et de rendre sa page publique accessible immédiatement après
+création ; aucune mention d'un statut intermédiaire `draft`/`pending_approval`
+pour ce flux self-service. Choix : `createCampaign` crée systématiquement la
+campagne avec `status = 'active'` (le `campaign_status` admin-only `draft`
+existant reste disponible pour un usage futur côté back-office, hors scope
+ici).
+
+**Atomicité (CLAUDE.md section 4) via une fonction SQL `SECURITY INVOKER`,
+PAS `SECURITY DEFINER` comme `create_paid_order` (migration 0006).**
+`create_campaign_with_details` insère campagne + participants + packs + règle
+de crédit optionnelle + QR codes en une seule transaction plpgsql, mais
+contrairement au webhook Stripe (appelant `create_paid_order` via
+`service_role`), l'appelant ici est l'utilisateur authentifié lui-même
+(team_manager/club_admin via son propre jeton de session) : chaque `INSERT` à
+l'intérieur de la fonction doit donc rester soumis à RLS avec son propre
+`auth.uid()` — aucun bypass de sécurité, la fonction n'est qu'une primitive
+d'écriture mécanique. Si une étape viole une policy RLS (ex. plafond de la
+règle de crédit dépassé, ou bénéficiaire hors du périmètre géré), toute la
+transaction échoue et rien n'est créé — vérifié explicitement par
+`tests/integration/create-campaign.test.ts` (la campagne elle-même n'existe
+pas après un rejet RLS sur `credit_rules`).
+
+**Résolution du `target_id` auto-référentiel du QR « campagne » : `NULL` côté
+TypeScript, résolu en SQL via `COALESCE`.** Au moment où `lib/campaigns/
+create-campaign.ts` construit la liste des QR codes à créer, l'id de la
+campagne n'existe pas encore (elle est créée dans la même transaction, par la
+même fonction SQL). Le QR « campagne » est donc envoyé avec `target_id: null`
+et résolu dans `create_campaign_with_details` via
+`COALESCE((qr->>'target_id')::uuid, CASE WHEN qr->>'target_type' = 'campaign'
+THEN v_campaign.id END)` — les QR « athlète » arrivent toujours avec un
+`target_id` déjà connu et passent par la même expression sans effet.
+
+**Génération de l'image QR scannable, téléchargement et route de résolution
+`/q/<code>` : différés à la Phase 1.5, pas dans le scope de la Tâche 1.7.**
+Le cahier (section « Après la Phase 1 ») liste explicitement « QR codes
+téléchargeables » comme fonctionnalité de la Phase 1.5. Interprétation : seule
+la COUCHE DE DONNÉES (lignes `qr_codes` : `code`/`target_type`/`target_id`,
+un par campagne + un par athlète participant) relève de la Tâche 1.7 ; la
+génération de l'image, son téléchargement et la redirection/incrément de
+`scan_count` viendront avec le reste du flux « téléchargeable » en Phase 1.5.
+Aucun changement de schéma/RLS requis pour cette partie différée
+(`qr_codes_scoped`, migration 0005, couvre déjà `target_type IN ('campaign',
+'athlete')` via `private.manages_qr_target`).
+
+**`lib/auth/permissions.ts` : aucune modification nécessaire.** Le cas
+`campaign` (`create`/`read`/`update`, gated par `hasMembershipScope`) existait
+déjà depuis une tâche antérieure et couvre exactement le besoin de l'assistant
+(team_manager/club_admin scopés par `memberships`) — vérifié par lecture
+complète du fichier avant de commencer le code de la Tâche 1.7, aucune
+nouvelle policy de permission applicative à ajouter.
+
+**Validation du périmètre des athlètes participants : refusée si l'athlète
+n'appartient pas à l'équipe/club rattaché à la campagne, jamais une
+vérification de propriété de campagne déjà créée.** `assertAthleteInScope`
+(privée, `lib/campaigns/create-campaign.ts`) compare le `teamId`/`clubId` de
+chaque athlète candidat à celui de la campagne en cours de création (avant
+toute écriture) — un athlète d'une autre équipe ne peut jamais être ajouté
+comme participant, même par un manager qui gérerait par ailleurs cette autre
+équipe (cohérence du périmètre déclaré côté formulaire, pas seulement
+permission globale).
+
+**Chemin de route : `app/(portails)/campagnes/nouvelle`, pas
+`app/(portal)/campagnes/nouvelle` comme la formulation littérale du prompt
+03-prompts le suggérait.** Choix d'alignement avec la convention déjà en
+place dans ce dépôt pour les groupes de routes en français
+(`app/(shop)`/`app/(auth)` suivent l'anglais, mais aucun groupe `(portal)`
+n'existe ; un nouveau groupe francisé `(portails)` reste cohérent avec le
+reste de l'arborescence orientée français de l'interface — CLAUDE.md section
+2). Aucune incompatibilité fonctionnelle, purement une question de nommage de
+dossier (non observable par l'utilisateur final).
+
+**Bug de cache mount/git (suite, voir entrées Tâche 1.5/1.6 et la mémoire
+persistante associée) : deux nouvelles manifestations rencontrées et
+réparées pendant cette tâche.** (1) `supabase/migrations/
+0008_campaign_creation_assistant.sql`, pourtant déjà écrit en entier par
+l'outil Write, apparaissait tronqué en vue bash (245 lignes au lieu de 256,
+coupé en plein milieu d'un `REVOKE ALL ON FUNCTION (...)`) — assez pour
+provoquer une vraie erreur SQL (« syntax error at end of input ») lors de
+l'exécution du test d'intégration dans `/tmp/code-build`, PAS seulement un
+symptôme cosmétique. (2) Après une édition (`Edit` tool) retirant une
+constante de test inutilisée (`SEED_CLUB_ID`) dans
+`tests/integration/create-campaign.test.ts`, le fichier sur le mount
+contenait des octets nuls (`\0`) en fin de fichier, provoquant une erreur de
+parsing TypeScript/ESLint (« Invalid character »). Dans les deux cas, le
+contenu vu par l'outil Read restait correct et complet ; réparation par
+réécriture directe du fichier sur le mount via heredoc bash
+(`cat > <chemin> << 'EOF'`), comme déjà établi pour la Tâche 1.6 — PAS via
+`/tmp/code-build` (qui ne fait que recopier la corruption du mount). Après
+réécriture, `tsc --noEmit`/`npm run lint`/`npx vitest run` (281/281) sont
+repassés propres. Confirme que ce contournement doit rester actif pour toute
+tâche future touchant ce dépôt, pas seulement pour les fichiers déjà
+committés.
