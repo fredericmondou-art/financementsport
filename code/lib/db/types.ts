@@ -725,6 +725,29 @@ export interface EmailLogTable {
   Update: Partial<EmailLogTable['Insert']>;
 }
 
+/**
+ * Ajoutée par la migration 0006 (Tâche 1.5) : table d'idempotence des
+ * évènements Stripe, absente du schéma fourni (01-schema-base-de-donnees.sql)
+ * -- voir le commentaire en tête de cette migration et docs/DECISIONS.md.
+ */
+export interface StripeEventsTable {
+  Row: {
+    id: string;
+    type: string;
+    order_id: string | null;
+    payload: unknown | null;
+    created_at: string;
+  };
+  Insert: {
+    id: string;
+    type: string;
+    order_id?: string | null;
+    payload?: unknown | null;
+    created_at?: string;
+  };
+  Update: Partial<StripeEventsTable['Insert']>;
+}
+
 // =============================================================================
 // VUES (lecture seule — pas d'Insert/Update)
 // =============================================================================
@@ -773,6 +796,7 @@ export interface Database {
       orders: OrdersTable;
       order_items: OrderItemsTable;
       order_credits: OrderCreditsTable;
+      stripe_events: StripeEventsTable;
       credit_audit_log: CreditAuditLogTable;
       tax_rates: TaxRatesTable;
       distribution_lists: DistributionListsTable;
