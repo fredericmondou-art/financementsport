@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Maquette — Accueil</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --color-primary:#1E3A5F;
+    --color-primary-dark:#15293F;
+    --color-accent:#C2410C;
+    --color-success:#1F7A45;
+    --color-error:#C0392B;
+    --color-warning-bg:#FCEFC7;
+    --text-main:#1A1F26;
+    --text-secondary:#5B6470;
+    --bg:#FFFFFF;
+    --bg-alt:#F7F8FA;
+    --border:#E1E4E8;
+    --radius-sm:6px;
+    --radius-md:8px;
+    --radius-lg:12px;
+    --shadow-sm:0 1px 3px rgba(26,31,38,0.08);
+    --shadow-md:0 4px 12px rgba(26,31,38,0.12);
+    --space-2:8px; --space-3:12px; --space-4:16px; --space-6:24px; --space-8:32px; --space-12:48px;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Inter',system-ui,sans-serif;color:var(--text-main);background:var(--bg);line-height:1.6;}
+  h1,h2,h3{font-family:'Outfit',sans-serif;font-weight:700;line-height:1.2;margin:0;}
+  a{color:var(--color-primary);text-decoration:none;}
+  .container{max-width:1080px;margin:0 auto;padding:0 var(--space-4);}
+  header{border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--bg);z-index:10;}
+  .nav{display:flex;align-items:center;justify-content:space-between;padding:var(--space-3) 0;}
+  .logo{font-family:'Outfit',sans-serif;font-weight:700;font-size:1.25rem;color:var(--color-primary);}
+  nav ul{display:flex;gap:var(--space-6);list-style:none;margin:0;padding:0;font-weight:500;font-size:0.9375rem;}
+  .btn{display:inline-flex;align-items:center;justify-content:center;border-radius:var(--radius-md);padding:10px 20px;font-weight:600;font-size:0.9375rem;border:none;cursor:pointer;}
+  .btn-primary{background:var(--color-primary);color:#fff;}
+  .btn-accent{background:var(--color-accent);color:#fff;}
+  .btn-outline{background:transparent;border:1px solid var(--border);color:var(--text-main);}
+  .hero{background:linear-gradient(160deg,var(--color-primary) 0%,var(--color-primary-dark) 100%);color:#fff;padding:var(--space-12) 0;}
+  .hero h1{font-size:1.75rem;}
+  .hero p{font-size:1.0625rem;color:#D8E2EC;max-width:520px;margin-top:var(--space-3);}
+  .hero-actions{display:flex;gap:var(--space-3);margin-top:var(--space-6);flex-wrap:wrap;}
+  section{padding:var(--space-12) 0;}
+  .section-title{font-size:1.375rem;margin-bottom:var(--space-6);}
+  .grid{display:grid;grid-template-columns:1fr;gap:var(--space-4);}
+  .card{border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;background:var(--bg);box-shadow:var(--shadow-sm);}
+  .card-media{height:120px;background:linear-gradient(135deg,#C2410C,#1E3A5F);display:flex;align-items:center;justify-content:center;color:#fff;font-family:'Outfit';font-weight:700;font-size:1.5rem;}
+  .card-body{padding:var(--space-4);}
+  .card-body h3{font-size:1.0625rem;margin-bottom:var(--space-2);}
+  .progress{height:8px;border-radius:999px;background:var(--bg-alt);overflow:hidden;margin:var(--space-3) 0;}
+  .progress > div{height:100%;background:var(--color-success);}
+  .meta{color:var(--text-secondary);font-size:0.875rem;display:flex;justify-content:space-between;}
+  .steps{display:grid;grid-template-columns:1fr;gap:var(--space-6);}
+  .step-num{width:36px;height:36px;border-radius:999px;background:var(--color-primary);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-family:'Outfit';margin-bottom:var(--space-3);}
+  footer{background:var(--bg-alt);border-top:1px solid var(--border);padding:var(--space-8) 0;color:var(--text-secondary);font-size:0.875rem;}
+  @media (min-width:640px){
+    .hero h1{font-size:2.5rem;}
+    .grid{grid-template-columns:repeat(3,1fr);}
+    .steps{grid-template-columns:repeat(3,1fr);}
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="container nav">
+    <div class="logo">Élan Sportif</div>
+    <nav><ul><li><a href="#">Boutique</a></li><li><a href="#">Comment ça marche</a></li><li><a href="#">Se connecter</a></li></ul></nav>
+  </div>
+</header>
+
+<section class="hero" style="padding-top:48px;padding-bottom:48px;">
+  <div class="container">
+    <h1>Soutenez un athlète, une équipe ou un club québécois</h1>
+    <p>Chaque achat dans la boutique attribue automatiquement un crédit réel à la personne ou à l'organisation que vous encouragez.</p>
+    <div class="hero-actions">
+      <button class="btn btn-accent">Trouver un athlète à encourager</button>
+      <button class="btn" style="background:rgba(255,255,255,0.15);color:#fff;">Visiter la boutique</button>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="container">
+    <h2 class="section-title">Campagnes en cours</h2>
+    <div class="grid">
+      <div class="card">
+        <div class="card-media">MR</div>
+        <div class="card-body">
+          <h3>Maélie R. — Patinage artistique</h3>
+          <div class="progress"><div style="width:62%"></div></div>
+          <div class="meta"><span>1 240 $ amassés</span><span>sur 2 000 $</span></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-media" style="background:linear-gradient(135deg,#1F7A45,#1E3A5F);">CHE</div>
+        <div class="card-body">
+          <h3>Club de hockey de l'Estrie</h3>
+          <div class="progress"><div style="width:38%"></div></div>
+          <div class="meta"><span>4 560 $ amassés</span><span>sur 12 000 $</span></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-media" style="background:linear-gradient(135deg,#C2410C,#5B6470);">TJB</div>
+        <div class="card-body">
+          <h3>Équipe junior de basketball</h3>
+          <div class="progress"><div style="width:80%"></div></div>
+          <div class="meta"><span>3 200 $ amassés</span><span>sur 4 000 $</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section style="background:var(--bg-alt);">
+  <div class="container">
+    <h2 class="section-title">Comment ça marche</h2>
+    <div class="steps">
+      <div><div class="step-num">1</div><h3 style="font-size:1.0625rem;margin-bottom:4px;">Trouvez un bénéficiaire</h3><p style="color:var(--text-secondary);font-size:0.9375rem;margin:0;">Par nom, équipe ou club, ou via un lien/QR code partagé.</p></div>
+      <div><div class="step-num">2</div><h3 style="font-size:1.0625rem;margin-bottom:4px;">Achetez dans la boutique</h3><p style="color:var(--text-secondary);font-size:0.9375rem;margin:0;">Produits, packs ou abonnements — taxes québécoises incluses.</p></div>
+      <div><div class="step-num">3</div><h3 style="font-size:1.0625rem;margin-bottom:4px;">Le crédit est attribué</h3><p style="color:var(--text-secondary);font-size:0.9375rem;margin:0;">Automatiquement, dès la confirmation du paiement.</p></div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="container">
+    Plateforme de financement sportif — Québec, Canada · TPS/TVQ incluses où applicable
+  </div>
+</footer>
+</body>
+</html>

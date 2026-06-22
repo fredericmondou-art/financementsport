@@ -169,6 +169,12 @@
       changement.
 
 ## En cours
-- [ ] Rien de bloquant actuellement côté infra/sécurité.
+- [ ] Phase 1.4 — Tâche 1.4.1 (direction visuelle) produite : `docs/DESIGN.md`
+      + 3 maquettes statiques `docs/maquettes/*.html`. EN ATTENTE de
+      validation humaine via `docs/QUESTIONS.md` avant la Tâche 1.4.2 (le
+      cahier de cette tâche impose explicitement cet arrêt).
 
 ## À venir
+- Phase 1.4.2 à 1.4.6 (système de design, navigation, application aux pages
+  existantes, accessibilité/perf, déploiement Vercel) — bloquées par la
+  validation ci-dessus.

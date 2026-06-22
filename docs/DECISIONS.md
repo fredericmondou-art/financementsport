@@ -761,3 +761,32 @@ de l'application ; toutes sont vérifiées par 281/281 tests verts +
    confirmés corrompus par `tail -c | cat -A`) — pour toute vérification
    future de ce type, préférer un scan binaire Python ou `tail -c N | cat
    -A` plutôt que `grep -P`.
+
+## Phase 1.4 — Tâche 1.4.1 : direction visuelle (2026-06-22)
+
+**Décision autonome — variables CSS plutôt que Tailwind.** Le projet n'a
+aucune dépendance de styling à ce jour. Plutôt qu'ajouter Tailwind (nouvel
+outil de build, surface de risque supplémentaire sur un projet dont la
+priorité reste « ne jamais casser le cœur »), les tokens de design (Tâche
+1.4.2) seront implémentés en variables CSS natives (`:root { --color-... }`),
+compatibles nativement avec `next/font`. CLAUDE.md ne mandate aucun outil CSS
+particulier ; ce choix est mineur et n'engage ni argent, ni sécurité, ni
+données de mineurs — pas de question bloquante nécessaire (CLAUDE.md §9).
+
+**Décision autonome — pas de fichier "frontend-design" trouvé.** Le prompt de
+la Tâche 1.4.1 référence un guide de design "de l'environnement" s'il est
+disponible ; recherché dans tout le dépôt et les skills installés, introuvable.
+Direction visuelle construite à partir des contraintes du cahier (sobriété,
+confiance des parents, élan des jeunes athlètes, mobile-first, AA) sans
+référence externe.
+
+**Palette vérifiée par calcul, pas à l'œil.** Chaque paire texte/fond proposée
+dans `docs/DESIGN.md` a été vérifiée par calcul de luminance relative WCAG
+(pas d'estimation visuelle). L'ambre d'avertissement échoue le AA en texte
+blanc (3.3:1) — documenté comme contrainte d'usage (fond clair + texte foncé
+uniquement) plutôt que d'être écarté de la palette.
+
+**Conformément à la Tâche 1.4.1, aucune application au site.** `docs/DESIGN.md`
++ 3 maquettes statiques (`docs/maquettes/*.html`, hors de l'app Next.js) ont
+été produits, puis le travail s'est arrêté pour validation humaine via
+`docs/QUESTIONS.md`, comme l'exige explicitement le cahier de cette tâche.
