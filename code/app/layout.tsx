@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import { Inter, Outfit } from 'next/font/google';
+import { SiteHeader } from '@/components/nav/site-header';
+import { SiteFooter } from '@/components/nav/site-footer';
 import './globals.css';
 
 /**
@@ -23,10 +25,25 @@ export const metadata: Metadata = {
   description: 'Boutique, financement et gestion pour athlètes, équipes et clubs.',
 };
 
-export default function RootLayout({ children }: { children: ReactNode }): JSX.Element {
+export default async function RootLayout({
+  children,
+}: {
+  children: ReactNode;
+}): Promise<JSX.Element> {
   return (
     <html lang="fr" className={`${inter.variable} ${outfit.variable}`}>
-      <body>{children}</body>
+      <body>
+        <SiteHeader />
+        {/*
+          `id` ciblé par le lien d'évitement (« skip link ») du
+          `SiteHeader` — ajouté ici plutôt que dans chaque page pour ne
+          toucher à aucun contenu existant (Tâche 1.4.3 ne change que la
+          coquille de navigation, pas les pages elles-mêmes ; voir
+          docs/DECISIONS.md).
+        */}
+        <div id="contenu-principal">{children}</div>
+        <SiteFooter />
+      </body>
     </html>
   );
 }

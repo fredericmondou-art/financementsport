@@ -913,3 +913,89 @@ cherchait encore l'ancienne phrase « paiement confirmé »).
 État final : `tsc --noEmit` propre, `eslint` propre, `vitest run` 33 fichiers
 / 313 tests verts, aucune régression sur les suites Phase 1 (intégration
 Postgres embarqué comprises).
+
+## Phase 1.4 — Tâche 1.4.3 : Navigation, layouts et changements de page
+
+**Mapping des zones génériques de la tâche vers les groupes réels du
+projet.** Le texte de la tâche liste `(public)`, `(shop)`, `(portal)`,
+`(admin)` comme exemple de fichiers concernés. Les groupes réels sont
+`(auth)`, `(financement)`, `(operations)`, `(portails)`, `(public)`,
+`(shop)` (voir Tâche d'audit, déplacement des pages publiques). De plus,
+`(financement)` et `(operations)` ne contiennent encore que des `.gitkeep` —
+aucune page n'y existe à ce jour. Décision : injecter `<SiteHeader/>` et
+`<SiteFooter/>` une seule fois dans `app/layout.tsx` (racine) plutôt que de
+créer des `layout.tsx` vides ou redondants par groupe. Les quatre zones avec
+des pages aujourd'hui (`(public)`, `(shop)`, `(portails)`, `(auth)`) veulent
+exactement le même habillage de navigation pour l'instant ; créer des
+layouts par groupe maintenant serait de la duplication sans bénéfice (et
+anticiperait une zone admin qui n'existe pas encore — CLAUDE.md section 10).
+Si une zone a besoin plus tard d'une coquille réellement différente (ex.
+back-office sans navigation publique), un `layout.tsx` dédié pourra être
+ajouté à ce moment sans rien casser.
+
+**Menu mobile en `<details>`/`<summary>` natif, sans JavaScript.** Plutôt
+qu'un composant client avec `useState` pour ouvrir/fermer le menu, j'utilise
+l'élément HTML natif `<details>` : accessible au clavier nativement (Entrée/
+Espace sur `<summary>`), ouverture/fermeture sans JS, cohérent avec le choix
+déjà fait pour `Modal` (Tâche 1.4.2, `<dialog>` natif) — toujours aucun
+composant client en dehors de `Modal`/`ModalDemo` dans tout le projet.
+Affichage contrôlé entièrement par CSS (`@media (max-width: 767px)`) : le
+menu mobile et la navigation desktop sont tous les deux présents dans le
+HTML, mais un seul est visible selon la largeur d'écran (l'autre est en
+`display: none`, donc absent de l'arbre d'accessibilité — pas de doublon
+pour les lecteurs d'écran ni pour les tests Playwright `getByRole`).
+
+**Lien actif sans hook client (`usePathname`).** Pour mettre en évidence la
+page active sans ajouter d'exception `'use client'`, `middleware.ts` pose un
+en-tête de requête `x-pathname` (chemin courant) lu côté serveur via
+`headers()` dans `components/nav/site-header.tsx`. `components/nav/
+nav-link.tsx` compare ce chemin à `href` et ajoute `aria-current="page"` +
+une classe visuelle. Le middleware ne fait rien d'autre (aucune logique
+d'authentification ou de sécurité) — RLS et `getCurrentUser` restent la
+seule source de vérité pour les droits d'accès.
+
+**Navigation adaptée au rôle.** Lien « Campagnes » affiché si
+`user.role` est `team_manager`/`club_admin`, OU si l'utilisateur a une
+adhésion (`memberships`) avec l'un de ces rôles (cohérent avec
+`lib/auth/permissions.ts`). Aucun lien dédié `platform_admin`/back-office
+pour l'instant : il n'existe encore aucune page dans `(financement)`/
+`(operations)` vers laquelle pointer (voir mapping de zones ci-dessus) — un
+lien sera ajouté quand ces pages existeront, plutôt que d'anticiper.
+
+**Lien d'évitement (« skip link ») et `id="contenu-principal"` posés dans le
+layout racine, pas dans chaque page.** Évite de toucher au contenu des
+pages existantes (réservé à la Tâche 1.4.4 — présentation uniquement,
+logique métier intacte) tout en satisfaisant déjà un besoin d'accessibilité
+de base.
+
+**`app/loading.tsx` unique à la racine pour l'état de chargement entre
+pages.** Convention App Router : ce fichier limite la zone de Suspense au
+contenu de page (`{children}` du layout), donc `SiteHeader`/`SiteFooter`
+(rendus en dehors de `{children}`) restent affichés pendant la transition —
+jamais d'écran blanc, jamais de saut de mise en page (critère d'acceptation
+1.4.3).
+
+**Nouvelle manifestation du bug de cache mount/git, sur le même fichier que
+lors de la Tâche 1.4.2 (`app/layout.tsx`).** Après l'édition ajoutant
+`SiteHeader`/`SiteFooter`, le Read tool affichait le contenu complet et
+correct, mais un scan d'octets bruts via bash montrait exactement les mêmes
+1103 octets que la version PRÉCÉDENT cette édition, tronqués en plein milieu
+de la signature de `RootLayout`. Réparé immédiatement par réécriture complète
+via heredoc bash sur le mount (1679 octets, fin de fichier propre), comme à
+chaque fois que ce bug se manifeste — voir la mémoire persistante dédiée
+(`feedback_ecommerce_mount_git_cache`, hors de ce dépôt) pour la procédure
+complète.
+
+**Tests.** `tests/e2e/navigation.spec.ts` (desktop : accueil → boutique →
+page athlète → panier sans rechargement complet, prouvé par un marqueur
+posé en mémoire JS qui ne survivrait pas à un rechargement HTTP ; lien actif
+via `aria-current` ; menu mobile masqué sur desktop — et viewport réduit
+375px : menu mobile visible, cible tactile >= 44px, ouverture/fermeture via
+l'attribut `open`, navigation depuis le panneau mobile). Comme les e2e
+existants (voir `tests/e2e/public-profile.spec.ts`), non exécutable dans ce
+bac à sable (Chromium et réseau Supabase bloqués) — à exécuter en CI/local.
+Utilise l'athlète seedé réel `thomas-u11`, aucun nouveau seed e2e requis.
+
+État final : `tsc --noEmit` propre, `eslint` propre, `vitest run` toujours
+33 fichiers / 313 tests verts (aucune régression — aucun nouveau test
+unitaire requis pour cette tâche, qui n'attend que des tests e2e).

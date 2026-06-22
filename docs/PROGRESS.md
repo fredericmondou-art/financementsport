@@ -200,9 +200,30 @@
       État final : 33 fichiers / 313 tests verts, `tsc --noEmit` et
       `npm run lint` propres, aucune régression Phase 1.
 
+- [x] Phase 1.4 — Tâche 1.4.3 : Navigation, layouts et changements de page —
+      `middleware.ts` (pose un en-tête `x-pathname` pour le lien actif sans
+      hook client), `components/nav/{site-header,site-footer,nav-link}.tsx`
+      (en-tête sticky avec marque/nav/actions, menu mobile en `<details>`/
+      `<summary>` natif sans JS — troisième composant du projet après
+      Modal/ModalDemo à approcher l'interactivité, mais entièrement
+      server-rendu), `app/layout.tsx` (intègre header/footer + lien
+      d'évitement + `id="contenu-principal"`), `app/loading.tsx` (état de
+      chargement global, header/footer jamais démontés). Navigation adaptée
+      au rôle (lien « Campagnes » si `team_manager`/`club_admin`, direct ou
+      via `memberships`). Décisions autonomes (voir docs/DECISIONS.md) :
+      mapping des zones génériques de la tâche vers les groupes réels du
+      projet (header/footer injectés une seule fois à la racine plutôt que
+      des layouts par groupe, `(financement)`/`(operations)` toujours vides),
+      pas de lien back-office tant qu'aucune page n'existe. Une nouvelle
+      manifestation du bug de cache mount/git sur `app/layout.tsx` (même
+      fichier qu'à la Tâche 1.4.2) rencontrée et réparée. `tests/e2e/
+      navigation.spec.ts` (desktop + viewport mobile 375px), non exécutable
+      dans ce bac à sable comme les e2e précédents. État final : 33 fichiers
+      / 313 tests verts (aucune régression, aucun nouveau test unitaire
+      attendu pour cette tâche), `tsc --noEmit` et `npm run lint` propres.
+
 ## En cours
-- [ ] Phase 1.4 — Tâche 1.4.3 : Navigation, layouts et changements de page.
+- [ ] Phase 1.4 — Tâche 1.4.4 : Application du design aux pages existantes.
 
 ## À venir
-- Phase 1.4.4 à 1.4.6 (application du design aux pages existantes,
-  accessibilité/perf/finitions, déploiement Vercel).
+- Phase 1.4.5 à 1.4.6 (accessibilité/perf/finitions, déploiement Vercel).
