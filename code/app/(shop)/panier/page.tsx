@@ -12,6 +12,12 @@
  * Habillage Tâche 1.4.4 : Card/table/Button du système de design,
  * présentation uniquement — le rôle `role="alert"` du message d'erreur est
  * conservé via le composant `Alert` (variante "error" → role="alert").
+ *
+ * État vide (Tâche 1.4.5) : "Votre panier est vide." passé dans
+ * `Alert variant="info"` pour plus de clarté visuelle — texte inchangé (le
+ * test unitaire `checkout-prepare-checkout.test.ts` qui référence cette
+ * même phrase teste un message d'exception de logique métier, sans lien
+ * avec cette page — voir docs/DECISIONS.md).
  */
 import { formatCents } from '@/lib/format-cents';
 import { getCurrentUser } from '@/lib/auth/session';
@@ -83,7 +89,7 @@ export default async function PanierPage({ searchParams }: PanierPageProps): Pro
       ) : null}
 
       {items.length === 0 ? (
-        <p>Votre panier est vide.</p>
+        <Alert variant="info">Votre panier est vide.</Alert>
       ) : (
         <div className="table-wrap">
           <table className="table">

@@ -5,19 +5,55 @@
  *
  * Habillage Tâche 1.4.4 : voir le commentaire équivalent sur la page
  * athlète — présentation uniquement, aucun texte changé.
+ *
+ * `generateMetadata` (Tâche 1.4.5) : voir le commentaire équivalent sur la
+ * page athlète — même logique, mêmes garde-fous (jamais de montant dans
+ * l'aperçu de partage).
  */
+import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
+import Image from 'next/image';
 import { createSupabaseServerClient } from '@/lib/auth/supabase-server';
 import { loadPublicClubProfile } from '@/lib/public/profile';
 import { formatCents } from '@/lib/format-cents';
 import { ProductCard } from '@/components/product-card';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Alert } from '@/components/ui/alert';
 import { ProgressBar } from '@/components/ui/progress-bar';
 import { Button } from '@/components/ui/button';
 
 interface ClubPageProps {
   params: { slug: string };
+}
+
+export async function generateMetadata({ params }: ClubPageProps): Promise<Metadata> {
+  const supabase = createSupabaseServerClient();
+  const data = await loadPublicClubProfile(supabase, params.slug);
+  if (!data) {
+    return { title: 'Profil introuvable' };
+  }
+  const { profile, campaignSection } = data;
+  const title = profile.name;
+  const description = campaignSection
+    ? `Soutenez ${profile.name} — ${campaignSection.campaign.name}.`
+    : `Découvrez et soutenez ${profile.name}.`;
+  return {
+    title,
+    description,
+    openGraph: {
+      type: 'website',
+      title,
+      description,
+      images: profile.logo_url ? [{ url: profile.logo_url }] : undefined,
+    },
+    twitter: {
+      card: profile.logo_url ? 'summary_large_image' : 'summary',
+      title,
+      description,
+      images: profile.logo_url ? [profile.logo_url] : undefined,
+    },
+  };
 }
 
 export default async function ClubPage({ params }: ClubPageProps): Promise<JSX.Element> {
@@ -34,8 +70,13 @@ export default async function ClubPage({ params }: ClubPageProps): Promise<JSX.E
     <main className="page stack">
       <div className="public-profile__header">
         {profile.logo_url ? (
-          // eslint-disable-next-line @next/next/no-img-element -- image distante (Supabase Storage), pas d'optimisation Next.js nécessaire en V1.
-          <img src={profile.logo_url} alt={profile.name} className="public-profile__avatar" />
+          <Image
+            src={profile.logo_url}
+            alt={profile.name}
+            width={96}
+            height={96}
+            className="public-profile__avatar"
+          />
         ) : null}
         <div className="public-profile__identity">
           <h1>{profile.name}</h1>
@@ -69,7 +110,7 @@ export default async function ClubPage({ params }: ClubPageProps): Promise<JSX.E
           </section>
         </Card>
       ) : (
-        <p>Aucune campagne active pour le moment.</p>
+        <Alert variant="info">Aucune campagne active pour le moment.</Alert>
       )}
 
       <div>

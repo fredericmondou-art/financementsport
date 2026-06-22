@@ -14,6 +14,10 @@
  * présentation uniquement — le `<h1>Boutique</h1>` et le texte du bouton
  * "Ajouter au panier" restent inchangés (voir tests/e2e/navigation.spec.ts
  * et tests/e2e/public-profile.spec.ts).
+ *
+ * État vide (Tâche 1.4.5) : "Aucun produit disponible pour le moment."
+ * passé dans `Alert variant="info"` pour plus de clarté visuelle — texte
+ * inchangé.
  */
 import { createSupabaseServerClient } from '@/lib/auth/supabase-server';
 import { createSupabaseProductRepo, listPublicProducts, type ProductSort } from '@/lib/catalog/products';
@@ -59,7 +63,7 @@ export default async function BoutiquePage({ searchParams }: BoutiquePageProps):
         </Alert>
       ) : null}
       {products.length === 0 ? (
-        <p>Aucun produit disponible pour le moment.</p>
+        <Alert variant="info">Aucun produit disponible pour le moment.</Alert>
       ) : (
         <ul className="product-grid">
           {products.map((product) => (

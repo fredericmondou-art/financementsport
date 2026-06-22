@@ -239,8 +239,35 @@
       confirme les 9 tests e2e toujours valides (exécution réelle bloquée en
       sandbox comme depuis la Tâche 0.1).
 
+- [x] Phase 1.4 — Tâche 1.4.5 : Accessibilité, performance et finitions —
+      `app/not-found.tsx` (404) et `app/error.tsx` (500, limite d'erreur
+      globale, bouton « Réessayer » → `reset()`) en français, habillées avec
+      `Card`/`Button` et les classes `.error-state*` existantes.
+      `lib/env.ts` gagne `getPublicAppUrl()` ; `app/layout.tsx` définit
+      `metadataBase` + valeurs `openGraph`/`twitter` par défaut ; les trois
+      pages publiques (athlète/équipe/club) ont chacune un `generateMetadata`
+      qui ne référence jamais les montants masqués par `hide_amounts` (aperçu
+      de partage social correct sur Messenger/Facebook, section 54).
+      `next.config.js` autorise `next/image` sur `*.supabase.co` (annule la
+      décision « pas d'optimisation Next.js » de la Tâche 1.2/1.6, cette
+      tâche le demande explicitement) ; avatars et image de catalogue
+      converties en `<Image>`. Audit accessibilité automatisé : décision
+      autonome de s'appuyer sur `eslint-plugin-jsx-a11y` (déjà inclus via
+      `eslint-config-next` depuis la Tâche 1.4.2) plutôt que d'ajouter
+      jest-axe/playwright-axe — `npm run lint` propre. 9 messages d'état vide
+      passés de `<p>` brut à `<Alert variant="info">` (texte inchangé
+      partout). Deux nouvelles manifestations du bug de cache mount/git
+      rencontrées et réparées par réécriture heredoc complète (voir
+      docs/DECISIONS.md) — réaffirmation définitive : l'outil Edit ne doit
+      plus jamais être utilisé sur ce mount. État final : 35 fichiers / 317
+      tests verts (313 existants + 4 nouveaux : `app-error.test.tsx`,
+      `app-not-found.test.tsx`), `tsc --noEmit` et `npm run lint` propres,
+      `npx playwright test --list` confirme 11 tests e2e dans 5 fichiers (9
+      existants + 2 nouveaux dans `tests/e2e/error-pages.spec.ts`) ;
+      exécution réelle toujours bloquée en sandbox comme depuis la Tâche 0.1.
+
 ## En cours
-- [ ] Phase 1.4 — Tâche 1.4.5 : Accessibilité, performance et finitions.
+- [ ] Phase 1.4 — Tâche 1.4.6 : Déploiement Vercel.
 
 ## À venir
-- Phase 1.4.6 (déploiement Vercel).
+- (rien après la Phase 1.4 dans le cahier des charges fourni à ce jour)

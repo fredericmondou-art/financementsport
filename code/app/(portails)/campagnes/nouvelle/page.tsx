@@ -17,6 +17,11 @@
  * conservés via le composant `Alert`, et chaque champ conserve son
  * association label/contrôle (via `Field`, ou manuellement pour les listes
  * de cases à cocher).
+ *
+ * États vides (Tâche 1.4.5) : "Aucune équipe gérée.", "Aucun club géré.",
+ * "Aucun athlète dans le périmètre géré.", "Aucun athlète disponible dans
+ * votre périmètre.", "Aucun pack actif au catalogue." passés dans
+ * `Alert variant="info"` pour plus de clarté visuelle — textes inchangés.
  */
 import { redirect } from 'next/navigation';
 import { getCurrentUser } from '@/lib/auth/session';
@@ -85,7 +90,7 @@ export default async function NouvelleCampagnePage({
         <section className="stack stack--sm">
           <h2>Vos équipes</h2>
           {teams.length === 0 ? (
-            <p>Aucune équipe gérée.</p>
+            <Alert variant="info">Aucune équipe gérée.</Alert>
           ) : (
             <ul>
               {teams.map((team) => (
@@ -98,7 +103,7 @@ export default async function NouvelleCampagnePage({
 
           <h2>Vos clubs</h2>
           {clubs.length === 0 ? (
-            <p>Aucun club géré.</p>
+            <Alert variant="info">Aucun club géré.</Alert>
           ) : (
             <ul>
               {clubs.map((club) => (
@@ -111,7 +116,7 @@ export default async function NouvelleCampagnePage({
 
           <h2>Athlètes de vos équipes</h2>
           {athletes.length === 0 ? (
-            <p>Aucun athlète dans le périmètre géré.</p>
+            <Alert variant="info">Aucun athlète dans le périmètre géré.</Alert>
           ) : (
             <ul>
               {athletes.map((athlete) => (
@@ -204,7 +209,7 @@ export default async function NouvelleCampagnePage({
           <section className="stack stack--sm">
             <h2>Athlètes participants</h2>
             {athletes.length === 0 ? (
-              <p>Aucun athlète disponible dans votre périmètre.</p>
+              <Alert variant="info">Aucun athlète disponible dans votre périmètre.</Alert>
             ) : (
               <div className="checkbox-list">
                 {athletes.map((athlete) => (
@@ -227,7 +232,7 @@ export default async function NouvelleCampagnePage({
           <section className="stack stack--sm">
             <h2>Packs inclus (au moins un requis)</h2>
             {products.length === 0 ? (
-              <p>Aucun pack actif au catalogue.</p>
+              <Alert variant="info">Aucun pack actif au catalogue.</Alert>
             ) : (
               <div className="checkbox-list">
                 {products.map((product) => (

@@ -1065,3 +1065,107 @@ nouveau test unitaire requis — cette tâche n'attend que des tests e2e déjà
 0.1, leur exécution réelle est bloquée dans ce bac à sable (téléchargement
 des navigateurs Chromium et réseau Supabase tous deux bloqués par la
 politique réseau) et doit se faire en CI/local.
+
+## Tâche 1.4.5 — Accessibilité, performance, finitions
+
+**Pages d'erreur globales.** `app/not-found.tsx` (404) et `app/error.tsx`
+(500, limite d'erreur React de l'App Router — doit être un composant client,
+contrainte Next.js) écrites en français, habillées avec `Card`/`Button` du
+système de design et les classes `.error-state*` déjà définies dans
+`app/globals.css` (Tâche 1.4.2, jusqu'ici utilisées seulement par le
+composant `components/ui/error-state.tsx` pour des messages d'erreur en
+ligne). Décision autonome : pour ces deux pages plein écran, un `<h1>` réel
+est utilisé plutôt que le composant `ErrorState` (qui rend un `<p>`, prévu
+pour un message imbriqué dans une page existante qui a déjà son propre titre)
+— chaque page doit conserver un seul `<h1>` visible (CLAUDE.md, critère
+d'accessibilité AA). `app/error.tsx` ne journalise jamais le détail de
+l'erreur à l'écran (juste `console.error` côté client, diagnostic local) ;
+le bouton « Réessayer » appelle `reset()` (fourni par Next.js) plutôt que de
+recharger la page.
+
+**Métadonnées / Open Graph.** `lib/env.ts` gagne `getPublicAppUrl()` (lit
+`NEXT_PUBLIC_APP_URL`, retombe sur `http://localhost:3000` — contrairement à
+`getEnv()`, ne lance jamais d'erreur : l'absence de cette variable ne doit
+degrader que la qualité de l'aperçu de partage, jamais faire échouer le
+rendu d'une page). `app/layout.tsx` définit `metadataBase` et des valeurs
+`openGraph`/`twitter` par défaut (`locale: 'fr_CA'`, nom et description du
+site) héritées par toute page sans `generateMetadata` propre. Les trois pages
+publiques (`app/(public)/[athleteSlug]`, `team/[slug]`, `club/[slug]`) ont
+chacune un `generateMetadata` qui appelle le même chargeur que la page
+(`lib/public/profile.ts`) et construit titre/description/OG à partir du nom
+du profil et du nom de campagne **uniquement** — ne référence jamais
+`campaignSection.progress` (montants amassés/objectif), pour qu'un aperçu de
+partage (Messenger/Facebook, section 54 du cahier) ne puisse jamais exposer
+un montant que `hide_amounts` masque par ailleurs sur la page elle-même.
+Compromis accepté pour la V1 : requête Supabase dupliquée par rendu (page +
+métadonnées), ces chargeurs ne sont pas encore mémoïsés via `cache()` de
+React.
+
+**Optimisation des images.** `next.config.js` autorise `next/image` à
+optimiser les images Supabase Storage via `images.remotePatterns` (wildcard
+`*.supabase.co/storage/v1/object/public/**` — un seul motif fonctionne pour
+n'importe quel projet Supabase, dev ou prod, sans duplication de config par
+environnement). Ceci **annule** la décision de la Tâche 1.2/1.6 d'utiliser
+un `<img>` brut pour ces images (« pas d'optimisation Next.js nécessaire en
+V1 ») : cette tâche demande explicitement l'optimisation des images, donc
+elle prime. Avatars des trois pages publiques convertis en `<Image
+width={96} height={96}>` (taille fixe). Image de catalogue
+(`components/product-card.tsx`) convertie en `<Image fill sizes="...">`, ce
+qui a nécessité de changer `.product-card__image` (CSS) d'une règle ciblant
+un `<img>` plat à une règle de conteneur positionné
+(`position: relative` + `aspect-ratio` + `overflow: hidden`), `next/image`
+en mode `fill` exigeant un ancêtre positionné avec des dimensions définies ;
+nouvelle règle `.product-card__image-img { object-fit: cover; }` appliquée
+à l'image elle-même.
+
+**Audit accessibilité automatisé.** Décision autonome : pas de nouvelle
+dépendance de test (jest-axe exige un rendu jsdom, playwright-axe exige un
+vrai navigateur — aucun des deux n'apporte de valeur disproportionnée pour
+la V1 face à la contrainte « ne pas anticiper » de CLAUDE.md section 10).
+`eslint-config-next` (déjà en place depuis la Tâche 1.4.2) embarque
+`eslint-plugin-jsx-a11y` ; `npm run lint` sert donc d'audit accessibilité
+automatisé pour cette tâche — confirmé sans aucune violation après tous les
+changements de cette tâche. À reconsidérer si une revue professionnelle
+(mentionnée CLAUDE.md section 2) demande un audit plus poussé avant
+production.
+
+**États vides.** Les 9 messages d'état vide identifiés (« Aucun produit
+disponible pour le moment. », « Votre panier est vide. », « Aucune équipe
+gérée. », « Aucun club géré. », « Aucun athlète dans le périmètre géré. »,
+« Aucun athlète disponible dans votre périmètre. », « Aucun pack actif au
+catalogue. », et « Aucune campagne active pour le moment. » ×3 pages
+publiques) sont passés de `<p>` brut à `<Alert variant="info">` — texte
+inchangé partout, donc aucune régression possible sur les tests existants
+(vérifié explicitement : `tests/unit/checkout-prepare-checkout.test.ts`
+référence la même phrase « Votre panier est vide. » mais comme message
+d'exception de validation, pas comme assertion DOM — aucun lien avec cette
+page).
+
+**Bug de cache mount/git rencontré deux fois de plus.** L'outil Edit a de
+nouveau silencieusement échoué sur `app/globals.css`, `lib/env.ts` et, plus
+tard dans la même tâche, sur les pages publiques team/club (taille de
+fichier inchangée ou fin de fichier tronquée en plein milieu d'une balise,
+visible uniquement côté bash — la vue de l'outil Read restait correcte).
+Réaffirmation définitive de la stratégie déjà notée à la Tâche 1.4.4 :
+**l'outil Edit ne doit plus être utilisé sur ce mount, en aucune
+circonstance** — uniquement des réécritures complètes via heredoc bash, avec
+vérification systématique par scan Python indépendant (longueur exacte,
+absence d'octet nul, fin de fichier cohérente). Mémoire persistante déjà à
+jour sur ce point (`feedback_ecommerce_mount_git_cache`, hors de ce dépôt).
+
+**Tests.** Deux nouveaux tests unitaires (`tests/unit/app-error.test.tsx`,
+`tests/unit/app-not-found.test.tsx`) couvrent le contenu en français des
+pages d'erreur et le bouton « Réessayer » (`reset()`), sans dépendre d'un
+serveur Next.js démarré. Un nouveau fichier e2e
+(`tests/e2e/error-pages.spec.ts`) couvre la 404 sur une route inexistante et
+le panier vide sur un contexte de navigateur neuf ; le 500 (`error.tsx`)
+n'est volontairement pas déclenché en e2e — aucune route de test cassée
+n'existe en V1 et en créer une irait à l'encontre de CLAUDE.md section 10,
+donc ce cas reste couvert au seul niveau unitaire.
+
+**Vérification finale.** `tsc --noEmit` propre, `eslint` propre, `vitest
+run` : 35 fichiers / 317 tests verts (313 existants + 4 nouveaux, aucune
+régression). `npx playwright test --list` confirme 11 tests e2e dans 5
+fichiers (9 existants + 2 nouveaux) ; exécution réelle toujours bloquée dans
+ce bac à sable (Chromium + réseau Supabase hors allowlist), à faire en
+CI/local avant mise en production.

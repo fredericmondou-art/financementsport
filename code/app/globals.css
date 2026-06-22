@@ -738,10 +738,14 @@ textarea {
   height: 100%;
 }
 .product-card__image {
+  position: relative;
   width: 100%;
   aspect-ratio: 4 / 3;
-  object-fit: cover;
   border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.product-card__image-img {
+  object-fit: cover;
 }
 .product-card__title {
   margin: 0;
@@ -806,4 +810,5 @@ textarea {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  padding-left: var(
+  padding-left: var(--space-5);
+}
