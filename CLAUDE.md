@@ -19,6 +19,13 @@ commandes → relancer → produire des rapports.
 
 ## 2. Décisions d'architecture déjà prises (ne pas les rediscuter)
 
+- **Entreprise établie au Québec (Canada).** Interface en **français** par défaut
+  (site, courriels, portails). Devise **CAD**. Taxes **TPS 5 % + TVQ 9,975 %**
+  via la table `tax_rates` (jamais en dur dans la logique). Adresses au format
+  canadien, province par défaut QC. Pour la confidentialité des mineurs, viser
+  les bonnes pratiques applicables au Québec/Canada ; signaler tout point
+  juridique incertain plutôt que de présumer (une revue professionnelle sera
+  requise avant production).
 - **Versements : MANUELS en V1.** Le système calcule les montants dus, un admin
   valide et paie à la main. PAS de Stripe Connect pour l'instant.
 - **Bénéficiaire POLYMORPHE.** Un crédit peut viser un athlète, une équipe OU un

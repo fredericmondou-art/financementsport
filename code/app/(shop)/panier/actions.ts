@@ -18,7 +18,7 @@ import {
   listCartBeneficiaries,
   setCartBeneficiarySplit,
 } from '@/lib/cart/beneficiaries';
-import { createSupabaseCartRepo, getCartForIdentity, getOrCreateCart } from '@/lib/cart/cart';
+import { createCartDataClient, createSupabaseCartRepo, getCartForIdentity, getOrCreateCart } from '@/lib/cart/cart';
 import { resolveCartIdentity } from '@/lib/cart/identity';
 import {
   addItemToCart,
@@ -68,7 +68,8 @@ export async function addItemAction(formData: FormData): Promise<void> {
     const supabase = createSupabaseServerClient();
     const user = await getCurrentUser();
 
-    const cart = await getOrCreateCart(identity, createSupabaseCartRepo(supabase));
+    const cartClient = createCartDataClient();
+    const cart = await getOrCreateCart(identity, createSupabaseCartRepo(cartClient));
     const product = await getProduct(user, parsed.data.productId, createSupabaseProductRepo(supabase));
     await addItemToCart(
       cart,
@@ -80,7 +81,7 @@ export async function addItemAction(formData: FormData): Promise<void> {
         stockQuantity: product.stock_quantity,
       },
       parsed.data.quantity,
-      createSupabaseCartItemsRepo(supabase),
+      createSupabaseCartItemsRepo(cartClient),
     );
 
     // Pré-sélection "Encourager" (Tâche 1.6) : on attache automatiquement le
@@ -90,7 +91,7 @@ export async function addItemAction(formData: FormData): Promise<void> {
     // Une fois ce premier article ajouté, le client reste libre de modifier
     // la répartition normalement depuis /panier.
     if (parsed.data.beneficiaryType && parsed.data.beneficiaryId) {
-      const beneficiariesRepo = createSupabaseCartBeneficiariesRepo(supabase);
+      const beneficiariesRepo = createSupabaseCartBeneficiariesRepo(cartClient);
       const existing = await listCartBeneficiaries(cart, identity, beneficiariesRepo);
       if (existing.length === 0) {
         await setCartBeneficiarySplit(
@@ -129,9 +130,10 @@ export async function updateQuantityAction(formData: FormData): Promise<void> {
     const identity = await resolveCartIdentity();
     const supabase = createSupabaseServerClient();
     const user = await getCurrentUser();
-    const itemsRepo = createSupabaseCartItemsRepo(supabase);
+    const cartClient = createCartDataClient();
+    const itemsRepo = createSupabaseCartItemsRepo(cartClient);
 
-    const cart = await getCartForIdentity(parsed.data.cartId, identity, createSupabaseCartRepo(supabase));
+    const cart = await getCartForIdentity(parsed.data.cartId, identity, createSupabaseCartRepo(cartClient));
     const existingItem = await itemsRepo.getItemById(parsed.data.itemId);
     if (!existingItem) {
       throw new NotFoundError('Article introuvable dans ce panier.');
@@ -175,9 +177,9 @@ export async function removeItemAction(formData: FormData): Promise<void> {
 
   try {
     const identity = await resolveCartIdentity();
-    const supabase = createSupabaseServerClient();
-    const cart = await getCartForIdentity(parsed.data.cartId, identity, createSupabaseCartRepo(supabase));
-    await removeItemFromCart(cart, identity, parsed.data.itemId, createSupabaseCartItemsRepo(supabase));
+    const cartClient = createCartDataClient();
+    const cart = await getCartForIdentity(parsed.data.cartId, identity, createSupabaseCartRepo(cartClient));
+    await removeItemFromCart(cart, identity, parsed.data.itemId, createSupabaseCartItemsRepo(cartClient));
   } catch (error) {
     redirectWithError(error);
   }
@@ -230,13 +232,13 @@ export async function setBeneficiarySplitAction(formData: FormData): Promise<voi
 
   try {
     const identity = await resolveCartIdentity();
-    const supabase = createSupabaseServerClient();
-    const cart = await getCartForIdentity(parsedForm.data.cartId, identity, createSupabaseCartRepo(supabase));
+    const cartClient = createCartDataClient();
+    const cart = await getCartForIdentity(parsedForm.data.cartId, identity, createSupabaseCartRepo(cartClient));
     await setCartBeneficiarySplit(
       cart,
       identity,
       parsedSplit.data,
-      createSupabaseCartBeneficiariesRepo(supabase),
+      createSupabaseCartBeneficiariesRepo(cartClient),
     );
   } catch (error) {
     redirectWithError(error);

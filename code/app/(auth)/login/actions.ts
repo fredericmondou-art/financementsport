@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { redirect } from 'next/navigation';
 import { createSupabaseServerClient } from '@/lib/auth/supabase-server';
 import { attachGuestCartToUser } from '@/lib/cart/attach-guest-cart';
-import { createSupabaseCartRepo } from '@/lib/cart/cart';
+import { createCartDataClient, createSupabaseCartRepo } from '@/lib/cart/cart';
 import { getExistingGuestSessionToken } from '@/lib/cart/identity';
 import { createSupabaseCartItemsRepo } from '@/lib/cart/items';
 
@@ -42,9 +42,10 @@ export async function loginAction(formData: FormData): Promise<void> {
   // normal `null`) sont laissées remonter aux logs serveur Next.js.
   const guestSessionToken = getExistingGuestSessionToken();
   if (guestSessionToken && data.user) {
+    const cartClient = createCartDataClient();
     await attachGuestCartToUser(guestSessionToken, data.user.id, {
-      carts: createSupabaseCartRepo(supabase),
-      items: createSupabaseCartItemsRepo(supabase),
+      carts: createSupabaseCartRepo(cartClient),
+      items: createSupabaseCartItemsRepo(cartClient),
     });
   }
 

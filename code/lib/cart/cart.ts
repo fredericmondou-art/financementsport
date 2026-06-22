@@ -16,10 +16,32 @@
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { CartsTable } from '@/lib/db/types';
+import { createSupabaseServiceClient } from '@/lib/db/client';
 import { BusinessRuleError, NotFoundError, PermissionError } from '@/lib/entities/errors';
 import type { CartIdentity } from './types';
 
 export type CartRow = CartsTable['Row'];
+
+/**
+ * Client à utiliser pour TOUTE opération sur `carts`/`cart_items`/
+ * `cart_beneficiaries` (Tâche 1.4 — bug corrigé Tâche 1.4.6).
+ *
+ * Ces trois tables n'ont, par conception, aucune policy RLS `anon`
+ * (migration `0003_rls_policies.sql`, section 12 : « Paniers invités... gérés
+ * exclusivement par le serveur via le client service_role »). Le contrôle
+ * d'accès réel passe par `assertCartOwnership` (comparaison applicative
+ * `user_id`/`session_token`), jamais par Postgres RLS pour ces tables.
+ *
+ * Utiliser le client anon ici (`createSupabaseServerClient`) provoquait un
+ * rejet RLS systématique en production dès qu'un panier invité (`user_id IS
+ * NULL`) était inséré/lu, ainsi que lors du rattachement d'un panier invité
+ * après connexion (la ligne reste `user_id IS NULL` jusqu'à l'attache) --
+ * diagnostiqué via les logs Postgres production (`new row violates
+ * row-level security policy for table "carts"`). Voir docs/DECISIONS.md.
+ */
+export function createCartDataClient(): SupabaseClient {
+  return createSupabaseServiceClient();
+}
 
 /** Accès aux données `carts`, injecté pour permettre des tests
  * unitaires/d'intégration sans base de données réelle. */

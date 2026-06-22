@@ -5,7 +5,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createSupabaseServerClient } from '@/lib/auth/supabase-server';
 import { createSupabaseCartBeneficiariesRepo, listCartBeneficiaries } from '@/lib/cart/beneficiaries';
-import { createSupabaseCartRepo, getOrCreateCart } from '@/lib/cart/cart';
+import { createCartDataClient, createSupabaseCartRepo, getOrCreateCart } from '@/lib/cart/cart';
 import { loadCartCreditContext } from '@/lib/cart/credit-context';
 import { estimateCartCredit } from '@/lib/cart/estimate-credit';
 import { resolveCartIdentity } from '@/lib/cart/identity';
@@ -23,10 +23,11 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const identity = await resolveCartIdentity();
     const supabase = createSupabaseServerClient();
 
-    const cart = await getOrCreateCart(identity, createSupabaseCartRepo(supabase));
+    const cartClient = createCartDataClient();
+    const cart = await getOrCreateCart(identity, createSupabaseCartRepo(cartClient));
     const [items, beneficiaries] = await Promise.all([
-      listCartItems(cart, identity, createSupabaseCartItemsRepo(supabase)),
-      listCartBeneficiaries(cart, identity, createSupabaseCartBeneficiariesRepo(supabase)),
+      listCartItems(cart, identity, createSupabaseCartItemsRepo(cartClient)),
+      listCartBeneficiaries(cart, identity, createSupabaseCartBeneficiariesRepo(cartClient)),
     ]);
 
     const campaignId = request.nextUrl.searchParams.get('campaignId');

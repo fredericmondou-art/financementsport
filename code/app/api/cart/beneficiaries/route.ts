@@ -7,9 +7,8 @@
  */
 import { NextResponse, type NextRequest } from 'next/server';
 import { z } from 'zod';
-import { createSupabaseServerClient } from '@/lib/auth/supabase-server';
 import { createSupabaseCartBeneficiariesRepo, setCartBeneficiarySplit } from '@/lib/cart/beneficiaries';
-import { createSupabaseCartRepo, getCartForIdentity } from '@/lib/cart/cart';
+import { createCartDataClient, createSupabaseCartRepo, getCartForIdentity } from '@/lib/cart/cart';
 import { resolveCartIdentity } from '@/lib/cart/identity';
 import { toErrorResponse } from '@/lib/http/api-error-response';
 
@@ -26,14 +25,14 @@ export async function PUT(request: NextRequest): Promise<NextResponse> {
   try {
     const body = bodySchema.parse(await request.json());
     const identity = await resolveCartIdentity();
-    const supabase = createSupabaseServerClient();
+    const cartClient = createCartDataClient();
 
-    const cart = await getCartForIdentity(body.cartId, identity, createSupabaseCartRepo(supabase));
+    const cart = await getCartForIdentity(body.cartId, identity, createSupabaseCartRepo(cartClient));
     const beneficiaries = await setCartBeneficiarySplit(
       cart,
       identity,
       body.split,
-      createSupabaseCartBeneficiariesRepo(supabase),
+      createSupabaseCartBeneficiariesRepo(cartClient),
     );
 
     return NextResponse.json({ beneficiaries });

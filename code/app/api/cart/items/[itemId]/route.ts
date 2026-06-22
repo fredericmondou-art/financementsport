@@ -8,7 +8,7 @@ import { z } from 'zod';
 import { getCurrentUser } from '@/lib/auth/session';
 import { createSupabaseServerClient } from '@/lib/auth/supabase-server';
 import { createSupabaseProductRepo, getProduct } from '@/lib/catalog/products';
-import { createSupabaseCartRepo, getCartForIdentity } from '@/lib/cart/cart';
+import { createCartDataClient, createSupabaseCartRepo, getCartForIdentity } from '@/lib/cart/cart';
 import { resolveCartIdentity } from '@/lib/cart/identity';
 import {
   createSupabaseCartItemsRepo,
@@ -44,7 +44,8 @@ export async function PATCH(
     const supabase = createSupabaseServerClient();
     const user = await getCurrentUser();
 
-    const cart = await getCartForIdentity(cartId, identity, createSupabaseCartRepo(supabase));
+    const cartClient = createCartDataClient();
+    const cart = await getCartForIdentity(cartId, identity, createSupabaseCartRepo(cartClient));
     const product = await getProduct(user, body.productId, createSupabaseProductRepo(supabase));
     const item = await updateCartItemQuantity(
       cart,
@@ -57,7 +58,7 @@ export async function PATCH(
         isActive: product.is_active,
         stockQuantity: product.stock_quantity,
       },
-      createSupabaseCartItemsRepo(supabase),
+      createSupabaseCartItemsRepo(cartClient),
     );
 
     return NextResponse.json({ item });
@@ -74,10 +75,10 @@ export async function DELETE(
   try {
     const cartId = requireCartId(request);
     const identity = await resolveCartIdentity();
-    const supabase = createSupabaseServerClient();
+    const cartClient = createCartDataClient();
 
-    const cart = await getCartForIdentity(cartId, identity, createSupabaseCartRepo(supabase));
-    await removeItemFromCart(cart, identity, params.itemId, createSupabaseCartItemsRepo(supabase));
+    const cart = await getCartForIdentity(cartId, identity, createSupabaseCartRepo(cartClient));
+    await removeItemFromCart(cart, identity, params.itemId, createSupabaseCartItemsRepo(cartClient));
 
     return NextResponse.json({ ok: true });
   } catch (error) {

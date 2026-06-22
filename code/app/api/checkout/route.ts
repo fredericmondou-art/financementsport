@@ -28,7 +28,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createSupabaseServerClient } from '@/lib/auth/supabase-server';
 import { getCurrentUser } from '@/lib/auth/session';
-import { createSupabaseCartRepo, getOrCreateCart } from '@/lib/cart/cart';
+import { createCartDataClient, createSupabaseCartRepo, getOrCreateCart } from '@/lib/cart/cart';
 import { createSupabaseCartItemsRepo, listCartItems } from '@/lib/cart/items';
 import { createSupabaseCartBeneficiariesRepo, listCartBeneficiaries } from '@/lib/cart/beneficiaries';
 import { resolveCartIdentity } from '@/lib/cart/identity';
@@ -47,10 +47,11 @@ export async function POST(_request: NextRequest): Promise<NextResponse> {
     const supabase = createSupabaseServerClient();
     const user = await getCurrentUser();
 
-    const cart = await getOrCreateCart(identity, createSupabaseCartRepo(supabase));
+    const cartClient = createCartDataClient();
+    const cart = await getOrCreateCart(identity, createSupabaseCartRepo(cartClient));
     const [items, beneficiaries] = await Promise.all([
-      listCartItems(cart, identity, createSupabaseCartItemsRepo(supabase)),
-      listCartBeneficiaries(cart, identity, createSupabaseCartBeneficiariesRepo(supabase)),
+      listCartItems(cart, identity, createSupabaseCartItemsRepo(cartClient)),
+      listCartBeneficiaries(cart, identity, createSupabaseCartBeneficiariesRepo(cartClient)),
     ]);
 
     if (beneficiaries.length === 0) {

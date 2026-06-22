@@ -7,7 +7,7 @@ import { z } from 'zod';
 import { getCurrentUser } from '@/lib/auth/session';
 import { createSupabaseServerClient } from '@/lib/auth/supabase-server';
 import { createSupabaseProductRepo, getProduct } from '@/lib/catalog/products';
-import { createSupabaseCartRepo, getOrCreateCart } from '@/lib/cart/cart';
+import { createCartDataClient, createSupabaseCartRepo, getOrCreateCart } from '@/lib/cart/cart';
 import { resolveCartIdentity } from '@/lib/cart/identity';
 import { addItemToCart, createSupabaseCartItemsRepo } from '@/lib/cart/items';
 import { toErrorResponse } from '@/lib/http/api-error-response';
@@ -30,7 +30,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const user = await getCurrentUser();
 
     const product = await getProduct(user, body.productId, createSupabaseProductRepo(supabase));
-    const cart = await getOrCreateCart(identity, createSupabaseCartRepo(supabase));
+    const cartClient = createCartDataClient();
+    const cart = await getOrCreateCart(identity, createSupabaseCartRepo(cartClient));
     const item = await addItemToCart(
       cart,
       identity,
@@ -41,7 +42,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         stockQuantity: product.stock_quantity,
       },
       body.quantity,
-      createSupabaseCartItemsRepo(supabase),
+      createSupabaseCartItemsRepo(cartClient),
     );
 
     return NextResponse.json({ item }, { status: 201 });

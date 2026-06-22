@@ -25,7 +25,7 @@ import { createSupabaseServerClient } from '@/lib/auth/supabase-server';
 import BeneficiarySplit from '@/components/beneficiary-split';
 import { loadBeneficiaryLabels, beneficiaryLabelKey } from '@/lib/cart/beneficiary-labels';
 import { listCartBeneficiaries, createSupabaseCartBeneficiariesRepo } from '@/lib/cart/beneficiaries';
-import { createSupabaseCartRepo, getOrCreateCart } from '@/lib/cart/cart';
+import { createCartDataClient, createSupabaseCartRepo, getOrCreateCart } from '@/lib/cart/cart';
 import { loadCartCreditContext } from '@/lib/cart/credit-context';
 import { estimateCartCredit, formatCreditMessage } from '@/lib/cart/estimate-credit';
 import { resolveCartIdentity } from '@/lib/cart/identity';
@@ -45,10 +45,11 @@ export default async function PanierPage({ searchParams }: PanierPageProps): Pro
   const supabase = createSupabaseServerClient();
   const user = await getCurrentUser();
 
-  const cart = await getOrCreateCart(identity, createSupabaseCartRepo(supabase));
+  const cartClient = createCartDataClient();
+  const cart = await getOrCreateCart(identity, createSupabaseCartRepo(cartClient));
   const [items, beneficiaries] = await Promise.all([
-    listCartItems(cart, identity, createSupabaseCartItemsRepo(supabase)),
-    listCartBeneficiaries(cart, identity, createSupabaseCartBeneficiariesRepo(supabase)),
+    listCartItems(cart, identity, createSupabaseCartItemsRepo(cartClient)),
+    listCartBeneficiaries(cart, identity, createSupabaseCartBeneficiariesRepo(cartClient)),
   ]);
 
   const campaignId = beneficiaries.find((b) => b.campaign_id !== null)?.campaign_id ?? null;

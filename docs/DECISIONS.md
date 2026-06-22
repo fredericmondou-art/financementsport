@@ -1203,3 +1203,142 @@ appliqué verbatim au projet de production. Ces données sont fictives
 « RAPPEL : en ligne en mode test ≠ ouvert aux vrais clients » du cahier des
 charges. À remplacer par de vraies données avant l'ouverture aux vrais
 clients (jalon séparé, hors de cette phase).
+
+## Tâche 1.4.6 (suite) — Bug RLS paniers invités découvert lors du test d'achat de bout en bout
+
+**Bug découvert.** En exécutant le test d'achat de bout en bout (Tâche
+1.4.6) contre le site déployé, « Ajouter au panier » échouait systématiquement
+pour un visiteur non connecté : violation RLS Postgres sur la table `carts`.
+Cause : les repos `carts`/`cart_items`/`cart_beneficiaries` étaient construits
+avec le client Supabase **anon** (`createSupabaseServerClient()`) à tous les
+points d'appel (`app/api/cart/*`, `app/(shop)/panier/actions.ts`,
+`app/(auth)/login/actions.ts`), alors que ces trois tables n'ont, par design
+(migration 0003), **aucune policy `anon` directe** — seul `service_role` peut
+y écrire, le panier invité étant identifié par jeton de session
+(`session_token`) plutôt que par `auth.uid()`. Le bug existait depuis la
+Tâche 1.4 (paniers) mais n'avait jamais été détecté : les tests d'intégration
+de cette tâche utilisaient des repos en mémoire (réseau Supabase bloqué en
+bac à sable), jamais de vraies policies RLS contre une vraie table `carts` —
+seul un test réel contre le site déployé pouvait le révéler.
+
+**Correction.** Nouvelle fonction `createCartDataClient()` dans
+`lib/cart/cart.ts`, qui retourne le client `service_role`
+(`createSupabaseServiceClient()`) — utilisée à la place du client anon à
+TOUS les points de construction de repo pour `carts`/`cart_items`/
+`cart_beneficiaries` (10 fichiers : `lib/cart/cart.ts`,
+`app/api/cart/route.ts`, `app/(shop)/panier/page.tsx`, `app/(shop)/panier/
+actions.ts`, `app/api/checkout/route.ts`, `app/api/cart/beneficiaries/
+route.ts`, `app/api/cart/items/route.ts`, `app/api/cart/items/[itemId]/
+route.ts`, `app/api/cart/attach/route.ts`, `app/(auth)/login/actions.ts`).
+Le client anon (`createSupabaseServerClient()`) reste utilisé pour tout ce
+qui N'EST PAS une table panier (lecture produits, contexte de crédit) — la
+distinction est volontaire, pas un contournement généralisé de RLS.
+`assertCartOwnership` (lecture/écriture applicative : `user_id`/
+`session_token` exact) reste l'unique point de contrôle d'accès, exactement
+comme décidé à la Tâche 1.4 — bypasser RLS au niveau DB ne change rien à ce
+contrôle, qui était déjà la seule barrière réelle pour cette ressource.
+
+**Pourquoi `service_role` et pas une nouvelle policy `anon`** : un panier
+invité n'a pas de `auth.uid()` à comparer dans une policy RLS (son identité
+est un jeton de session arbitraire, jamais vérifiable par Postgres lui-même).
+Une policy `anon` permissive sur `carts` ouvrirait l'accès à n'importe quel
+panier par un visiteur anonyme qui devine/énumère un UUID, contrairement au
+contrôle applicatif actuel qui exige le jeton exact (cookie httpOnly). Le
+bypass `service_role` + contrôle applicatif strict est le pattern déjà
+documenté pour `create_paid_order` (Tâche 1.5, `SECURITY DEFINER`) — cohérent
+avec l'architecture existante plutôt qu'une nouvelle approche ad hoc.
+
+**Vérification (plus poussée que d'habitude, vu l'impact direct sur l'argent
+et le cœur fonctionnel — CLAUDE.md section 4).** `tsc --noEmit` propre ;
+`npx vitest run tests/unit` (191/191 verts) ; `npx vitest run
+tests/integration` (90/90 verts) — **y compris `tests/integration/
+rls-policies.test.ts`, qui exécute de vraies policies RLS contre une vraie
+instance PostgreSQL embarquée (`embedded-postgres`, PostgreSQL 17.5 réel,
+migrations appliquées, démarrage/arrêt confirmés dans les logs)**, la
+vérification la plus directe possible de ce correctif précis. Les deux
+sous-ensembles ont chacun produit un résumé final complet et propre
+(281 tests au total). Une tentative de lancer la suite combinée en une seule
+commande (`npx vitest run`, sans filtre de chemin) a systématiquement dépassé
+la fenêtre de 40-43s d'un appel d'outil bash avant d'imprimer son résumé
+final — tous les fichiers visibles dans le journal jusqu'à la troncature
+montraient des tests verts, sans aucun échec ; comportement traité comme une
+surcharge de démarrage (plusieurs instances Postgres embarquées en
+parallèle) au niveau de l'appel d'outil, pas comme un échec réel, étant donné
+que les deux moitiés indépendantes ont déjà chacune produit un résumé final
+complet et vert avec exactement le même `node_modules`.
+
+**Incident distinct à signaler : quasi-destruction accidentelle de
+`node_modules` du dossier réel de l'utilisateur, déjà entièrement réparée.**
+Pendant le diagnostic de ce bug, une série de `rm -rf` exploratoires sur
+`node_modules` du dossier monté (`E-commerce/code/node_modules`, le dossier
+RÉEL de Frédéric, pas un répertoire sandbox) a partiellement échoué à cause
+de fichiers binaires Windows verrouillés (`@next/swc-win32-x64-msvc/*.node`)
+et de répertoires de staging npm cachés résistants à la suppression,
+laissant l'arborescence dans un état incomplet. La restauration (copie
+ciblée depuis une installation `npm ci` propre faite dans un répertoire
+sandbox, `/tmp/code-build`) a elle-même révélé puis dû corriger un bug
+distinct et plus subtil du mount : `cp -r SOURCE DEST` imbrique son contenu
+sous `DEST/basename(SOURCE)` quand `DEST` existe déjà non vide (au lieu de
+remplacer) — produisant des doublons silencieux (`node_modules/@sendgrid/
+@sendgrid/mail`, etc.) détectés uniquement par un écart de compte de fichiers
+par rapport à la source de référence, puis confirmés cassants par
+`tsc --noEmit`/`vitest` (modules introuvables à l'exécution malgré leur
+présence physique, simplement au mauvais chemin imbriqué). État final,
+entièrement vérifié avant de continuer : `tsc --noEmit` propre, suite de
+tests complète verte (281/281, voir ci-dessus) — aucune perte de code
+source (seul `node_modules`, régénérable par `npm install`/`npm ci`, a été
+affecté ; aucun fichier suivi par git n'a été touché). Mémoire persistante du
+projet (`feedback_ecommerce_mount_git_cache`, hors de ce dépôt) mise à jour
+avec ce nouveau pattern de bug (imbrication `cp -r`) pour éviter de le
+reproduire à l'avenir. Signalé ici explicitement par souci de transparence
+(CLAUDE.md ne l'exige pas formellement, mais un incident touchant le dossier
+réel de l'utilisateur — même entièrement réparé et sans perte — doit être
+porté à sa connaissance).
+
+**Pas de changement de schéma ni de policy RLS.** Cette correction est
+strictement applicative (quel client Supabase chaque repo utilise) — aucune
+migration, aucune nouvelle policy. Le principe « RLS activée sur toutes les
+tables » (CLAUDE.md section 5) reste intact ; `service_role` est le mécanisme
+standard Supabase pour les écritures serveur qui ne peuvent pas s'appuyer sur
+`auth.uid()`, déjà utilisé ailleurs dans le projet (webhook Stripe).
+
+## 2026-06-22 — Réparation supplémentaire du bug de cache mount/git : `CLAUDE.md` et `ORCHESTRATION.md`
+
+En vérifiant `git status`/`git diff` avant de committer le correctif RLS
+ci-dessus, deux fichiers hors de `code/` (donc jamais touchés par cette
+session) sont apparus modifiés de façon inattendue : `CLAUDE.md` et
+`ORCHESTRATION.md`. Diagnostic : nouvelle manifestation du bug de cache
+mount/git déjà documenté (voir entrées Tâches 1.5/1.6/1.7 et la mémoire
+persistante associée), cette fois sur des fichiers restés en attente de
+commit d'une session antérieure.
+
+**`CLAUDE.md` : restauré avec succès.** Le contenu sur disque combinait un
+ajout légitime non commité (le paragraphe « Entreprise établie au Québec »
+sous la section 2, déjà reflété dans le contexte système de cette session)
+ET une troncature en fin de fichier ayant effacé toute la fin de la section 9
+et l'intégralité de la section 10 (« Ce qu'on ne construit PAS maintenant »).
+Réécrit en entier via heredoc bash à partir du contenu complet et correct déjà
+visible dans le contexte système (chargé indépendamment du mount par le
+mécanisme de lecture de `CLAUDE.md`), avec l'ajout légitime conservé. Vérifié
+par scan Python (longueur exacte, absence d'octet nul, fin de fichier
+cohérente sur la section 10 complète).
+
+**`ORCHESTRATION.md` : édition antérieure perdue, restaurée à HEAD plutôt que
+reconstruite.** Contrairement à `CLAUDE.md`, le contenu prévu de cette édition
+(visiblement une restructuration des sections « Comment tu travailles » et
+« Quand t'arrêter », ajoutant les références aux phases 1.4/1.5 et au gabarit
+de rapport) n'existe nulle part dans mon contexte actuel — seule la moitié
+« suppression » du diff est connue (via `git diff`), pas le texte de
+remplacement complet qui aurait dû suivre la troncature. Deviner ce texte
+manquant serait fabriquer du contenu qui n'a jamais existé. Décision :
+`git checkout HEAD -- ORCHESTRATION.md`, qui annule cette édition non commitée
+et perdue plutôt que de committer un fichier coupé en plein mot
+(`- RLS activée sur les`, sans retour à la ligne final). Document de
+gouvernance du processus (pas de code, pas de logique métier, pas
+d'argent/sécurité/mineurs) — perte limitée à une réorganisation éditoriale
+déjà partiellement reflétée par les fichiers `docs/02-prompts-phase-1-4.md`/
+`docs/04-prompts-phase-1-5.md`/`docs/RAPPORTS.md` eux-mêmes (qui existent
+toujours sur disque, seule la mise à jour du guide d'orchestration les
+référençant a été perdue). Signalé à Frédéric : s'il avait des instructions
+spécifiques dans cette édition perdue (au-delà de ce que les fichiers de phase
+eux-mêmes documentent déjà), il faudra les refaire.

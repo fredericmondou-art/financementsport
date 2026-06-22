@@ -267,7 +267,16 @@
       exécution réelle toujours bloquée en sandbox comme depuis la Tâche 0.1.
 
 ## En cours
-- [ ] Phase 1.4 — Tâche 1.4.6 : Déploiement Vercel.
+- [ ] Phase 1.4 — Tâche 1.4.6 : Déploiement Vercel. Site en ligne (mode
+      TEST), projet Supabase de production distinct créé et migré/seedé
+      (voir docs/DECISIONS.md). Bug RLS paniers invités découvert pendant le
+      test d'achat de bout en bout et corrigé (`createCartDataClient()` /
+      `service_role` pour les tables `carts`/`cart_items`/
+      `cart_beneficiaries` — voir docs/DECISIONS.md pour le détail complet) ;
+      281/281 tests verts (191 unitaires + 90 intégration, dont les tests RLS
+      contre Postgres embarqué réel), `tsc --noEmit` propre. Reste à faire :
+      reprendre et terminer le test d'achat de bout en bout réel contre
+      financementsport.vercel.app, puis rédiger docs/DEPLOIEMENT.md.
 
 ## À venir
 - (rien après la Phase 1.4 dans le cahier des charges fourni à ce jour)

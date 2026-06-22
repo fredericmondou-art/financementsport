@@ -7,9 +7,8 @@
  */
 import { NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth/session';
-import { createSupabaseServerClient } from '@/lib/auth/supabase-server';
 import { attachGuestCartToUser } from '@/lib/cart/attach-guest-cart';
-import { createSupabaseCartRepo } from '@/lib/cart/cart';
+import { createCartDataClient, createSupabaseCartRepo } from '@/lib/cart/cart';
 import { getExistingGuestSessionToken } from '@/lib/cart/identity';
 import { createSupabaseCartItemsRepo } from '@/lib/cart/items';
 import { toErrorResponse } from '@/lib/http/api-error-response';
@@ -26,10 +25,10 @@ export async function POST(): Promise<NextResponse> {
       return NextResponse.json({ cart: null });
     }
 
-    const supabase = createSupabaseServerClient();
+    const cartClient = createCartDataClient();
     const cart = await attachGuestCartToUser(guestSessionToken, user.id, {
-      carts: createSupabaseCartRepo(supabase),
-      items: createSupabaseCartItemsRepo(supabase),
+      carts: createSupabaseCartRepo(cartClient),
+      items: createSupabaseCartItemsRepo(cartClient),
     });
 
     return NextResponse.json({ cart });
