@@ -34,7 +34,7 @@ import { Card } from '@/components/ui/card';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Field } from '@/components/ui/field';
-import { addItemAction, removeItemAction, updateQuantityAction } from './actions';
+import { addItemAction, checkoutAction, removeItemAction, updateQuantityAction } from './actions';
 
 interface PanierPageProps {
   searchParams: { erreur?: string };
@@ -171,6 +171,18 @@ export default async function PanierPage({ searchParams }: PanierPageProps): Pro
           }))}
         />
       </section>
+
+      {items.length > 0 ? (
+        <Card>
+          <section className="stack stack--sm">
+            <h2>Paiement</h2>
+            <p>Total à payer : {formatCents(subtotalCents)} (taxes calculées à l&apos;étape suivante).</p>
+            <form action={checkoutAction}>
+              <Button type="submit">Procéder au paiement</Button>
+            </form>
+          </section>
+        </Card>
+      ) : null}
 
       <Card>
         <section className="stack stack--sm">

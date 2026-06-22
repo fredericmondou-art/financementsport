@@ -266,17 +266,51 @@
       existants + 2 nouveaux dans `tests/e2e/error-pages.spec.ts`) ;
       exécution réelle toujours bloquée en sandbox comme depuis la Tâche 0.1.
 
+- [x] Phase 1.4 — Tâche 1.4.6 (partie applicative) : gap découvert en testant
+      le parcours d'achat de bout en bout sur le déploiement Vercel — le
+      bouton de paiement (`panier` → Stripe Checkout) et la page
+      `/commande/confirmation` n'avaient jamais été construits dans aucun
+      commit antérieur (`success_url` pointait vers une page inexistante,
+      404 réelle). Corrigé : `lib/checkout/create-checkout-session.ts`
+      (orchestration extraite de `app/api/checkout/route.ts`, qui devient un
+      mince adaptateur HTTP de compatibilité, pour être appelée aussi par la
+      nouvelle Server Action), `checkoutAction` ajoutée à
+      `app/(shop)/panier/actions.ts` + bouton « Procéder au paiement » sur
+      `app/(shop)/panier/page.tsx`, nouvelle page minimale
+      `app/(shop)/commande/confirmation/page.tsx` (volontairement sans
+      lecture Stripe/Supabase — décision sécurité/latence webhook détaillée
+      dans le fichier lui-même et docs/DECISIONS.md), `locale: 'fr-CA'`
+      ajouté à la session Stripe Checkout (gap distinct : sans ce paramètre,
+      la page de paiement hébergée restait en anglais pour la majorité des
+      clients, CLAUDE.md section 2). Nouveau test e2e
+      `tests/e2e/checkout.spec.ts` couvrant le parcours complet (carte test
+      4242, vérification du crédit attribué en base via `service_role`),
+      même statut que les e2e précédents (`npx playwright test --list` le
+      confirme valide, exécution réelle bloquée en sandbox). Plusieurs
+      nouvelles manifestations sévères du bug de cache mount/git rencontrées
+      sur les 4 fichiers touchés (NUL en fin de fichier à longueur identique
+      ou non, troncature réelle en plein mot, désaccord Read/bash sur le même
+      fichier) puis sur `lib/checkout/create-checkout-session.ts` lui-même
+      après l'ajout du `locale` — toutes réparées par réécriture heredoc
+      complète + vérification indépendante (voir docs/DECISIONS.md, mémoire
+      persistante mise à jour). 282/282 tests verts (281 existants, aucune
+      régression ; le nouveau test e2e n'est pas compté dans cette suite
+      Vitest), `tsc --noEmit` et `npm run lint` propres.
+
 ## En cours
-- [ ] Phase 1.4 — Tâche 1.4.6 : Déploiement Vercel. Site en ligne (mode
-      TEST), projet Supabase de production distinct créé et migré/seedé
-      (voir docs/DECISIONS.md). Bug RLS paniers invités découvert pendant le
-      test d'achat de bout en bout et corrigé (`createCartDataClient()` /
-      `service_role` pour les tables `carts`/`cart_items`/
-      `cart_beneficiaries` — voir docs/DECISIONS.md pour le détail complet) ;
-      281/281 tests verts (191 unitaires + 90 intégration, dont les tests RLS
-      contre Postgres embarqué réel), `tsc --noEmit` propre. Reste à faire :
-      reprendre et terminer le test d'achat de bout en bout réel contre
-      financementsport.vercel.app, puis rédiger docs/DEPLOIEMENT.md.
+- [ ] Phase 1.4 — Tâche 1.4.6 (déploiement, partie restante) : site en ligne
+      (mode TEST), projet Supabase de production distinct créé et
+      migré/seedé, bug RLS paniers invités corrigé (voir entrées
+      précédentes et docs/DECISIONS.md). Le gap fonctionnel (bouton de
+      paiement manquant, page de confirmation manquante, test e2e d'achat
+      manquant) est maintenant fermé au niveau du code (voir entrée
+      ci-dessus) et poussé sur `main` (déploiement automatique Vercel).
+      Reste à faire : (1) exécuter réellement le parcours d'achat en mode
+      TEST contre l'URL déployée (navigateur réel, carte 4242 4242 4242
+      4242) et confirmer que le webhook Stripe a bien écrit la commande et
+      le crédit dans Supabase production pour l'athlète Thomas Tremblay ;
+      (2) rédiger `docs/DEPLOIEMENT.md` (variables d'environnement,
+      procédure de déploiement/redéploiement).
 
 ## À venir
 - (rien après la Phase 1.4 dans le cahier des charges fourni à ce jour)

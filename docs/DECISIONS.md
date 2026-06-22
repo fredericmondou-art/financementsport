@@ -1342,3 +1342,86 @@ toujours sur disque, seule la mise à jour du guide d'orchestration les
 référençant a été perdue). Signalé à Frédéric : s'il avait des instructions
 spécifiques dans cette édition perdue (au-delà de ce que les fichiers de phase
 eux-mêmes documentent déjà), il faudra les refaire.
+
+## 2026-06-22 — Tâche 1.4.6 : bouton de paiement et page de confirmation manquants (gap réel, pas une régression)
+
+En testant le parcours d'achat de bout en bout sur le déploiement Vercel
+(critère d'acceptation de la Tâche 1.4.6), j'ai découvert qu'aucun commit
+antérieur n'avait jamais construit : (1) le bouton « Procéder au paiement »
+sur `/panier` déclenchant `POST /api/checkout`, (2) la page
+`/commande/confirmation` ciblée par `success_url`, (3) un test e2e du
+parcours d'achat. La Tâche 1.5 avait livré toute la logique métier (session
+Stripe, webhook, écriture atomique des crédits) et ses tests, mais jamais le
+déclencheur côté UI ni la page de retour — un vrai paiement aboutissait donc
+à une 404 réelle après le paiement Stripe. Ce n'est pas une régression du
+bug de cache mount/git : `git log` confirme qu'aucun commit ne contenait
+jamais ce code.
+
+Corrections apportées (CLAUDE.md section 6, « logique métier dans lib/,
+pas dans les routes/composants ») :
+- Extraction de l'orchestration de session Stripe Checkout, jusqu'ici codée
+  directement dans `app/api/checkout/route.ts`, vers
+  `lib/checkout/create-checkout-session.ts`. La route HTTP devient un mince
+  adaptateur de compatibilité ; la nouvelle Server Action `checkoutAction`
+  (`app/(shop)/panier/actions.ts`) appelle directement la même fonction —
+  un seul point de vérité, aucune logique dupliquée entre les deux points
+  d'entrée.
+- Bouton « Procéder au paiement » ajouté à `app/(shop)/panier/page.tsx`
+  (nouvelle carte « Paiement », visible uniquement si le panier contient des
+  articles), relié à `checkoutAction` via un `<form action={...}>` natif
+  (même style que tout le reste du projet, aucun composant client).
+- Nouvelle page `app/(shop)/commande/confirmation/page.tsx`. Décision
+  autonome : cette page n'interroge NI Stripe NI Supabase pour afficher un
+  détail de commande, pour deux raisons documentées dans le fichier
+  lui-même : (a) sécurité (CLAUDE.md section 5) — une commande invité n'a
+  pas de `user_id`, donc aucune policy RLS publique ne permet de la lire
+  sans soit une nouvelle policy basée sur l'identité invité, soit un
+  contournement `service_role` sur une route publique, ce qui dépasse le
+  périmètre « mise en ligne » de cette tâche et engage la sécurité — à
+  concevoir et faire valider séparément si un détail de commande affiché
+  devient un besoin réel ; (b) latence webhook (CLAUDE.md section 4) — le
+  crédit n'est écrit qu'au webhook `checkout.session.completed`, qui peut
+  arriver après la redirection du client, donc une lecture en direct
+  créerait une fenêtre où la page dirait à tort « introuvable ». Le client
+  reçoit déjà le détail complet par courriel (webhook → SendGrid, Tâche
+  1.5) ; cette page confirme seulement le succès du paiement.
+
+Gap distinct découvert au même moment : la session Stripe Checkout ne
+fixait pas `locale`, donc Stripe utilisait la langue du navigateur du
+client (« auto »), ce qui aurait laissé la page de paiement hébergée en
+anglais pour une majorité de clients — contraire à CLAUDE.md section 2
+(« interface en français par défaut »). Ajout de `locale: 'fr-CA'` à
+`stripe.checkout.sessions.create()`.
+
+Nouveau test e2e `tests/e2e/checkout.spec.ts` couvrant le critère
+d'acceptation littéral de la Tâche 1.4.6 (« achat test → crédit attribué,
+webhook compris ») : boutique avec bénéficiaire pré-sélectionné → ajout au
+panier → vérification de la répartition à 100 % → paiement avec la carte de
+test Stripe 4242 4242 4242 4242 → retour sur `/commande/confirmation` →
+vérification directe en base (`order_credits`, via `service_role`, comme le
+fait le webhook lui-même) que le crédit a bien été attribué à l'athlète
+seedé. Même statut d'exécution que les 4 e2e précédents : non exécutable
+dans ce bac à sable (Chromium/Playwright, `checkout.stripe.com` et
+`*.supabase.co` bloqués par l'allowlist réseau), à exécuter en CI/local ou
+contre le déploiement réel avant la mise en production.
+
+Incident de cache mount/git, à nouveau : en ajoutant la seule ligne
+`locale: 'fr-CA'` à `lib/checkout/create-checkout-session.ts` (fichier
+pourtant réécrit intégralement par heredoc quelques minutes plus tôt dans
+la même session) avec l'outil `Edit`, le fichier obtenu avait une longueur
+en octets IDENTIQUE à l'original (6817 octets) — masquant totalement le
+problème à une simple comparaison de taille — mais contenait une erreur de
+syntaxe réelle (`tsc` : `TS1005: '}' expected`) et une troncature en pleine
+ligne (`return { checkoutU`). Réparé par réécriture heredoc complète du
+fichier (jamais l'outil `Edit`), puis vérifié indépendamment par script
+Python (longueur exacte, absence d'octet nul, fin de fichier cohérente) et
+par `tsc --noEmit` propre. Ceci confirme une nouvelme fois, avec une preuve
+fraîche, la règle déjà établie dans la mémoire persistante de ce projet :
+l'outil `Edit` ne doit jamais être utilisé sur ce mount, même pour un
+changement d'une seule ligne sur un fichier qui vient d'être écrit
+proprement — seule la réécriture complète via heredoc bash, suivie d'une
+vérification indépendante, est fiable ici.
+
+282/282 tests verts (281 existants, aucune régression ; le nouveau test e2e
+n'est pas comptabilisé dans la suite Vitest), `tsc --noEmit` et `npm run
+lint` propres.

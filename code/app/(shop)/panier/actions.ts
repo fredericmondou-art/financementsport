@@ -12,6 +12,7 @@ import { z } from 'zod';
 import { getCurrentUser } from '@/lib/auth/session';
 import { createSupabaseServerClient } from '@/lib/auth/supabase-server';
 import { createSupabaseProductRepo, getProduct } from '@/lib/catalog/products';
+import { createCheckoutSession } from '@/lib/checkout/create-checkout-session';
 import {
   beneficiarySplitInputSchema,
   createSupabaseCartBeneficiariesRepo,
@@ -246,4 +247,29 @@ export async function setBeneficiarySplitAction(formData: FormData): Promise<voi
 
   revalidatePath(PANIER_PATH);
   redirect(PANIER_PATH);
+}
+
+/**
+ * Déclenche la création de la session Stripe Checkout et redirige vers la
+ * page de paiement hébergée par Stripe (Tâche 1.4.6). Aucun champ de
+ * formulaire requis : tout le contexte (panier, bénéficiaires, identité)
+ * est résolu côté serveur par `createCheckoutSession`, exactement comme
+ * `POST /api/checkout` (même fonction `lib/`, pas de logique dupliquée --
+ * CLAUDE.md section 6).
+ *
+ * `redirect()` accepte une URL externe absolue (checkout.stripe.com) au même
+ * titre qu'un chemin interne -- c'est volontaire ici, ce n'est pas une faute
+ * de copier-coller des autres actions de ce fichier qui redirigent vers
+ * `/panier`.
+ */
+export async function checkoutAction(): Promise<void> {
+  let checkoutUrl: string;
+  try {
+    const session = await createCheckoutSession();
+    checkoutUrl = session.checkoutUrl;
+  } catch (error) {
+    redirectWithError(error);
+  }
+
+  redirect(checkoutUrl);
 }
