@@ -1169,3 +1169,37 @@ régression). `npx playwright test --list` confirme 11 tests e2e dans 5
 fichiers (9 existants + 2 nouveaux) ; exécution réelle toujours bloquée dans
 ce bac à sable (Chromium + réseau Supabase hors allowlist), à faire en
 CI/local avant mise en production.
+
+## Tâche 1.4.6 — Déploiement Vercel
+
+**Projet Supabase de production distinct du projet de développement.**
+CLAUDE.md exige (Tâche 1.4.6, règles) : « Séparer clairement les
+environnements : développement vs production (clés et base distinctes). »
+Un nouveau projet Supabase a donc été créé (id `zebskpuphqeattetznrg`) plutôt
+que de réutiliser le projet de développement (`nopgcfqoyezctjgrnbbe`). Coût
+confirmé à 0 $/mois (palier gratuit) avant création, via `get_cost` puis
+`confirm_cost`.
+
+**Région : `ca-central-1` (Canada Central).** Décision autonome, alignée sur
+CLAUDE.md section 2 (« Entreprise établie au Québec (Canada) ») — aucune
+région québécoise n'est offerte par Supabase, `ca-central-1` est la région
+canadienne la plus proche disponible.
+
+**Les 8 migrations existantes (`0001` à `0008`) ont été appliquées telles
+quelles, dans l'ordre, au nouveau projet de production**, sans aucune
+modification de contenu — même schéma, mêmes policies RLS, mêmes fonctions
+`private.*`, que le projet de développement.
+
+**Jeu de données de démonstration (seed) appliqué tel quel à la production.**
+Décision autonome : les critères d'acceptation de la Tâche 1.4.6 exigent « un
+parcours d'achat en mode TEST [qui] fonctionne en ligne de bout en bout
+(page → achat test → crédit attribué) » contre l'URL déployée — ce qui exige
+au moins un produit, une campagne active et un bénéficiaire réels à acheter
+en ligne. Le seed existant (`supabase/seed.sql` : club Corsaires, équipe U11
+Hockey, 3 athlètes, 4 packs, taux de taxe QC, campagne active) a donc été
+appliqué verbatim au projet de production. Ces données sont fictives
+(noms/courriels `@example.com`) et Stripe reste en mode TEST à ce stade
+(aucun vrai paiement, aucune vraie donnée de famille) — conforme à la règle
+« RAPPEL : en ligne en mode test ≠ ouvert aux vrais clients » du cahier des
+charges. À remplacer par de vraies données avant l'ouverture aux vrais
+clients (jalon séparé, hors de cette phase).
