@@ -790,3 +790,126 @@ uniquement) plutôt que d'être écarté de la palette.
 + 3 maquettes statiques (`docs/maquettes/*.html`, hors de l'app Next.js) ont
 été produits, puis le travail s'est arrêté pour validation humaine via
 `docs/QUESTIONS.md`, comme l'exige explicitement le cahier de cette tâche.
+
+## Phase 1.4 — Tâche 1.4.2 : design tokens + composants UI de base (2026-06-22)
+
+**Tokens en CSS natif (`app/globals.css`), conformément au choix déjà acté à la
+Tâche 1.4.1.** Palette, typographie (`next/font` Inter/Outfit exposées en
+variables `--font-inter`/`--font-outfit`), espacements, rayons, ombres et
+`--focus-ring` reprennent exactement `docs/DESIGN.md`. Aucune couleur/taille
+en dur dans les composants : tout passe par les classes `.btn`/`.badge`/
+`.alert`/`.card`/`.field`/`.progress`/`.spinner`/`.error-state`/`.modal`
+définies une seule fois dans ce fichier.
+
+**`Field` reste un Server Component pur via `cloneElement`, pas un wrapper
+client.** Plutôt que de dupliquer chaque contrôle natif (input/select/
+textarea) avec sa propre prop `id`/`aria-*`, `components/ui/field.tsx` clone
+l'élément enfant fourni par l'appelant pour y injecter `id`, `aria-
+describedby` et `aria-invalid`, en typant explicitement le sous-ensemble de
+props lues/écrites (`ControlOwnProps`) pour que `cloneElement` reste
+type-sûr. Garde le pattern « formulaire natif + Server Action » déjà en place
+(`components/beneficiary-split.tsx`) sans ajouter de `'use client'`.
+
+**Seules deux exceptions `'use client'` dans tout le projet : `Modal` et son
+wrapper de démonstration `ModalDemo`.** Une modale a besoin d'un état ouvert/
+fermé, de la gestion d'Échap et du focus trap — déléguées à l'élément natif
+`<dialog>` (`showModal()`/`close()`) plutôt que réimplémentées en JS, ce qui
+limite la partie client au strict minimum (un seul `useEffect` de
+synchronisation `open`↔`dialog.open`, un autre pour l'évènement natif
+`close`). `ModalDemo` n'existe que pour la page `/styleguide` et est
+explicitement documenté comme non réutilisable : tout appelant métier futur
+devra détenir lui-même son état `open`/`onClose`, pas s'appuyer sur ce
+wrapper de démo.
+
+**`.eslintrc.json` : ajout de `varsIgnorePattern`/`destructuredArrayIgnorePattern: "^_"`
+à côté de `argsIgnorePattern` déjà présent.** `components/ui/button.tsx`
+doit retirer `variant`/`size`/`loading`/`fullWidth` du `...rest` réparti sur
+l'élément natif (`<button>`/`<a>`) sans les réutiliser ; le pattern standard
+(`variant: _v, ...rest`) n'était couvert que pour les paramètres de fonction
+par la config existante, pas pour les liaisons de déstructuration de
+variables. Changement de configuration globale mineur, cohérent avec la
+convention `_`-préfixe déjà établie, ne change aucune règle de validation
+métier.
+
+**Bug de cache mount/git (suite — 6e à 8e manifestations, voir les entrées
+Tâches 1.5/1.6/1.7/audit) : cette fois sur des fichiers tout juste réécrits
+par moi-même via heredoc, et même sur une copie `cp` mount→sandbox.**
+`components/ui/field.tsx` réécrit via Edit, puis recopié par `cp` vers
+`/tmp/code-build`, produisait une erreur `tsc` (`TS17008`, balise JSX non
+fermée) alors que les deux copies étaient confirmées identiques par
+`md5sum`/`wc -l`. Diagnostic final : le fichier sur le mount lui-même était
+tronqué en sortie bash (visible seulement via une lecture complète en
+octets, pas par l'outil Read qui montrait le contenu correct) — réparé par
+réécriture heredoc complète sur le mount, vérifiée par un scan Python
+(longueur de fichier + absence d'octet nul + 60 derniers octets) plutôt que
+par `md5sum` seul (qui peut comparer deux copies également tronquées de
+façon identique sans le révéler). Le même symptôme s'est reproduit sur
+`.eslintrc.json` (une commande `cp` a silencieusement produit un JSON
+incomplet, provoquant une erreur ESLint de parsing) et sur
+`tests/unit/ui-alert.test.tsx` (fichier tronqué à 982 octets au lieu de
+992, coupé en plein milieu de la dernière assertion). Lesson renforcée :
+après TOUTE écriture sur ce mount (Edit, Write, heredoc bash OU `cp`),
+vérifier par un scan Python indépendant des octets de fin de fichier avant
+de faire confiance au résultat — `md5sum`/`diff` entre deux copies ne
+suffit pas si les deux peuvent être tronquées de façon identique.
+
+**Découverte opérationnelle distincte (pas une décision produit) : les
+processus arrière-plan (`&`/`disown`) ne survivent pas entre deux appels
+d'outil bash dans ce bac à sable.** Chaque appel `mcp__workspace__bash`
+tourne dans un conteneur `bwrap` isolé détruit à la fin de l'appel, ce qui
+tue tout processus mis en arrière-plan. Tout `npm install` ou commande
+longue doit s'exécuter en premier plan avec `timeout <N>` dans le même appel,
+jamais être lancé en arrière-plan pour être consulté plus tard.
+
+Tests : 281/281 verts (`npx vitest run`, dont les 9 nouveaux fichiers de
+rendu `tests/unit/ui-*.test.tsx` en environnement jsdom), `tsc --noEmit` et
+`npm run lint` propres après réparation des fichiers ci-dessus.
+
+## Phase 1.4 — Tâche 1.4.2 (suite) : correctifs trouvés en re-vérification finale
+
+Avant le commit, une dernière passe `tsc`/`eslint`/`vitest` sur l'ensemble du
+projet (au lieu des fichiers ciblés des passes précédentes) a révélé 3 bugs
+réels, distincts du bug de cache mount déjà documenté ci-dessus (même s'il a
+fallu re-déjouer ce bug à plusieurs reprises pour les corriger — `layout.tsx`,
+`vitest.config.ts`, `jest-dom.ts`, `spinner.tsx`, `button.tsx` et
+`tests/unit/ui-button.test.tsx` se sont tous retrouvés tronqués au moins une
+fois côté bash pendant cette passe ; chacun a été réécrit en entier via
+heredoc directement sur le mount puis revérifié par scan Python avant de
+continuer) :
+
+1. **`vitest.config.ts` ne couvrait pas les nouveaux tests `.tsx`.** Le
+   premier run complet n'a trouvé que 24 fichiers de tests au lieu de 33 :
+   `include` listait `tests/unit/**/*.test.ts` (sans le `x`). Corrigé en
+   ajoutant `tests/unit/**/*.test.tsx` à la liste.
+2. **Aucun nettoyage du DOM entre les tests d'un même fichier.**
+   `@testing-library/react` ne nettoie pas automatiquement jsdom après chaque
+   `it()` sous Vitest (contrairement à Jest avec certains presets) : un
+   second rendu dans le même fichier de test laissait le rendu précédent en
+   place, faisant échouer `getByRole`/`getByText` avec « plusieurs éléments
+   trouvés » dès qu'un composant (Spinner, Alert, Modal...) était rendu plus
+   d'une fois dans le même fichier. Corrigé en ajoutant
+   `afterEach(() => cleanup())` dans `tests/setup/jest-dom.ts` (déjà chargé
+   par tous les tests de composants via `setupFiles`).
+3. **Le `Spinner` imbriqué dans un `Button` en chargement polluait le nom
+   accessible du bouton.** `role="status"` + texte masqué à l'intérieur d'un
+   `<button>` : le calcul du nom accessible concatène tout le texte des
+   descendants, donc le bouton se retrouvait nommé « Chargement en
+   coursEnvoi… » au lieu de « Envoi… », et un lecteur d'écran l'aurait annoncé
+   deux fois (une fois via le `status`, une fois via `aria-busy`). Corrigé en
+   ajoutant un prop `inline` à `Spinner` (`components/ui/spinner.tsx`) :
+   quand `inline` est vrai, le `role="status"` est retiré et le span devient
+   `aria-hidden`, laissant `aria-busy` + `disabled` sur le `<button>` parent
+   comme unique source de vérité pour les lecteurs d'écran. `Button` passe
+   désormais `inline` au `Spinner` qu'il imbrique. Usage autonome du Spinner
+   (page de chargement, transition) : comportement par défaut inchangé
+   (`role="status"` + libellé annoncé).
+
+Le test `ui-button.test.tsx` a été ajusté en conséquence (vérifie l'absence
+de `role="status"` dans le bouton en chargement plutôt que sa présence), et
+`ui-alert.test.tsx` corrigé pour vérifier le texte réellement rendu après la
+reformulation sans apostrophe faite plus haut dans cette tâche (l'assertion
+cherchait encore l'ancienne phrase « paiement confirmé »).
+
+État final : `tsc --noEmit` propre, `eslint` propre, `vitest run` 33 fichiers
+/ 313 tests verts, aucune régression sur les suites Phase 1 (intégration
+Postgres embarqué comprises).

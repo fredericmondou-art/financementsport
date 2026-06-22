@@ -6,7 +6,10 @@
   "rules": {
     "no-console": ["error", { "allow": ["warn", "error"] }],
     "@typescript-eslint/no-explicit-any": "error",
-    "@typescript-eslint/no-unused-vars": ["warn", { "argsIgnorePattern": "^_" }]
+    "@typescript-eslint/no-unused-vars": [
+      "warn",
+      { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_", "destructuredArrayIgnorePattern": "^_" }
+    ]
   },
   "ignorePatterns": [
     "node_modules/",

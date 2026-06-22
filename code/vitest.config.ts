@@ -1,21 +1,27 @@
 import path from 'node:path';
+import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
+  // Nécessaire pour transformer le JSX des tests de composants
+  // (tests/unit/**/*.test.tsx, Tâche 1.4.2).
+  plugins: [react()],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, '.'),
     },
   },
   test: {
+    // Par défaut 'node' (rapide, pour toute la logique métier pure de lib/).
+    // Les fichiers qui rendent des composants React passent en 'jsdom' via
+    // un commentaire `// @vitest-environment jsdom` en tête de fichier,
+    // plutôt que de ralentir toute la suite — voir docs/DECISIONS.md.
     environment: 'node',
+    setupFiles: ['./tests/setup/jest-dom.ts'],
     include: [
       'tests/unit/**/*.test.ts',
+      'tests/unit/**/*.test.tsx',
       'tests/integration/**/*.test.ts',
-      // Tâche 1.3 (moteur de crédit) désigne explicitement ce dossier dans
-      // le cahier des charges (03-prompts-phase-0-et-1.md) plutôt que
-      // tests/unit — voir docs/DECISIONS.md.
-      'tests/credits/**/*.test.ts',
     ],
     // Les tests d'intégration démarrent un Postgres embarqué (téléchargement
     // du binaire au premier lancement + initdb) : plus lent qu'un test

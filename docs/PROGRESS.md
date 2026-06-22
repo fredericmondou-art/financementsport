@@ -168,13 +168,41 @@
       verts, `tsc --noEmit` et `npm run lint` propres après chaque
       changement.
 
+- [x] Phase 1.4 — Tâche 1.4.1 : Direction visuelle — `docs/DESIGN.md`
+      + 3 maquettes statiques `docs/maquettes/*.html`. Approuvée par
+      Frédéric (réponse « Oui c'est parfait » à `docs/QUESTIONS.md`).
+
+- [x] Phase 1.4 — Tâche 1.4.2 : Design tokens + composants UI de base —
+      `app/globals.css` (tokens CSS natifs reflétant `docs/DESIGN.md` :
+      couleurs, typographie `next/font` Inter/Outfit, espacements, rayons,
+      ombres, `--focus-ring`), 9 composants `components/ui/*` (Button,
+      Badge, Alert, Card, Field, ProgressBar, Spinner, ErrorState, Modal +
+      ModalDemo de démonstration), page interne `app/styleguide/page.tsx`
+      (non indexée, non liée depuis la navigation) affichant tous les
+      composants dans leurs états. Seules deux exceptions `'use client'` de
+      tout le projet (Modal, pour l'élément natif `<dialog>` ; ModalDemo,
+      démo locale à `/styleguide` uniquement) — voir docs/DECISIONS.md.
+      Composants accessibles (focus visible via `:focus-visible` uniquement,
+      attributs ARIA : `aria-describedby`/`aria-invalid` sur Field,
+      `role="alert"`/`role="status"` sur Alert/Spinner/ErrorState,
+      `role="progressbar"` sur ProgressBar, sémantique modale native sur
+      Modal). 9 nouveaux fichiers de test de rendu (`tests/unit/ui-*.test.tsx`,
+      `@testing-library/react` + jsdom via `// @vitest-environment jsdom`).
+      Plusieurs nouvelles manifestations du bug de cache mount/git
+      rencontrées et réparées (voir docs/DECISIONS.md).
+      Re-vérification finale (passe complète, pas seulement les fichiers
+      ciblés) : 3 bugs réels trouvés et corrigés — `vitest.config.ts`
+      n'incluait pas `tests/unit/**/*.test.tsx` (9 fichiers de test invisibles
+      au premier run) ; absence de `afterEach(cleanup())` dans
+      `tests/setup/jest-dom.ts` (DOM non réinitialisé entre tests d'un même
+      fichier) ; `Spinner` imbriqué dans `Button` polluait le nom accessible
+      du bouton en chargement (nouveau prop `inline`, voir docs/DECISIONS.md).
+      État final : 33 fichiers / 313 tests verts, `tsc --noEmit` et
+      `npm run lint` propres, aucune régression Phase 1.
+
 ## En cours
-- [ ] Phase 1.4 — Tâche 1.4.1 (direction visuelle) produite : `docs/DESIGN.md`
-      + 3 maquettes statiques `docs/maquettes/*.html`. EN ATTENTE de
-      validation humaine via `docs/QUESTIONS.md` avant la Tâche 1.4.2 (le
-      cahier de cette tâche impose explicitement cet arrêt).
+- [ ] Phase 1.4 — Tâche 1.4.3 : Navigation, layouts et changements de page.
 
 ## À venir
-- Phase 1.4.2 à 1.4.6 (système de design, navigation, application aux pages
-  existantes, accessibilité/perf, déploiement Vercel) — bloquées par la
-  validation ci-dessus.
+- Phase 1.4.4 à 1.4.6 (application du design aux pages existantes,
+  accessibilité/perf/finitions, déploiement Vercel).
