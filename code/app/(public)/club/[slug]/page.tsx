@@ -2,13 +2,19 @@
  * Page publique club (Tâche 1.6). Même structure que les pages
  * athlète/équipe ; pas de champs `hide_*` sur `clubs` (uniquement sur
  * `athletes`, voir CLAUDE.md section 2) — aucun masquage à appliquer ici.
+ *
+ * Habillage Tâche 1.4.4 : voir le commentaire équivalent sur la page
+ * athlète — présentation uniquement, aucun texte changé.
  */
 import { notFound } from 'next/navigation';
-import Link from 'next/link';
 import { createSupabaseServerClient } from '@/lib/auth/supabase-server';
 import { loadPublicClubProfile } from '@/lib/public/profile';
 import { formatCents } from '@/lib/format-cents';
 import { ProductCard } from '@/components/product-card';
+import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { ProgressBar } from '@/components/ui/progress-bar';
+import { Button } from '@/components/ui/button';
 
 interface ClubPageProps {
   params: { slug: string };
@@ -25,51 +31,63 @@ export default async function ClubPage({ params }: ClubPageProps): Promise<JSX.E
   const encouragerHref = `/boutique?beneficiaryType=club&beneficiaryId=${profile.id}`;
 
   return (
-    <main>
-      <h1>{profile.name}</h1>
-      {profile.logo_url ? (
-        // eslint-disable-next-line @next/next/no-img-element -- image distante (Supabase Storage), pas d'optimisation Next.js nécessaire en V1.
-        <img src={profile.logo_url} alt={profile.name} />
-      ) : null}
+    <main className="page stack">
+      <div className="public-profile__header">
+        {profile.logo_url ? (
+          // eslint-disable-next-line @next/next/no-img-element -- image distante (Supabase Storage), pas d'optimisation Next.js nécessaire en V1.
+          <img src={profile.logo_url} alt={profile.name} className="public-profile__avatar" />
+        ) : null}
+        <div className="public-profile__identity">
+          <h1>{profile.name}</h1>
+          <div className="public-profile__meta">
+            {profile.city ? <Badge>{[profile.city, profile.province].filter(Boolean).join(', ')}</Badge> : null}
+          </div>
+        </div>
+      </div>
       {profile.description ? <p>{profile.description}</p> : null}
-      {profile.city ? <p>{[profile.city, profile.province].filter(Boolean).join(', ')}</p> : null}
 
       {campaignSection ? (
-        <section>
-          <h2>{campaignSection.campaign.name}</h2>
-          {campaignSection.campaign.public_message ? <p>{campaignSection.campaign.public_message}</p> : null}
-          {campaignSection.progress.goalCents !== null ? (
-            <>
-              <p>
-                {formatCents(campaignSection.progress.raisedCents)} amassés sur un objectif de{' '}
-                {formatCents(campaignSection.progress.goalCents)}
-                {campaignSection.progress.isGoalExceeded ? ' — objectif dépassé !' : ''}
-              </p>
-              <progress value={campaignSection.progress.percent ?? 0} max={100} />
-            </>
-          ) : (
-            <p>Cette campagne est active.</p>
-          )}
-          {campaignSection.daysRemaining !== null ? (
-            <p>{campaignSection.daysRemaining} jour(s) restant(s)</p>
-          ) : null}
-        </section>
+        <Card>
+          <section className="stack stack--sm">
+            <h2>{campaignSection.campaign.name}</h2>
+            {campaignSection.campaign.public_message ? <p>{campaignSection.campaign.public_message}</p> : null}
+            {campaignSection.progress.goalCents !== null ? (
+              <>
+                <p>
+                  {formatCents(campaignSection.progress.raisedCents)} amassés sur un objectif de{' '}
+                  {formatCents(campaignSection.progress.goalCents)}
+                  {campaignSection.progress.isGoalExceeded ? ' — objectif dépassé !' : ''}
+                </p>
+                <ProgressBar percent={campaignSection.progress.percent ?? 0} label="Progression de la campagne" />
+              </>
+            ) : (
+              <p>Cette campagne est active.</p>
+            )}
+            {campaignSection.daysRemaining !== null ? (
+              <p>{campaignSection.daysRemaining} jour(s) restant(s)</p>
+            ) : null}
+          </section>
+        </Card>
       ) : (
         <p>Aucune campagne active pour le moment.</p>
       )}
 
-      <p>
-        <Link href={encouragerHref}>Encourager {profile.name}</Link>
-      </p>
+      <div>
+        <Button href={encouragerHref} variant="accent">
+          Encourager {profile.name}
+        </Button>
+      </div>
 
       {recommendedProducts.length > 0 ? (
-        <section>
+        <section className="stack stack--sm">
           <h2>Packs recommandés</h2>
-          <ul>
+          <ul className="product-grid">
             {recommendedProducts.map((product) => (
               <li key={product.id}>
                 <ProductCard product={product} />
-                <Link href={encouragerHref}>Soutenir avec ce pack</Link>
+                <Button href={encouragerHref} variant="outline" size="sm">
+                  Soutenir avec ce pack
+                </Button>
               </li>
             ))}
           </ul>

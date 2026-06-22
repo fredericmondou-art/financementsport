@@ -9,10 +9,17 @@
  * cachés sur chaque formulaire "Ajouter au panier" pour que `addItemAction`
  * puisse pré-attacher ce bénéficiaire au panier — voir
  * `app/(shop)/panier/actions.ts`.
+ *
+ * Habillage Tâche 1.4.4 : grille de cartes du système de design,
+ * présentation uniquement — le `<h1>Boutique</h1>` et le texte du bouton
+ * "Ajouter au panier" restent inchangés (voir tests/e2e/navigation.spec.ts
+ * et tests/e2e/public-profile.spec.ts).
  */
 import { createSupabaseServerClient } from '@/lib/auth/supabase-server';
 import { createSupabaseProductRepo, listPublicProducts, type ProductSort } from '@/lib/catalog/products';
 import { ProductCard } from '@/components/product-card';
+import { Button } from '@/components/ui/button';
+import { Alert } from '@/components/ui/alert';
 import { addItemAction } from '@/app/(shop)/panier/actions';
 
 interface BoutiquePageProps {
@@ -40,19 +47,21 @@ export default async function BoutiquePage({ searchParams }: BoutiquePageProps):
   const beneficiaryId = searchParams.beneficiaryId;
 
   return (
-    <main>
-      <h1>Boutique</h1>
-      <p>Achetez vos essentiels. Financez le sport des jeunes.</p>
+    <main className="page page--wide stack">
+      <div className="page-header">
+        <h1>Boutique</h1>
+        <p>Achetez vos essentiels. Financez le sport des jeunes.</p>
+      </div>
       {beneficiaryType && beneficiaryId ? (
-        <p>
+        <Alert variant="info">
           Vos achats soutiendront ce bénéficiaire — vous pourrez ajuster la répartition depuis votre
           panier.
-        </p>
+        </Alert>
       ) : null}
       {products.length === 0 ? (
         <p>Aucun produit disponible pour le moment.</p>
       ) : (
-        <ul>
+        <ul className="product-grid">
           {products.map((product) => (
             <li key={product.id}>
               <ProductCard product={product} />
@@ -61,9 +70,9 @@ export default async function BoutiquePage({ searchParams }: BoutiquePageProps):
                 <input type="hidden" name="quantity" value={1} />
                 {beneficiaryType ? <input type="hidden" name="beneficiaryType" value={beneficiaryType} /> : null}
                 {beneficiaryId ? <input type="hidden" name="beneficiaryId" value={beneficiaryId} /> : null}
-                <button type="submit" disabled={product.stock_quantity <= 0}>
+                <Button type="submit" disabled={product.stock_quantity <= 0} fullWidth>
                   Ajouter au panier
-                </button>
+                </Button>
               </form>
             </li>
           ))}

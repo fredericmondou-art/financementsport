@@ -1,4 +1,8 @@
 import { signupAction } from './actions';
+import { Card } from '@/components/ui/card';
+import { Field } from '@/components/ui/field';
+import { Alert } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
 
 export default function SignupPage({
   searchParams,
@@ -6,33 +10,33 @@ export default function SignupPage({
   searchParams: { error?: string };
 }): JSX.Element {
   return (
-    <main>
-      <h1>Créer un compte</h1>
-      <p>
-        Créer un compte n&apos;est jamais obligatoire pour acheter — tu peux toujours passer
-        commande sans compte.
-      </p>
-      <form action={signupAction}>
-        <label htmlFor="fullName">Nom complet</label>
-        <input id="fullName" name="fullName" type="text" required autoComplete="name" />
+    <main className="page">
+      <div className="page-header">
+        <h1>Créer un compte</h1>
+        <p>
+          Créer un compte n&apos;est jamais obligatoire pour acheter — tu peux toujours passer
+          commande sans compte.
+        </p>
+      </div>
+      <Card>
+        <form action={signupAction} className="form">
+          <Field label="Nom complet">
+            <input name="fullName" type="text" required autoComplete="name" />
+          </Field>
 
-        <label htmlFor="email">Courriel</label>
-        <input id="email" name="email" type="email" required autoComplete="email" />
+          <Field label="Courriel">
+            <input name="email" type="email" required autoComplete="email" />
+          </Field>
 
-        <label htmlFor="password">Mot de passe</label>
-        <input
-          id="password"
-          name="password"
-          type="password"
-          required
-          minLength={8}
-          autoComplete="new-password"
-        />
+          <Field label="Mot de passe" hint="8 caractères minimum.">
+            <input name="password" type="password" required minLength={8} autoComplete="new-password" />
+          </Field>
 
-        {searchParams.error ? <p role="alert">{searchParams.error}</p> : null}
+          {searchParams.error ? <Alert variant="error">{searchParams.error}</Alert> : null}
 
-        <button type="submit">Créer mon compte</button>
-      </form>
+          <Button type="submit">Créer mon compte</Button>
+        </form>
+      </Card>
     </main>
   );
 }

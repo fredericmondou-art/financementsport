@@ -1,4 +1,5 @@
 import { setBeneficiarySplitAction } from '@/app/(shop)/panier/actions';
+import { Button } from '@/components/ui/button';
 
 export interface BeneficiarySplitRow {
   beneficiaryType: 'athlete' | 'team' | 'club';
@@ -34,6 +35,10 @@ const EMPTY_EXTRA_ROWS = 2;
  * lignes vides en plus des lignes existantes pour permettre d'ajouter un
  * second (ou troisième) bénéficiaire sans JS, conformément au cas
  * d'acceptation "répartir entre deux enfants".
+ *
+ * Habillage Tâche 1.4.4 : classes `table-wrap`/`table` du système de design
+ * et `Button` pour la soumission — présentation uniquement, le texte du
+ * résumé de répartition n'a pas changé.
  */
 export default function BeneficiarySplit({ cartId, rows }: BeneficiarySplitProps): JSX.Element {
   const totalBps = rows.reduce((sum, row) => sum + row.shareBps, 0);
@@ -42,61 +47,63 @@ export default function BeneficiarySplit({ cartId, rows }: BeneficiarySplitProps
     <form action={setBeneficiarySplitAction}>
       <input type="hidden" name="cartId" value={cartId} />
 
-      <table>
-        <thead>
-          <tr>
-            <th>Type</th>
-            <th>Identifiant du bénéficiaire</th>
-            <th>Bénéficiaire</th>
-            <th>Part (points de base, 10000 = 100 %)</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => (
-            <tr key={`${row.beneficiaryType}:${row.beneficiaryId}`}>
-              <td>
-                <select name="beneficiaryType" defaultValue={row.beneficiaryType}>
-                  <option value="athlete">Athlète</option>
-                  <option value="team">Équipe</option>
-                  <option value="club">Club</option>
-                </select>
-              </td>
-              <td>
-                <input type="text" name="beneficiaryId" defaultValue={row.beneficiaryId} />
-              </td>
-              <td>{row.label}</td>
-              <td>
-                <input type="number" name="shareBps" defaultValue={row.shareBps} min={0} max={10000} step={1} />
-              </td>
+      <div className="table-wrap">
+        <table className="table">
+          <thead>
+            <tr>
+              <th>Type</th>
+              <th>Identifiant du bénéficiaire</th>
+              <th>Bénéficiaire</th>
+              <th>Part (points de base, 10000 = 100 %)</th>
             </tr>
-          ))}
-          {Array.from({ length: EMPTY_EXTRA_ROWS }).map((_, index) => (
-            <tr key={`vide-${index}`}>
-              <td>
-                <select name="beneficiaryType" defaultValue="athlete">
-                  <option value="athlete">Athlète</option>
-                  <option value="team">Équipe</option>
-                  <option value="club">Club</option>
-                </select>
-              </td>
-              <td>
-                <input type="text" name="beneficiaryId" placeholder="Identifiant (UUID)" />
-              </td>
-              <td>—</td>
-              <td>
-                <input type="number" name="shareBps" defaultValue={0} min={0} max={10000} step={1} />
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={`${row.beneficiaryType}:${row.beneficiaryId}`}>
+                <td>
+                  <select name="beneficiaryType" defaultValue={row.beneficiaryType}>
+                    <option value="athlete">Athlète</option>
+                    <option value="team">Équipe</option>
+                    <option value="club">Club</option>
+                  </select>
+                </td>
+                <td>
+                  <input type="text" name="beneficiaryId" defaultValue={row.beneficiaryId} />
+                </td>
+                <td>{row.label}</td>
+                <td>
+                  <input type="number" name="shareBps" defaultValue={row.shareBps} min={0} max={10000} step={1} />
+                </td>
+              </tr>
+            ))}
+            {Array.from({ length: EMPTY_EXTRA_ROWS }).map((_, index) => (
+              <tr key={`vide-${index}`}>
+                <td>
+                  <select name="beneficiaryType" defaultValue="athlete">
+                    <option value="athlete">Athlète</option>
+                    <option value="team">Équipe</option>
+                    <option value="club">Club</option>
+                  </select>
+                </td>
+                <td>
+                  <input type="text" name="beneficiaryId" placeholder="Identifiant (UUID)" />
+                </td>
+                <td>—</td>
+                <td>
+                  <input type="number" name="shareBps" defaultValue={0} min={0} max={10000} step={1} />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
 
       <p>
         Total actuel : {totalBps} / 10000 ({(totalBps / 100).toFixed(2)} %) — doit être exactement 10000
         pour enregistrer. Les lignes vides ou à 0 sont ignorées.
       </p>
 
-      <button type="submit">Enregistrer la répartition</button>
+      <Button type="submit">Enregistrer la répartition</Button>
     </form>
   );
 }

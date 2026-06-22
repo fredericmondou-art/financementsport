@@ -999,3 +999,69 @@ Utilise l'athlète seedé réel `thomas-u11`, aucun nouveau seed e2e requis.
 État final : `tsc --noEmit` propre, `eslint` propre, `vitest run` toujours
 33 fichiers / 313 tests verts (aucune régression — aucun nouveau test
 unitaire requis pour cette tâche, qui n'attend que des tests e2e).
+
+## 2026-06-22 — Phase 1.4, Tâche 1.4.4 : application du design aux pages Phase 1
+Habillage de présentation des 10 pages livrées en Phase 1 (accueil, pages
+publiques athlète/équipe/club, boutique, panier, login, signup, compte,
+assistant de création de campagne) plus les deux composants partagés
+`components/product-card.tsx` et `components/beneficiary-split.tsx`, avec les
+primitives `components/ui/*` (1.4.2) et les nouvelles classes utilitaires
+ajoutées à `app/globals.css` (`.page`/`.page--wide`, `.stack`/`.stack--sm`,
+`.page-header`, `.form`/`.form--wide`/`.form__row`/`.form__actions`,
+`.checkbox-list`/`.checkbox-row`, `.table-wrap`/`.table`, `.product-grid`,
+`.product-card__*`, `.public-profile__*`, `.hero`/`.hero__steps`).
+
+Aucun changement de logique métier : chargement de données, Server Actions,
+validation zod, RLS et calculs de crédit/taxes sont restés intacts dans
+chaque fichier touché — seules les balises JSX, classes CSS et l'enrobage par
+des composants `ui/*` ont changé. Chaque texte, `aria-*`, `role` et
+`data-testid` requis par les specs e2e existantes (`navigation.spec.ts`,
+`public-profile.spec.ts`, `auth.spec.ts`, `home.spec.ts`) a été vérifié mot
+pour mot avant et après l'édition :
+- `<h1>Boutique</h1>` et le texte du bouton « Ajouter au panier » inchangés
+  (boutique, requis par `navigation.spec.ts`/`public-profile.spec.ts`) ;
+- `data-testid="user-role"` toujours sur le même paragraphe (`/compte`) ;
+- labels « Courriel »/« Mot de passe »/« Nom complet » et boutons
+  « Se connecter »/« Créer mon compte » inchangés (login/signup) ;
+- `role="alert"` conservé sur tous les messages d'erreur via le composant
+  `Alert` (variante `error` → `role="alert"`, les autres variantes →
+  `role="status"`), y compris dans l'assistant de création de campagne et le
+  panier ;
+- texte du résumé de répartition dans `beneficiary-split.tsx` («
+  Total actuel : X / 10000 (Y %) — … ») laissé identique — l'écart déjà
+  signalé (Tâche 1.6) entre ce format et un éventuel texte `"100%"` attendu
+  par un test n'est pas dans le scope présentation-only de cette tâche.
+
+Décision autonome : pour les listes de cases à cocher (athlètes participants,
+packs inclus de l'assistant de création de campagne), le pattern manuel
+`label htmlFor`/`input id` a été conservé plutôt que d'utiliser `Field`
+(conçu pour un seul contrôle par label) — seules les classes `.checkbox-list`/
+`.checkbox-row` ont été ajoutées pour l'espacement. Le champ « Identifiant du
+produit » du formulaire « Ajouter un produit » (panier) et tous les champs
+single-control des autres formulaires utilisent `Field`, qui gère désormais
+lui-même l'association `id`/`htmlFor` via `useId()` (plus besoin de gérer
+les `id` à la main).
+
+**Bug de cache mount/git rencontré à nouveau.** Trois écritures consécutives
+via l'outil Edit (`app/globals.css`, `components/product-card.tsx`,
+`app/(public)/page.tsx`) ont silencieusement échoué malgré un statut de
+succès rapporté : `globals.css` avait entièrement ignoré l'ajout (taille de
+fichier inchangée, ancienne fin de fichier) ; les deux autres étaient
+tronqués en plein mot/phrase. Plutôt que de continuer à réparer chaque cas a
+posteriori, j'ai changé de stratégie pour le reste de la tâche : écrire
+directement chaque fichier en entier via heredoc bash sur le mount dès le
+départ (jamais l'outil Edit), avec vérification systématique par scan Python
+(longueur exacte attendue, absence d'octet nul, fin de fichier cohérente).
+Les 9 fichiers suivants ont ainsi été écrits sans aucune troncature au
+premier essai. Mémoire persistante mise à jour en conséquence
+(`feedback_ecommerce_mount_git_cache`, hors de ce dépôt).
+
+**Vérification finale.** `tsc --noEmit` propre, `eslint` propre, `vitest
+run` : 33 fichiers / 313 tests toujours verts (aucune régression, aucun
+nouveau test unitaire requis — cette tâche n'attend que des tests e2e déjà
+écrits). `npx playwright test --list` confirme que les 9 tests e2e existants
+(`auth.spec.ts`, `home.spec.ts`, `navigation.spec.ts`,
+`public-profile.spec.ts`) restent listés et valides ; comme depuis la Tâche
+0.1, leur exécution réelle est bloquée dans ce bac à sable (téléchargement
+des navigateurs Chromium et réseau Supabase tous deux bloqués par la
+politique réseau) et doit se faire en CI/local.

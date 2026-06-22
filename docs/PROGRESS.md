@@ -222,8 +222,25 @@
       / 313 tests verts (aucune régression, aucun nouveau test unitaire
       attendu pour cette tâche), `tsc --noEmit` et `npm run lint` propres.
 
+- [x] Phase 1.4 — Tâche 1.4.4 : Application du design aux pages existantes —
+      habillage présentation-only des 10 pages Phase 1 (accueil, pages
+      publiques athlète/équipe/club, boutique, panier, login, signup,
+      compte, assistant de création de campagne) et des composants
+      `product-card.tsx`/`beneficiary-split.tsx` avec les primitives
+      `components/ui/*` et de nouvelles classes utilitaires dans
+      `app/globals.css` (`.page`, `.stack`, `.form`, `.table`,
+      `.product-grid`, `.public-profile__*`, `.checkbox-list`). Aucun
+      changement de logique métier ; tous les textes/`role`/`aria-*`/
+      `data-testid` requis par les e2e existants vérifiés mot pour mot.
+      Trois nouvelles manifestations du bug de cache mount/git rencontrées
+      et corrigées par écriture directe via heredoc (voir docs/DECISIONS.md).
+      État final : 33 fichiers / 313 tests verts (aucune régression),
+      `tsc --noEmit` et `npm run lint` propres, `npx playwright test --list`
+      confirme les 9 tests e2e toujours valides (exécution réelle bloquée en
+      sandbox comme depuis la Tâche 0.1).
+
 ## En cours
-- [ ] Phase 1.4 — Tâche 1.4.4 : Application du design aux pages existantes.
+- [ ] Phase 1.4 — Tâche 1.4.5 : Accessibilité, performance et finitions.
 
 ## À venir
-- Phase 1.4.5 à 1.4.6 (accessibilité/perf/finitions, déploiement Vercel).
+- Phase 1.4.6 (déploiement Vercel).

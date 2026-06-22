@@ -8,13 +8,22 @@
  * Toutes les données viennent de `lib/public/profile.ts`, qui ne lit que des
  * vues publiques (`v_public_athlete`, `v_public_campaign`, ...) — jamais les
  * tables brutes (CLAUDE.md section 5).
+ *
+ * Habillage Tâche 1.4.4 : Card/Badge/ProgressBar/Button du système de
+ * design, présentation uniquement — aucun texte affiché par cette page n'a
+ * changé (voir tests/e2e/public-profile.spec.ts : titre h1, lien
+ * "Encourager", "Cette campagne est active.", absence du texte
+ * "amassés sur un objectif" quand les montants sont masqués).
  */
 import { notFound } from 'next/navigation';
-import Link from 'next/link';
 import { createSupabaseServerClient } from '@/lib/auth/supabase-server';
 import { loadPublicAthleteProfile } from '@/lib/public/profile';
 import { formatCents } from '@/lib/format-cents';
 import { ProductCard } from '@/components/product-card';
+import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { ProgressBar } from '@/components/ui/progress-bar';
+import { Button } from '@/components/ui/button';
 
 interface AthletePageProps {
   params: { athleteSlug: string };
@@ -39,52 +48,64 @@ export default async function AthletePage({ params }: AthletePageProps): Promise
   const encouragerHref = `/boutique?beneficiaryType=athlete&beneficiaryId=${profile.id}`;
 
   return (
-    <main>
-      <h1>{profile.display_name}</h1>
-      {profile.photo_url ? (
-        // eslint-disable-next-line @next/next/no-img-element -- image distante (Supabase Storage), pas d'optimisation Next.js nécessaire en V1.
-        <img src={profile.photo_url} alt={profile.display_name} />
-      ) : null}
-      {profile.sport ? <p>{profile.sport}</p> : null}
-      {profile.city ? <p>{profile.city}</p> : null}
+    <main className="page stack">
+      <div className="public-profile__header">
+        {profile.photo_url ? (
+          // eslint-disable-next-line @next/next/no-img-element -- image distante (Supabase Storage), pas d'optimisation Next.js nécessaire en V1.
+          <img src={profile.photo_url} alt={profile.display_name} className="public-profile__avatar" />
+        ) : null}
+        <div className="public-profile__identity">
+          <h1>{profile.display_name}</h1>
+          <div className="public-profile__meta">
+            {profile.sport ? <Badge variant="info">{profile.sport}</Badge> : null}
+            {profile.city ? <Badge>{profile.city}</Badge> : null}
+          </div>
+        </div>
+      </div>
       {profile.personal_message ? <p>{profile.personal_message}</p> : null}
 
       {campaignSection ? (
-        <section>
-          <h2>{campaignSection.campaign.name}</h2>
-          {campaignSection.campaign.public_message ? <p>{campaignSection.campaign.public_message}</p> : null}
-          {campaignSection.progress.goalCents !== null ? (
-            <>
-              <p>
-                {formatCents(campaignSection.progress.raisedCents)} amassés sur un objectif de{' '}
-                {formatCents(campaignSection.progress.goalCents)}
-                {campaignSection.progress.isGoalExceeded ? ' — objectif dépassé !' : ''}
-              </p>
-              <progress value={campaignSection.progress.percent ?? 0} max={100} />
-            </>
-          ) : (
-            <p>Cette campagne est active.</p>
-          )}
-          {campaignSection.daysRemaining !== null ? (
-            <p>{campaignSection.daysRemaining} jour(s) restant(s)</p>
-          ) : null}
-        </section>
+        <Card>
+          <section className="stack stack--sm">
+            <h2>{campaignSection.campaign.name}</h2>
+            {campaignSection.campaign.public_message ? <p>{campaignSection.campaign.public_message}</p> : null}
+            {campaignSection.progress.goalCents !== null ? (
+              <>
+                <p>
+                  {formatCents(campaignSection.progress.raisedCents)} amassés sur un objectif de{' '}
+                  {formatCents(campaignSection.progress.goalCents)}
+                  {campaignSection.progress.isGoalExceeded ? ' — objectif dépassé !' : ''}
+                </p>
+                <ProgressBar percent={campaignSection.progress.percent ?? 0} label="Progression de la campagne" />
+              </>
+            ) : (
+              <p>Cette campagne est active.</p>
+            )}
+            {campaignSection.daysRemaining !== null ? (
+              <p>{campaignSection.daysRemaining} jour(s) restant(s)</p>
+            ) : null}
+          </section>
+        </Card>
       ) : (
         <p>Aucune campagne active pour le moment.</p>
       )}
 
-      <p>
-        <Link href={encouragerHref}>Encourager {profile.display_name}</Link>
-      </p>
+      <div>
+        <Button href={encouragerHref} variant="accent">
+          Encourager {profile.display_name}
+        </Button>
+      </div>
 
       {recommendedProducts.length > 0 ? (
-        <section>
+        <section className="stack stack--sm">
           <h2>Packs recommandés</h2>
-          <ul>
+          <ul className="product-grid">
             {recommendedProducts.map((product) => (
               <li key={product.id}>
                 <ProductCard product={product} />
-                <Link href={encouragerHref}>Soutenir avec ce pack</Link>
+                <Button href={encouragerHref} variant="outline" size="sm">
+                  Soutenir avec ce pack
+                </Button>
               </li>
             ))}
           </ul>
