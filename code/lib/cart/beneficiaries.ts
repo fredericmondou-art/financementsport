@@ -111,6 +111,39 @@ export function assertSplitTotals10000(split: BeneficiarySplitInput): void {
   }
 }
 
+/**
+ * Répartit `totalBps` points de base également entre `count` parts. Chaque
+ * part est arrondie à la baisse, le reliquat va à la PREMIÈRE part — même
+ * convention d'arrondi déterministe que `splitCreditAmongBeneficiaries`
+ * (lib/credits/calculate.ts) et `deriveBeneficiarySplitFromCredits` (lib/
+ * reorder/reorder.ts), appliquée ici aux points de base plutôt qu'aux
+ * centimes. Fonction PURE, sans I/O.
+ *
+ * Ajoutée pour la Tâche 1.6.A4 (« répartition égale proposée AUTOMATIQUEMENT
+ * dès qu'on ajoute plusieurs enfants », docs/prompts/phase-1-6.md) :
+ * `components/beneficiary-split.tsx` l'utilise pour (a) égaliser toutes les
+ * parts quand le nombre de bénéficiaires change, et (b) redistribuer le
+ * reliquat entre les AUTRES bénéficiaires quand l'utilisateur ajuste une part
+ * manuellement (le total reste ainsi toujours forcé à 10000 sans jamais
+ * dupliquer `assertSplitTotals10000`, qui continue de valider le résultat
+ * final côté serveur).
+ */
+export function splitBpsEqually(totalBps: number, count: number): number[] {
+  if (count <= 0) {
+    return [];
+  }
+  const base = Math.floor(totalBps / count);
+  const allocatedBps = base * count;
+  const remainderBps = totalBps - allocatedBps;
+  return Array.from({ length: count }, (_, index) => base + (index === 0 ? remainderBps : 0));
+}
+
+/** Cas particulier de `splitBpsEqually` pour une répartition à 100 % --
+ * raccourci le plus utilisé (égaliser N bénéficiaires sur le total). */
+export function equalSplitBps(count: number): number[] {
+  return splitBpsEqually(10000, count);
+}
+
 export async function setCartBeneficiarySplit(
   cart: CartRow,
   identity: CartIdentity,

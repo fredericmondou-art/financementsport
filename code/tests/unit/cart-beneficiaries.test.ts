@@ -9,6 +9,8 @@ import { describe, expect, it } from 'vitest';
 import {
   assertSplitTotals10000,
   beneficiarySplitInputSchema,
+  equalSplitBps,
+  splitBpsEqually,
   type BeneficiarySplitInput,
 } from '@/lib/cart/beneficiaries';
 import { BusinessRuleError } from '@/lib/entities/errors';
@@ -107,5 +109,56 @@ describe('beneficiarySplitInputSchema', () => {
       { beneficiaryType: 'team', beneficiaryId: teamId, shareBps: 6000 },
     ]);
     expect(result.success).toBe(true);
+  });
+});
+
+/**
+ * Tâche 1.6.A4 (docs/prompts/phase-1-6.md) : `splitBpsEqually`/`equalSplitBps`
+ * sont les nouvelles fonctions pures utilisées par
+ * `components/beneficiary-split.tsx` pour égaliser automatiquement la
+ * répartition dès qu'on ajoute un bénéficiaire, et pour redistribuer le
+ * reliquat entre les autres lignes lors d'un ajustement manuel -- même
+ * convention d'arrondi (reliquat au PREMIER) que `splitCreditAmongBeneficiaries`
+ * (lib/credits/calculate.ts) et `deriveBeneficiarySplitFromCredits` (lib/
+ * reorder/reorder.ts).
+ */
+describe('splitBpsEqually / equalSplitBps', () => {
+  it('retourne un tableau vide pour 0 bénéficiaire', () => {
+    expect(splitBpsEqually(10000, 0)).toEqual([]);
+    expect(equalSplitBps(0)).toEqual([]);
+  });
+
+  it('attribue 10000 à un seul bénéficiaire', () => {
+    expect(equalSplitBps(1)).toEqual([10000]);
+  });
+
+  it('répartit exactement 50/50 pour deux bénéficiaires', () => {
+    expect(equalSplitBps(2)).toEqual([5000, 5000]);
+  });
+
+  it('répartit 33/33/33 avec le reliquat au premier pour trois bénéficiaires (somme = 10000)', () => {
+    const shares = equalSplitBps(3);
+    expect(shares).toEqual([3334, 3333, 3333]);
+    expect(shares.reduce((sum, bps) => sum + bps, 0)).toBe(10000);
+  });
+
+  it('répartit 7 bénéficiaires avec le reliquat au premier (somme = 10000)', () => {
+    const shares = equalSplitBps(7);
+    expect(shares.reduce((sum, bps) => sum + bps, 0)).toBe(10000);
+    // Convention : chaque part = floor(10000/7) = 1428, reliquat (10000 -
+    // 1428*7 = 4 bps) ajouté à la PREMIÈRE part -- pas Math.ceil(10000/7)
+    // (1429), qui sous-estime un reliquat de plus d'une unité.
+    const base = Math.floor(10000 / 7);
+    const remainder = 10000 - base * 7;
+    expect(shares[0]).toBe(base + remainder);
+    expect(new Set(shares.slice(1)).size).toBe(1);
+  });
+
+  it('splitBpsEqually répartit un total arbitraire (reliquat redistribué lors d\'un ajustement manuel)', () => {
+    // Ex. la ligne ajustée passe à 70 % (7000 bps) -- les 2 autres lignes se
+    // partagent également les 3000 bps restants.
+    expect(splitBpsEqually(3000, 2)).toEqual([1500, 1500]);
+    // Reliquat impair : 1000 bps entre 3 lignes -> 334/333/333.
+    expect(splitBpsEqually(1000, 3)).toEqual([334, 333, 333]);
   });
 });

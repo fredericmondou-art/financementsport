@@ -1771,3 +1771,91 @@ qu'un `git read-tree`/`git reset` réussisse à le rafraîchir -- pas tenté ici
 par prudence (risque de répéter la corruption observée sur `index.new`) ;
 sans impact sur l'intégrité de l'historique, seulement sur le confort de
 `git status` dans cette session.
+
+## 2026-06-23 — Phase 1.6, Tâche 1.6.A4 : répartition entre plusieurs enfants, version simple
+
+**`components/beneficiary-split.tsx` devient un Client Component — première
+exception de cette nature dans tout le projet pour un formulaire métier (les
+seules précédentes, `Modal`/`ModalDemo`, sont de l'UI pure sans donnée
+métier).** Le critère d'acceptation (« ajouter un 2e enfant bascule
+automatiquement en 50/50 », « impact par enfant affiché en direct ») exige un
+recalcul immédiat de la répartition et du montant par bénéficiaire à chaque
+interaction, avant tout aller-retour serveur — impossible avec le formulaire
+natif 100 % serveur de la Tâche 1.4. La soumission finale reste néanmoins
+inchangée : même Server Action (`setBeneficiarySplitAction`), même contrat de
+`FormData` (tableaux parallèles `beneficiaryType[]`/`beneficiaryId[]`/
+`shareBps[]` via des `<input type="hidden">`), et **aucune validation n'est
+dupliquée côté client** — `equalSplitBps`/`splitBpsEqually` (nouvelles
+fonctions pures, `lib/cart/beneficiaries.ts`) ne font que de l'arithmétique de
+répartition égale ; la règle « somme = 10000 » reste exclusivement dans
+`assertSplitTotals10000`, appelée côté serveur par `setCartBeneficiarySplit`
+(défense en profondeur déjà en place, jamais reproduite ici).
+
+**Convention d'arrondi des nouvelles fonctions `equalSplitBps`/
+`splitBpsEqually` : reliquat toujours au PREMIER élément — même règle que
+`splitCreditAmongBeneficiaries` (Tâche 1.3) et
+`deriveBeneficiarySplitFromCredits` (Tâche 1.6.A3).** Choix de cohérence avec
+le reste du projet plutôt qu'une nouvelle convention ad hoc ; `equalSplitBps(3)`
+produit `[3334, 3333, 3333]` (somme exacte 10000). Conséquence cosmétique
+documentée et testée explicitement : affiché en pourcentage entier
+(`Math.round(bps / 100)`), 3334 bps = 33,34 % arrondit à 33 %, donc les trois
+lignes affichent "33 %" simultanément (somme visuelle 99 %, jamais 100 %) alors
+que la valeur réellement soumise au serveur reste exacte à 10000 bps. Pas un
+bug d'argent — uniquement un artefact d'affichage entier, sans impact sur le
+crédit réellement attribué (vérifié par une assertion directe sur les champs
+cachés `shareBps` dans `tests/unit/beneficiary-split.test.tsx`).
+
+**Ajustement manuel (curseur/champ `<input type="number">` 0-100) : fixe la
+part de la ligne modifiée, puis redistribue le reliquat ÉGALEMENT entre les
+AUTRES lignes (jamais proportionnellement à leurs parts actuelles).** Plus
+simple à comprendre pour un parent non technique (« je monte Alice à 70 %, le
+reste se partage à égalité entre les autres ») qu'une redistribution
+proportionnelle, et garantit trivialement que le total reste toujours à 100 %
+sans jamais laisser l'utilisateur atteindre un état invalide dans ce
+formulaire — cohérent avec le critère d'acceptation (« ajustement simple »,
+pas « ajustement proportionnel »).
+
+**Bug réel trouvé par mes propres tests : `equalizeAll()` ne réégalisait pas
+en redescendant à un seul bénéficiaire après un retrait.** En retirant un
+bénéficiaire jusqu'à n'en laisser qu'un seul, l'ancienne version de
+`equalizeAll()` ne touchait à `shareBps` que pour `length >= 2`, laissant la
+ligne restante à sa valeur pré-retrait (ex. 7000) alors que l'affichage montre
+déjà "100%" sans champ ajustable pour une seule ligne — désynchronisation
+réelle entre l'impact affiché et la valeur réellement soumise au serveur.
+Trouvé par le test « retirer un bénéficiaire réégalise les lignes restantes »
+(`tests/unit/beneficiary-split.test.tsx`), corrigé par une branche explicite
+`nextRows.length === 1` qui force `shareBps: 10000`.
+
+**Whitespace de `Intl.NumberFormat('fr-CA', { style: 'currency', ... })` dans
+les tests de rendu : même remède que `tests/unit/format-cents.test.ts`
+(`normalizeSpaces`), appliqué ici à la chaîne de RECHERCHE plutôt qu'au texte
+comparé.** `formatCents` insère un espace insécable (U+00A0) avant le symbole
+monétaire ; le normaliseur de `@testing-library/dom` collapse déjà le texte du
+DOM mais ne touche pas l'argument passé à `getByText`/`getAllByText`. Sans
+correction, ces appels échouent à tort. Nouveau helper local `moneyText()`
+dans `tests/unit/beneficiary-split.test.tsx`.
+
+**Bug de cache mount/bash, nouvelle manifestation (suite des entrées
+précédentes) : trois fichiers tronqués simultanément après des appels `Edit`
+ayant pourtant rapporté un succès** (`components/beneficiary-split.tsx`,
+`tests/unit/cart-beneficiaries.test.ts`, `tests/unit/beneficiary-split.test.tsx`).
+Diagnostiqué par lecture via l'outil Read (toujours fiable, contenu complet et
+correct) contre un scan d'octets bash (`wc -c`/`tail -c`/scan Python d'octets
+nuls), qui a montré les trois fichiers plus courts que la vérité, coupés en
+plein milieu d'une instruction. Réparé par réécriture heredoc complète des
+trois fichiers directement sur le mount, suivie de `sync`/`sleep 1`/nouvelle
+vérification — même procédure que les manifestations précédentes (voir
+mémoire persistante `mount-staleness-ecommerce.md`, hors de ce dépôt).
+
+**Tests** : 14 nouveaux/modifiés (`tests/unit/cart-beneficiaries.test.ts` :
+ajout de `splitBpsEqually`/`equalSplitBps`, 8 cas ; `tests/unit/
+beneficiary-split.test.tsx`, nouveau fichier, 7 cas couvrant l'égalisation
+automatique 2 et 3 bénéficiaires, l'ajustement manuel, le retrait avec
+réégalisation, le blocage du dernier retrait, et le contrat de soumission par
+champs cachés). État final : `tsc --noEmit` propre, `eslint .` propre,
+`vitest run` complet sans régression sur l'ensemble des suites unitaires et
+d'intégration déjà existantes (cart, credits, taxes, entities, public,
+reorder, orders, UI, slug, format-cents, app-error/not-found, checkout,
+create-campaign, permissions) — 25 tests nouveaux/réécrits verts pour cette
+tâche précisément, en plus de tous les tests pré-existants relancés sans
+échec.

@@ -35,6 +35,12 @@
  * message d'information non bloquant après un rachat partiel depuis
  * `app/(portails)/compte/actions.ts` (ex. un article retiré du catalogue) --
  * le rachat reste un succès, ce n'est jamais une `Alert variant="error"`.
+ *
+ * Tâche 1.6.A4 : `BeneficiarySplit` reçoit maintenant aussi
+ * `creditEstimate.totalCreditCents` (déjà calculé ci-dessous, aucune requête
+ * supplémentaire) -- nécessaire pour que ce composant affiche l'impact par
+ * bénéficiaire EN DIRECT à chaque ajustement de répartition, avant tout
+ * enregistrement côté serveur.
  */
 import { formatCents } from '@/lib/format-cents';
 import { getCurrentUser } from '@/lib/auth/session';
@@ -199,6 +205,7 @@ export default async function PanierPage({ searchParams }: PanierPageProps): Pro
             label: labels.get(beneficiaryLabelKey(b.beneficiary_type, b.beneficiary_id)) ?? '—',
             shareBps: b.share_bps,
           }))}
+          totalCreditCents={creditEstimate.totalCreditCents}
         />
       </section>
 
