@@ -297,20 +297,23 @@
       régression ; le nouveau test e2e n'est pas compté dans cette suite
       Vitest), `tsc --noEmit` et `npm run lint` propres.
 
-## En cours
-- [ ] Phase 1.4 — Tâche 1.4.6 (déploiement, partie restante) : site en ligne
-      (mode TEST), projet Supabase de production distinct créé et
-      migré/seedé, bug RLS paniers invités corrigé (voir entrées
-      précédentes et docs/DECISIONS.md). Le gap fonctionnel (bouton de
-      paiement manquant, page de confirmation manquante, test e2e d'achat
-      manquant) est maintenant fermé au niveau du code (voir entrée
-      ci-dessus) et poussé sur `main` (déploiement automatique Vercel).
-      Reste à faire : (1) exécuter réellement le parcours d'achat en mode
-      TEST contre l'URL déployée (navigateur réel, carte 4242 4242 4242
-      4242) et confirmer que le webhook Stripe a bien écrit la commande et
-      le crédit dans Supabase production pour l'athlète Thomas Tremblay ;
-      (2) rédiger `docs/DEPLOIEMENT.md` (variables d'environnement,
-      procédure de déploiement/redéploiement).
+- [x] Phase 1.4 — Tâche 1.4.6 (clôture) : vérification réelle de bout en
+      bout effectuée le 2026-06-23 sur https://financementsport.vercel.app/
+      avec le navigateur de Frédéric (l'outil de navigation autonome refuse
+      tout accès — même lecture — à checkout.stripe.com, restriction de
+      sécurité du produit sur les domaines de paiement ; Frédéric a donc
+      rempli lui-même le formulaire de paiement avec la carte de test 4242
+      4242 4242 4242). Résultat vérifié directement en base (Supabase
+      production, projet `zebskpuphqeattetznrg`) : commande `a9c76136-...`
+      statut `paid`, total 8049 ¢ (70,00 $ + TPS/TVQ QC 14,98 % = 80,49 $,
+      calcul exact) ; crédit de 1000 ¢ attribué à l'athlète Thomas Tremblay
+      (`order_credits`, statut `active`) ; évènement Stripe
+      `evt_1TlIScLRciJeuoQRpgSC9Hmq` (`checkout.session.completed`,
+      `livemode: false`, `locale: fr-CA` confirmé) enregistré dans
+      `stripe_events` pour l'idempotence ; page `/commande/confirmation`
+      affichée correctement avec le bon `session_id`. `docs/DEPLOIEMENT.md`
+      déjà rédigé (commit 622b9a1). Tous les critères d'acceptation de la
+      Tâche 1.4.6 sont remplis.
 
 ## À venir
 - (rien après la Phase 1.4 dans le cahier des charges fourni à ce jour)

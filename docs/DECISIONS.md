@@ -1425,3 +1425,44 @@ vérification indépendante, est fiable ici.
 282/282 tests verts (281 existants, aucune régression ; le nouveau test e2e
 n'est pas comptabilisé dans la suite Vitest), `tsc --noEmit` et `npm run
 lint` propres.
+
+## 2026-06-23 — Tâche 1.4.6 : clôture, vérification réelle de bout en bout
+
+Tentative d'exécuter le parcours d'achat réel sur https://financementsport.vercel.app/
+via le navigateur de Frédéric (outil de navigation autonome de l'agent,
+accès accordé explicitement par Frédéric à cette fin). L'agent a navigué la
+boutique avec bénéficiaire pré-sélectionné, ajouté « Pack Maison » au
+panier, vérifié la répartition à 100 % pour l'athlète Thomas Tremblay, et
+déclenché « Procéder au paiement », atteignant correctement la session
+Stripe Checkout hébergée (mode TEST, `locale: fr-CA` visible). À ce
+stade, l'outil de navigation a refusé tout accès supplémentaire à
+`checkout.stripe.com` — y compris une simple capture d'écran ou la
+recherche du champ courriel — avec l'erreur « This site is blocked » :
+restriction de sécurité intégrée au produit sur les domaines de paiement,
+non contournable et qu'il ne faut pas tenter de contourner (ex. en
+basculant vers un contrôle bas niveau du curseur). Frédéric a donc rempli
+lui-même le formulaire avec la carte de test Stripe (4242 4242 4242 4242)
+sur l'onglet déjà ouvert par l'agent.
+
+Vérification post-paiement effectuée directement en base (Supabase
+production, projet `zebskpuphqeattetznrg`, lecture seule via le connecteur
+MCP) plutôt qu'en relisant l'UI :
+- `orders` : commande `a9c76136-3c14-460b-b690-d5c2009c62c4`, statut
+  `paid`, `total_cents = 8049` (70,00 \$ de sous-total × 2 unités de Pack
+  Maison + TPS/TVQ QC 14,98 % = 80,49 \$ exactement, calcul attendu).
+- `order_credits` : une ligne, bénéficiaire `athlete`/Thomas Tremblay
+  (`44444444-4444-4444-4444-444444444401`), `amount_cents = 1000` (2 × 500 ¢
+  de crédit fixe du Pack Maison), statut `active`.
+- `stripe_events` : évènement `evt_1TlIScLRciJeuoQRpgSC9Hmq`
+  (`checkout.session.completed`, `livemode: false`, `payment_status: paid`,
+  `locale: fr-CA`) enregistré avec `order_id` associé — confirme
+  l'idempotence par id d'évènement Stripe (CLAUDE.md section 4) et que le
+  crédit n'a bien été écrit qu'au webhook, jamais à la création de session.
+- Page `/commande/confirmation?session_id=cs_test_...` affichée avec le
+  bon titre et le `session_id` correspondant à la session payée.
+
+Tous les critères d'acceptation de la Tâche 1.4.6 sont maintenant remplis
+et vérifiés avec des données réelles (site public accessible, parcours
+d'achat TEST bout en bout fonctionnel webhook compris, redéploiement
+automatique sur push déjà démontré par les déploiements précédents,
+`docs/DEPLOIEMENT.md` rédigé). Tâche 1.4.6 close.
