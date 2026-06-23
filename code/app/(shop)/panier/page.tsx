@@ -30,6 +30,11 @@
  * jamais utilisé par un vrai client -- l'ajout réel passe par les boutons
  * « Ajouter au panier » de la boutique/des pages publiques) est retiré et
  * remplacé par un lien « Continuer mes achats » vers /boutique.
+ *
+ * Tâche 1.6.A3 : `searchParams.avis` (distinct de `erreur`) affiche un
+ * message d'information non bloquant après un rachat partiel depuis
+ * `app/(portails)/compte/actions.ts` (ex. un article retiré du catalogue) --
+ * le rachat reste un succès, ce n'est jamais une `Alert variant="error"`.
  */
 import { formatCents } from '@/lib/format-cents';
 import { getCurrentUser } from '@/lib/auth/session';
@@ -49,7 +54,7 @@ import { Button } from '@/components/ui/button';
 import { checkoutAction, removeItemAction, updateQuantityAction } from './actions';
 
 interface PanierPageProps {
-  searchParams: { erreur?: string };
+  searchParams: { erreur?: string; avis?: string };
 }
 
 export default async function PanierPage({ searchParams }: PanierPageProps): Promise<JSX.Element> {
@@ -105,6 +110,7 @@ export default async function PanierPage({ searchParams }: PanierPageProps): Pro
       </div>
 
       {searchParams.erreur ? <Alert variant="error">{searchParams.erreur}</Alert> : null}
+      {searchParams.avis ? <Alert variant="info">{searchParams.avis}</Alert> : null}
 
       {!user ? (
         <p>

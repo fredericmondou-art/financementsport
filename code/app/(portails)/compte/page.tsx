@@ -1,31 +1,60 @@
 import { redirect } from 'next/navigation';
 import { getCurrentUser } from '@/lib/auth/session';
+import { createSupabaseServerClient } from '@/lib/auth/supabase-server';
 import { logoutAction } from '../../(auth)/login/actions';
+import {
+  createSupabaseOrdersRepo,
+  listOrdersWithDetailsForUser,
+  summarizeImpactByBeneficiary,
+} from '@/lib/orders/list-orders';
+import { loadBeneficiaryLabels, beneficiaryLabelKey } from '@/lib/cart/beneficiary-labels';
+import { formatCents } from '@/lib/format-cents';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Alert } from '@/components/ui/alert';
+import { reorderAction } from './actions';
 
 /**
- * Page protégée de démonstration pour la Tâche 0.3 (sert aussi de cible au
- * test e2e signup → login → page protégée). Sera enrichie en Phase 1.5
- * (dashboard équipe/club/admin selon le rôle).
+ * Page protégée pour la Tâche 0.3 (sert aussi de cible au test e2e signup →
+ * login → page protégée -- `data-testid="user-role"` reste sur le même
+ * paragraphe, texte inchangé, voir tests/e2e/auth.spec.ts).
  *
- * Habillage Tâche 1.4.4 : Card/Badge/Button du système de design,
- * présentation uniquement — `data-testid="user-role"` reste sur le même
- * paragraphe, texte inchangé (voir tests/e2e/auth.spec.ts).
+ * Enrichie à la Tâche 1.6.A3 (docs/prompts/phase-1-6.md) : espace parent
+ * minimal -- historique des commandes, impact généré par bénéficiaire
+ * (agrégé sur toutes les commandes), lien vers le reçu de chacune, et bouton
+ * « Racheter » qui reconstruit le panier à l'identique (voir
+ * `lib/reorder/reorder.ts` et `./actions.ts`).
  */
-export default async function ComptePage(): Promise<JSX.Element> {
+interface ComptePageProps {
+  searchParams: { erreur?: string };
+}
+
+export default async function ComptePage({ searchParams }: ComptePageProps): Promise<JSX.Element> {
   const user = await getCurrentUser();
 
   if (!user) {
     redirect('/login');
   }
 
+  const supabase = createSupabaseServerClient();
+  const orders = await listOrdersWithDetailsForUser(user.id, createSupabaseOrdersRepo(supabase));
+  const impact = summarizeImpactByBeneficiary(orders);
+
+  const allCredits = orders.flatMap((detail) => detail.credits);
+  const labels = await loadBeneficiaryLabels(
+    supabase,
+    allCredits.map((credit) => ({ beneficiaryType: credit.beneficiary_type, beneficiaryId: credit.beneficiary_id })),
+  );
+
   return (
-    <main className="page">
+    <main className="page stack">
       <div className="page-header">
         <h1>Mon compte</h1>
       </div>
+
+      {searchParams.erreur ? <Alert variant="error">{searchParams.erreur}</Alert> : null}
+
       <Card>
         <div className="stack stack--sm">
           <p data-testid="user-role">
@@ -37,6 +66,80 @@ export default async function ComptePage(): Promise<JSX.Element> {
             </Button>
           </form>
         </div>
+      </Card>
+
+      <Card>
+        <section className="stack stack--sm">
+          <h2>Impact généré</h2>
+          {impact.length === 0 ? (
+            <p>Aucun achat encore associé à un bénéficiaire.</p>
+          ) : (
+            <ul>
+              {impact.map((line) => (
+                <li key={`${line.beneficiaryType}:${line.beneficiaryId}`}>
+                  Tu as généré {formatCents(line.totalAmountCents)} pour{' '}
+                  {labels.get(beneficiaryLabelKey(line.beneficiaryType, line.beneficiaryId)) ?? 'ce bénéficiaire'}.
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      </Card>
+
+      <Card>
+        <section className="stack stack--sm">
+          <h2>Mes commandes</h2>
+          {orders.length === 0 ? (
+            <p>Vous n&apos;avez encore aucune commande.</p>
+          ) : (
+            <div className="table-wrap">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Commande</th>
+                    <th>Date</th>
+                    <th>Total</th>
+                    <th>Bénéficiaire(s)</th>
+                    <th />
+                  </tr>
+                </thead>
+                <tbody>
+                  {orders.map(({ order, credits }) => (
+                    <tr key={order.id}>
+                      <td>{order.order_number}</td>
+                      <td>{new Date(order.created_at).toLocaleDateString('fr-CA')}</td>
+                      <td>{formatCents(order.total_cents)}</td>
+                      <td>
+                        {credits.length === 0
+                          ? '—'
+                          : credits
+                              .map(
+                                (credit) =>
+                                  labels.get(beneficiaryLabelKey(credit.beneficiary_type, credit.beneficiary_id)) ??
+                                  'ce bénéficiaire',
+                              )
+                              .join(', ')}
+                      </td>
+                      <td>
+                        <div className="stack stack--sm">
+                          <Button href={`/compte/commandes/${order.id}/recu`} variant="outline" size="sm">
+                            Voir le reçu
+                          </Button>
+                          <form action={reorderAction}>
+                            <input type="hidden" name="orderId" value={order.id} />
+                            <Button type="submit" variant="outline" size="sm">
+                              Racheter
+                            </Button>
+                          </form>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
       </Card>
     </main>
   );

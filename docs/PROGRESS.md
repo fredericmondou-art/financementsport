@@ -350,6 +350,29 @@
       tests verts (aucune régression), `tsc --noEmit` et `npm run lint`
       propres.
 
+- [x] Phase 1.6, Tâche 1.6.A3 — Espace parent : suivi, reçus et rachat en un
+      clic — migration `0009_order_credits_select_own_order.sql` (policy RLS
+      additive corrigeant une lacune : le propriétaire d'une commande ne
+      pouvait pas lire le crédit que son propre achat avait généré),
+      `lib/orders/list-orders.ts` (`groupOrderDetails` : historique complet
+      toutes commandes/statuts ; `summarizeImpactByBeneficiary` : impact
+      réel, crédits `active`/`pending` seulement), `lib/reorder/reorder.ts`
+      (`buildReorderPlan` : revalidation catalogue actuel, additif au panier
+      existant ; `deriveBeneficiarySplitFromCredits` : répartition exacte
+      reconstruite depuis les crédits figés, appliquée sans condition),
+      `components/print-button.tsx` (reçu imprimable via `window.print()`,
+      aucune librairie PDF ajoutée), page reçu
+      `app/(portails)/compte/commandes/[id]/recu/page.tsx`,
+      `app/(portails)/compte/page.tsx` et `app/(shop)/panier/page.tsx`
+      étendues. Décisions autonomes (lacune RLS, pas de librairie PDF,
+      rachat additif, écrasement délibéré de la répartition au rachat,
+      filtre de statut différent entre impact et historique) — voir
+      docs/DECISIONS.md. 14 nouveaux tests unitaires + 5 nouveaux
+      d'intégration (Postgres embarqué, prouvant le trou RLS puis sa
+      correction) + 1 nouveau e2e (non exécutable en sandbox, comme les
+      précédents). 40 fichiers / 341 tests verts (aucune régression),
+      `tsc --noEmit` et `eslint .` propres.
+
 ## À venir
 - [ ] Phase 1.6 — UX de tous les usagers (voir `docs/prompts/phase-1-6.md`) —
       **à faire AVANT la Phase 1.5** (demande de Frédéric, 2026-06-23 ; cohérent
@@ -357,7 +380,7 @@
   - [ ] Bloc A — Client / parent acheteur
     - [x] 1.6.A1 Achat invité fluide (page athlète → paiement)
     - [x] 1.6.A2 Création de compte encouragée après l'achat
-    - [ ] 1.6.A3 Espace parent : suivi, reçus et rachat en un clic
+    - [x] 1.6.A3 Espace parent : suivi, reçus et rachat en un clic
     - [ ] 1.6.A4 Répartition entre plusieurs enfants, version simple
   - [ ] Bloc B — Responsable de campagne
     - [ ] 1.6.B1 Assistant de campagne pas-à-pas avec sauvegarde automatique

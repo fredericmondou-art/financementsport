@@ -1629,3 +1629,113 @@ Write/Edit sur ce projet.
 install indépendant du mount) : `tsc --noEmit` propre, `eslint .` propre,
 `vitest run` complet : 37 fichiers / 322 tests verts (317 existants + 5
 nouveaux), aucune régression.
+
+## 2026-06-23 — Phase 1.6, Tâche 1.6.A3 : espace parent (suivi, reçus, rachat)
+
+**Lacune RLS corrigée : le propriétaire d'une commande ne pouvait pas lire le
+crédit que SON PROPRE achat avait généré.** `order_credits_select_staff`
+(migration 0005) ne couvrait que `platform_admin`/`accounting`/le manager du
+bénéficiaire -- aucune policy ne permettait à un client de lire le crédit issu
+de sa propre commande, alors que c'est exactement ce que l'espace `/compte`
+doit afficher (« impact généré »). Corrigé par une policy strictement
+additive, `order_credits_select_own_order` (migration
+`0009_order_credits_select_own_order.sql`), `USING
+(private.owns_order(order_id))` -- combinée par OR avec la policy staff déjà
+en place (comportement standard de Postgres RLS : plusieurs policies
+permissives sur la même commande s'additionnent, jamais ne se remplacent).
+Test d'intégration dédié contre un vrai Postgres embarqué
+(`tests/integration/order-credits-own-order-rls.test.ts`) prouvant les
+quatre cas : (1) le trou existe bien avant 0009, (2) le propriétaire voit son
+crédit après, (3) un autre client ne voit toujours rien, (4) le staff voit
+toujours tout. Pas un choix ambigu (CLAUDE.md section 9b ne s'applique pas
+ici) : c'est un trou de sécurité par omission dans une policy déjà
+déployée, de la même famille que les bugs seed.sql/trigger (Tâche 0.4) et
+0004→0005 -- corrigé directement, pas remonté en question.
+
+**Reçu imprimable : fonction `window.print()` du navigateur, aucune
+librairie PDF ajoutée au projet.** `components/print-button.tsx` (nouveau,
+`'use client'` -- seul ajout à la liste très courte de composants client du
+projet, voir Tâche 1.4.2) déclenche l'impression native, qui propose déjà
+« Enregistrer en PDF » dans toute boîte de dialogue moderne, sans dépendance
+ni route serveur de génération PDF. Typé sur `ButtonAsButtonProps` (le membre
+concret de l'union, pas `ButtonProps`) -- `Omit` appliqué directement à une
+union discriminée collapse la discrimination et casse le typage de
+`<Button>` (conflit de handler bouton/ancre) ; ce composant ne rend jamais
+de lien, donc aucune perte de généralité.
+
+**Rachat (« Racheter ») : additif dans le panier existant, jamais
+destructeur.** `lib/reorder/reorder.ts` (`buildReorderPlan`) revalide chaque
+ligne de la commande passée contre le catalogue ACTUEL au moment du clic
+(produit retiré, désactivé, en rupture totale -> écarté avec un message
+explicite ; stock partiel -> quantité réduite et signalée, jamais une
+erreur bloquante pour le reste du panier) puis AJOUTE les lignes valides au
+panier en cours, sans jamais vider ni remplacer son contenu existant --
+cohérent avec le comportement déjà établi pour la fusion de panier invité
+(Tâche 1.4, « articles additionnés »).
+
+**Répartition entre bénéficiaires au rachat : reconstruite depuis les
+`order_credits` figés de la commande d'origine et appliquée
+SANS condition, contrairement au lien "Encourager" (Tâche 1.6, qui n'attache
+qu'à un panier vide).** `deriveBeneficiarySplitFromCredits` retrouve les
+parts exactes (même règle d'arrondi -- centimes au premier bénéficiaire --
+que `splitCreditAmongBeneficiaries`, CLAUDE.md section 4) à partir des
+montants de crédit réellement attribués à la commande d'origine, pas d'une
+supposition. Choix délibérément différent du lien "Encourager" : un client
+qui clique "Racheter" exprime une intention explicite de répéter EXACTEMENT
+le même don qu'avant -- écraser une répartition mal choisie restée par
+défaut dans le panier sert mieux cette intention qu'attendre un panier vide.
+Si le client a depuis ajouté d'autres articles au même panier avec sa propre
+répartition déjà choisie, ce remplacement reste acceptable car "Racheter"
+est une action explicite et ponctuelle, pas un événement de fond (à la
+différence de la fusion automatique de panier invité) -- à revisiter si ce
+choix s'avère surprenant en usage réel.
+
+**Résumé d'impact (« généré pour votre athlète ») : n'additionne que les
+crédits `active`/`pending`, jamais `cancelled`/`refunded`/`expired`.**
+`summarizeImpactByBeneficiary` (`lib/orders/list-orders.ts`) -- cohérent
+avec la définition déjà établie du solde réel (CLAUDE.md section 4, « les
+soldes se calculent depuis les lignes de crédit ») : un crédit annulé ou
+remboursé n'a jamais représenté un don réellement reçu par l'athlète, même
+s'il a existé un temps.
+
+**Liste des commandes de `/compte` : toutes les commandes de l'utilisateur,
+quel que soit leur statut (y compris `pending`/`payment_failed`).**
+`groupOrderDetails` ne filtre pas par statut -- contrairement au résumé
+d'impact ci-dessus, l'historique d'achat doit rester complet et honnête
+(un client doit pouvoir retrouver une commande dont le paiement a échoué,
+par exemple pour comprendre pourquoi son crédit n'apparaît pas), seul
+l'impact financier affiché est filtré.
+
+**Bug de cache mount/bash, nouvelle manifestation et nouveau diagnostic plus
+précis : la vue bash est en RETARD (pas corrompue) sur les fichiers
+existants réécrits via `Write`/`Edit`, mais synchronise immédiatement les
+fichiers neufs.** `app/(portails)/compte/page.tsx` et
+`app/(shop)/panier/page.tsx` (tous deux des fichiers EXISTANTS réécrits en
+entier via `Write` pour cette tâche) sont apparus tronqués en pleine
+instruction côté bash, avec un `stat`/`Modify` inchangé depuis la veille --
+preuve d'un retard de synchronisation du mount bash, pas d'une troncature
+réelle (l'outil Read affichait le contenu correct immédiatement). À la
+différence des manifestations précédentes (Tâches 1.3-Audit-1.4.x, où la
+réécriture heredoc DIRECTEMENT sur le mount était la seule réparation qui
+fonctionnait), cette fois le contenu réel sur le vrai système de fichiers
+(celui que Frédéric et `git` verront) était déjà correct dès l'appel `Write`
+-- seule la vue bash de CETTE session avait besoin d'être contournée pour la
+vérification (`tsc`/`eslint`/`vitest`), via une copie heredoc dans
+`/tmp/code-build-1.6a3` plutôt que via le mount. Les deux mécanismes (retard
+de lecture vs. troncature réelle persistante) ont donc pu coexister selon
+les tâches -- la procédure de vérification par scan d'octets indépendant
+(établie depuis la Tâche 1.4.2) reste la bonne défense dans les deux cas,
+peu importe la cause exacte. La même cause a expliqué l'absence initiale de
+`docs/DECISIONS.md`/`docs/PROGRESS.md` dans `git status` après leur mise à
+jour pour cette tâche -- réparé par réécriture heredoc directe sur le mount,
+comme ici.
+
+**Tests** : 14 nouveaux unitaires (`tests/unit/orders-list-orders.test.ts`,
+`tests/unit/reorder.test.ts`), 5 nouveaux d'intégration contre un vrai
+Postgres embarqué avec les vraies migrations
+(`tests/integration/order-credits-own-order-rls.test.ts`), 1 nouveau e2e
+(`tests/e2e/compte-dashboard.spec.ts`, même statut que les e2e précédents --
+écrit et valide pour Playwright, non exécutable en sandbox). État final :
+`tsc --noEmit` propre, `eslint .` propre sur l'ensemble du dépôt, 40 fichiers
+/ 341 tests verts (322 existants + 19 nouveaux : 14 unitaires + 5
+d'intégration), aucune régression.
