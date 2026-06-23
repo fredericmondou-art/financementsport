@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 
 /**
  * Parcours d'achat complet en mode TEST Stripe (Tâche 1.4.6, critère
@@ -32,15 +32,20 @@ import { expect, test } from '@playwright/test';
  *
  * Carte de test Stripe utilisée : 4242 4242 4242 4242 (succès direct, pas de
  * 3-D Secure) -- https://stripe.com/docs/testing.
+ *
+ * Tâche 1.6.A1 (docs/prompts/phase-1-6.md, critère « Le parcours est
+ * confortable sur mobile (test viewport étroit) ») : le même parcours est
+ * rejoué sous un viewport mobile étroit (375×720, même valeur que
+ * tests/e2e/navigation.spec.ts) via `runGuestPurchaseFlow`, pour ne pas
+ * dupliquer la logique du test desktop ci-dessous tout en couvrant les deux
+ * tailles d'écran exigées par les critères d'acceptation de la tâche.
  */
 
 const ATHLETE_ID = '44444444-4444-4444-4444-444444444401';
 const PACK_MAISON_NAME = 'Pack Maison';
 const PACK_MAISON_FIXED_CREDIT_CENTS = 500;
 
-test('achat d’un pack avec bénéficiaire pré-sélectionné -> paiement Stripe test -> crédit attribué', async ({
-  page,
-}) => {
+async function runGuestPurchaseFlow(page: Page): Promise<void> {
   // 1. Boutique avec bénéficiaire pré-sélectionné (lien "Encourager" simulé
   //    via les mêmes paramètres de requête que app/(shop)/boutique/page.tsx).
   await page.goto(`/boutique?beneficiaryType=athlete&beneficiaryId=${ATHLETE_ID}`);
@@ -49,9 +54,11 @@ test('achat d’un pack avec bénéficiaire pré-sélectionné -> paiement Strip
   await packMaisonCard.getByRole('button', { name: 'Ajouter au panier' }).click();
 
   // 2. Panier : la répartition doit avoir été pré-remplie à 100% pour cet
-  //    athlète (voir app/(shop)/panier/actions.ts, addItemAction).
+  //    athlète (voir app/(shop)/panier/actions.ts, addItemAction), et le nom
+  //    du produit (pas son UUID -- Tâche 1.6.A1) doit être lisible.
   await expect(page).toHaveURL(/\/panier/);
   await expect(page.getByText('100%')).toBeVisible();
+  await expect(page.getByRole('cell', { name: PACK_MAISON_NAME })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Procéder au paiement' })).toBeVisible();
 
   // 3. Déclenche checkoutAction -> redirection vers Stripe Checkout hébergé.
@@ -113,4 +120,18 @@ test('achat d’un pack avec bénéficiaire pré-sélectionné -> paiement Strip
 
   expect(creditRow).not.toBeNull();
   expect(creditRow?.amount_cents).toBe(PACK_MAISON_FIXED_CREDIT_CENTS);
+}
+
+test('achat d’un pack avec bénéficiaire pré-sélectionné -> paiement Stripe test -> crédit attribué', async ({
+  page,
+}) => {
+  await runGuestPurchaseFlow(page);
+});
+
+test.describe('mobile (Tâche 1.6.A1 -- parcours invité sur viewport étroit)', () => {
+  test.use({ viewport: { width: 375, height: 720 } });
+
+  test('achat d’un pack sur mobile -> paiement Stripe test -> crédit attribué, sans compte', async ({ page }) => {
+    await runGuestPurchaseFlow(page);
+  });
 });

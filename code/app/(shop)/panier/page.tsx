@@ -1,7 +1,7 @@
 /**
- * Page panier (Tâche 1.4) : Server Component, appelle directement
- * `lib/cart/*.ts` (pas de round-trip HTTP interne), même pattern que
- * app/(shop)/boutique/page.tsx (CLAUDE.md section 6).
+ * Page panier (Tâche 1.4, polie à la Tâche 1.6.A1) : Server Component,
+ * appelle directement `lib/cart/*.ts` (pas de round-trip HTTP interne), même
+ * pattern que app/(shop)/boutique/page.tsx (CLAUDE.md section 6).
  *
  * Le contexte de campagne ("un seul contexte de campagne par panier",
  * décision de la Tâche 1.3) est dérivé du premier `campaign_id` non nul
@@ -18,6 +18,18 @@
  * test unitaire `checkout-prepare-checkout.test.ts` qui référence cette
  * même phrase teste un message d'exception de logique métier, sans lien
  * avec cette page — voir docs/DECISIONS.md).
+ *
+ * Tâche 1.6.A1 (voir docs/DECISIONS.md) : chaque ligne affichait jusqu'ici
+ * l'UUID brut du produit (`item.product_id`), illisible pour un parent non
+ * technique -- échec direct du test universel de la Phase 1.6 (« une
+ * personne non technique comprend-elle quoi faire en 3 secondes ? »).
+ * Cette page charge maintenant le nom de chaque produit (`lib/catalog/
+ * products.ts`, déjà utilisé par `lib/checkout/create-checkout-session.ts`
+ * pour la même raison) et l'affiche à la place. Le formulaire « Ajouter un
+ * produit » par identifiant brut (résidu de développement de la Tâche 1.4,
+ * jamais utilisé par un vrai client -- l'ajout réel passe par les boutons
+ * « Ajouter au panier » de la boutique/des pages publiques) est retiré et
+ * remplacé par un lien « Continuer mes achats » vers /boutique.
  */
 import { formatCents } from '@/lib/format-cents';
 import { getCurrentUser } from '@/lib/auth/session';
@@ -30,11 +42,11 @@ import { loadCartCreditContext } from '@/lib/cart/credit-context';
 import { estimateCartCredit, formatCreditMessage } from '@/lib/cart/estimate-credit';
 import { resolveCartIdentity } from '@/lib/cart/identity';
 import { createSupabaseCartItemsRepo, listCartItems } from '@/lib/cart/items';
+import { createSupabaseProductRepo } from '@/lib/catalog/products';
 import { Card } from '@/components/ui/card';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Field } from '@/components/ui/field';
-import { addItemAction, checkoutAction, removeItemAction, updateQuantityAction } from './actions';
+import { checkoutAction, removeItemAction, updateQuantityAction } from './actions';
 
 interface PanierPageProps {
   searchParams: { erreur?: string };
@@ -72,6 +84,18 @@ export default async function PanierPage({ searchParams }: PanierPageProps): Pro
     beneficiaries.map((b) => ({ beneficiaryType: b.beneficiary_type, beneficiaryId: b.beneficiary_id })),
   );
 
+  // Tâche 1.6.A1 : noms de produits pour l'affichage (voir en-tête de
+  // fichier) -- une requête par produit distinct du panier, comme
+  // `lib/checkout/create-checkout-session.ts` le fait déjà pour la même
+  // raison (revalider en direct, ne jamais faire confiance à un nom mis en
+  // cache côté panier).
+  const productRepo = createSupabaseProductRepo(supabase);
+  const uniqueProductIds = Array.from(new Set(items.map((item) => item.product_id)));
+  const products = await Promise.all(uniqueProductIds.map((id) => productRepo.getProductById(id)));
+  const productNameById = new Map(
+    uniqueProductIds.map((id, index) => [id, products[index]?.name ?? 'Produit retiré du catalogue']),
+  );
+
   const subtotalCents = items.reduce((sum, item) => sum + item.unit_price_cents * item.quantity, 0);
 
   return (
@@ -106,7 +130,7 @@ export default async function PanierPage({ searchParams }: PanierPageProps): Pro
             <tbody>
               {items.map((item) => (
                 <tr key={item.id}>
-                  <td>{item.product_id}</td>
+                  <td>{productNameById.get(item.product_id)}</td>
                   <td>{formatCents(item.unit_price_cents)}</td>
                   <td>
                     <form action={updateQuantityAction}>
@@ -184,20 +208,11 @@ export default async function PanierPage({ searchParams }: PanierPageProps): Pro
         </Card>
       ) : null}
 
-      <Card>
-        <section className="stack stack--sm">
-          <h2>Ajouter un produit</h2>
-          <form action={addItemAction} className="form">
-            <Field label="Identifiant du produit">
-              <input type="text" name="productId" required />
-            </Field>
-            <Field label="Quantité">
-              <input type="number" name="quantity" defaultValue={1} min={1} />
-            </Field>
-            <Button type="submit">Ajouter au panier</Button>
-          </form>
-        </section>
-      </Card>
+      <div>
+        <Button href="/boutique" variant="outline">
+          Continuer mes achats
+        </Button>
+      </div>
     </main>
   );
 }

@@ -1484,3 +1484,68 @@ Décision autonome (pas de risque financier ni de donnée de mineur engagée
 par cette promotion de rôle elle-même) : utiliser le club déjà seedé
 "Corsaires" plutôt que d'en créer un nouveau, faute de précision contraire
 de l'utilisateur. Peut être changé sur demande.
+
+## 2026-06-23 — Phase 1.6, Tâche 1.6.A1 : achat invité fluide (page athlète → paiement)
+
+Relecture de `docs/prompts/phase-1-6.md` : la plupart des critères
+d'acceptation de 1.6.A1 étaient déjà satisfaits par du travail antérieur
+(Phase 1, tâches 1.4/1.5/1.4.6) :
+- achat sans compte déjà possible (`lib/auth/session.ts`, `getCurrentUser()`
+  ne bloque jamais le panier/checkout invité) ;
+- bénéficiaire pré-sélectionné depuis la page athlète déjà fonctionnel
+  (`app/(public)/[athleteSlug]/page.tsx` → lien « Encourager » →
+  `/boutique?beneficiaryType=athlete&beneficiaryId=...` →
+  `addItemAction` n'attache 100 % au bénéficiaire que si le panier n'a pas
+  déjà de répartition) ;
+- message d'impact déjà visible au panier (« Impact de votre achat ») ;
+- `locale: 'fr-CA'` déjà fixé dans
+  `lib/checkout/create-checkout-session.ts`.
+
+Décision autonome (pas d'ambiguïté de cahier des charges, pas de risque
+financier) : **Apple Pay / Google Pay** ne nécessitent aucun changement de
+code. `create-checkout-session.ts` ne restreint pas `payment_method_types`
+à la création de la session Stripe Checkout hébergée ; Stripe affiche
+automatiquement les portefeuilles disponibles (Apple Pay/Google Pay) selon
+l'appareil/navigateur du visiteur et la configuration du compte Stripe
+(Dashboard → Paramètres → Méthodes de paiement). Aucune action de code
+requise ; à vérifier côté Dashboard Stripe par Frédéric avant mise en
+production (hors du périmètre code de cette tâche).
+
+Le vrai point bloquant trouvé : `app/(shop)/panier/page.tsx` affichait
+l'UUID brut du produit (`item.product_id`) dans le tableau du panier —
+échec direct du test universel de la Phase 1.6 (« une personne non
+technique comprend-elle quoi faire en 3 secondes ? »). La page exposait
+aussi un formulaire « Ajouter un produit » par identifiant brut, résidu de
+développement de la Tâche 1.4 jamais destiné à un vrai client (l'ajout réel
+passe par les boutons « Ajouter au panier » de la boutique/des pages
+publiques, via `addItemAction`).
+
+Correctifs apportés à `app/(shop)/panier/page.tsx` :
+- chargement du nom de chaque produit du panier via
+  `lib/catalog/products.ts` (`getProductById`, une requête par produit
+  distinct — même pattern que `lib/checkout/create-checkout-session.ts`,
+  jamais de nom mis en cache côté panier) et affichage de ce nom à la place
+  de l'UUID ; produit introuvable affiché comme « Produit retiré du
+  catalogue » plutôt que de faire échouer la page ;
+- retrait du formulaire dev-only « Ajouter un produit » (UUID brut),
+  remplacé par un lien « Continuer mes achats » vers `/boutique`.
+
+Test e2e mobile ajouté : `tests/e2e/checkout.spec.ts` factorise le parcours
+d'achat invité (page athlète → boutique → panier → Stripe Checkout test →
+confirmation → vérification du crédit en base) dans
+`runGuestPurchaseFlow(page)`, rejoué une fois en desktop (test existant,
+inchangé sauf l'assertion ajoutée sur le nom de produit lisible au panier)
+et une fois sous viewport mobile 375×720 (même valeur que
+`tests/e2e/navigation.spec.ts`), couvrant le critère « le parcours est
+confortable sur mobile (test viewport étroit) ». Non exécutable dans ce
+bac à sable (réseau Stripe/Supabase bloqué, comme tous les e2e existants
+de ce projet) — à exécuter en CI/local.
+
+Vérification effectuée avant de clore la tâche (procédure du bug de cache
+mount/git documenté ailleurs dans ce fichier) : scan Python octet par
+octet des deux fichiers modifiés (longueur, absence d'octet nul, fin de
+fichier cohérente) — propre. Build complet dans un répertoire `/tmp`
+indépendant du mount (copie via `rsync`, `npm install`, car le
+`node_modules` du mount n'est pas garanti utilisable tel quel) :
+`tsc --noEmit` propre, `eslint .` propre, `vitest run` : 35 fichiers / 317
+tests verts, aucune régression.
