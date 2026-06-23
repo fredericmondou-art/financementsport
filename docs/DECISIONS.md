@@ -1549,3 +1549,83 @@ indépendant du mount (copie via `rsync`, `npm install`, car le
 `node_modules` du mount n'est pas garanti utilisable tel quel) :
 `tsc --noEmit` propre, `eslint .` propre, `vitest run` : 35 fichiers / 317
 tests verts, aucune régression.
+
+## 2026-06-23 — Phase 1.6, Tâche 1.6.A2 : création de compte encouragée après l'achat
+
+**Contexte** : `docs/prompts/phase-1-6.md` demande de proposer la création de
+compte APRÈS l'achat invité (jamais avant/pendant, pour ne pas freiner la
+conversion), avec rattachement automatique des commandes invité existantes au
+nouveau compte « via l'e-mail ».
+
+**Décision de sécurité (la plus importante de cette tâche)** : le courriel
+utilisé pour (a) créer le compte et (b) retrouver les commandes invité à
+rattacher n'est JAMAIS pris depuis un champ de formulaire, même caché. Un champ
+caché reste une valeur soumise par le navigateur, donc falsifiable. À la place,
+`app/(shop)/commande/confirmation/actions.ts` relit le courriel directement
+depuis Stripe via `stripe.checkout.sessions.retrieve(sessionId)` --
+`session_id` est un jeton porteur non-devinable (même modèle de confiance que
+le `success_url`, déjà la seule preuve d'achat utilisée par cette page depuis
+la Tâche 1.4.6). Conséquence délibérée : le rattachement automatique par
+courriel est scoped UNIQUEMENT à ce parcours post-achat -- jamais généralisé au
+formulaire d'inscription public (`app/(auth)/signup`). Généraliser aurait
+permis à quiconque connaissant le courriel d'un tiers (information non
+secrète) de créer un compte sous ce courriel et de se faire réassigner ses
+commandes (vol de commande/squat de compte, CLAUDE.md section 5).
+
+**Ce qui est rattaché, et comment** : `lib/orders/attach-guest-orders.ts`
+(`attachGuestOrdersToUser` + `createSupabaseAttachGuestOrdersRepo`, même
+séparation logique/I-O que `lib/cart/attach-guest-cart.ts`, modèle de
+référence) ne fait QUE réassigner `orders.user_id` -- jamais
+`order_credits.amount_cents`. Ce n'est donc PAS une « modification d'un
+crédit » au sens de CLAUDE.md section 4 : aucune ligne `credit_audit_log`
+n'est créée. Aucune policy RLS n'autorise un `UPDATE` sur `orders` pour un
+utilisateur normal (seul `platform_admin`, policy `orders_admin_update`,
+migration 0003) -- le repo doit donc impérativement être construit sur
+`createSupabaseServiceClient()` (jamais le client anon), et n'est appelé que
+depuis ce contexte serveur de confiance où le courriel a déjà été vérifié par
+Stripe.
+
+**Échec = no-op, jamais un blocage** : si l'inscription échoue (courriel déjà
+utilisé, mot de passe invalide), `attachGuestOrdersToUser` n'est jamais
+appelée -- aucune commande ne bouge (critère « refus sans effet sur la
+commande »). Si l'inscription réussit mais le rattachement échoue (ex. table
+indisponible), l'erreur est seulement journalisée (`logger.warn`), jamais
+remontée à l'utilisateur -- même pattern que `attachGuestCartToUser` dans
+`app/(auth)/login/actions.ts` : le rattachement est un bonus, jamais un
+blocage de la création de compte.
+
+**Exception narrow à la décision « pas de lecture Stripe/Supabase » de la
+Tâche 1.4.6** : la page de confirmation lit maintenant UN SEUL champ en
+lecture seule (`customer_details.email`) pour proposer l'adresse pré-remplie.
+Ceci ne contredit pas la décision d'origine : raison 1 (RLS, CLAUDE.md section
+5) ne s'applique pas (c'est Stripe, pas Supabase) ; raison 2 (latence du
+webhook crédit) ne s'applique pas non plus (l'e-mail du payeur est connu de
+Stripe dès le paiement confirmé, pas seulement après l'écriture du crédit par
+le webhook). Dégradation silencieuse si la lecture échoue : pas de proposition
+de compte, jamais une erreur visible.
+
+**Tests** : 3 unitaires (`tests/unit/orders-attach-guest-orders.test.ts`, repo
+en mémoire) + 2 d'intégration contre un vrai Postgres embarqué avec les vraies
+migrations/policies RLS (`tests/integration/attach-guest-orders.test.ts`) :
+rattachement correct et scoping exact (un autre courriel ou une commande déjà
+rattachée à un autre compte ne bougent jamais) en `service_role`, et no-op
+total démontré sous RLS pour `anon`/`authenticated` non-admin (défense en
+profondeur). Critère « commande rattachée visible » non démontrable en UI tant
+que la Tâche 1.6.A3 (tableau de bord `/compte`) n'existe pas -- démontré ici au
+niveau base de données (`orders.user_id`), comme `checkout.spec.ts` vérifie
+`order_credits` directement en base plutôt que via une UI qui n'existe pas
+encore.
+
+**Bug de cache mount/git, encore** : l'écriture initiale de
+`app/(shop)/commande/confirmation/page.tsx` (réécriture complète via l'outil
+Write) a divergé entre ce que l'outil Read rapportait (fichier complet,
+correct) et ce que `bash`/`cat` voyaient réellement sur le mount (fichier
+tronqué à 2716 octets, coupé en plein mot `interface...`). Réparé par
+réécriture heredoc directe contre le chemin monté en bash, puis vérifié par
+`wc -c`/`tail -c`/`grep -c` -- procédure désormais systématique après chaque
+Write/Edit sur ce projet.
+
+**Vérification** : build complet dans `/tmp/code-build-1.6a2` (rsync + npm
+install indépendant du mount) : `tsc --noEmit` propre, `eslint .` propre,
+`vitest run` complet : 37 fichiers / 322 tests verts (317 existants + 5
+nouveaux), aucune régression.

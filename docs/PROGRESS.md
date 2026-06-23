@@ -330,4 +330,41 @@
       mobile (viewport 375×720) ajouté à `tests/e2e/checkout.spec.ts`
       (parcours factorisé dans `runGuestPurchaseFlow`, rejoué desktop +
       mobile). `tsc --noEmit` propre, `eslint .` propre, `vitest run` :
-      35 fichie
+      35 fichiers / 317 tests verts (aucune régression).
+
+- [x] Phase 1.6, Tâche 1.6.A2 — Création de compte encouragée après l'achat :
+      `lib/orders/attach-guest-orders.ts` (réassigne uniquement
+      `orders.user_id`, jamais un crédit -- pas de `credit_audit_log`),
+      `app/(shop)/commande/confirmation/actions.ts` (Server Action
+      `createAccountFromOrderAction`, mot de passe seulement -- le courriel
+      n'est JAMAIS pris d'un champ de formulaire, toujours relu depuis
+      Stripe via `session_id`), `app/(shop)/commande/confirmation/page.tsx`
+      étendue (CTA de création de compte si invité + courriel Stripe
+      résolu, masquée si déjà connecté). Rattachement scoped au seul
+      parcours post-achat (jamais généralisé au formulaire d'inscription
+      public, risque de squat de compte par courriel connu d'un tiers) —
+      voir docs/DECISIONS.md. Échec d'inscription = commande inchangée ;
+      échec de rattachement = journalisé seulement, jamais bloquant. 2
+      nouveaux tests d'intégration contre un vrai Postgres embarqué (avec
+      les vraies migrations/policies RLS) + 3 unitaires. 37 fichiers / 322
+      tests verts (aucune régression), `tsc --noEmit` et `npm run lint`
+      propres.
+
+## À venir
+- [ ] Phase 1.6 — UX de tous les usagers (voir `docs/prompts/phase-1-6.md`) —
+      **à faire AVANT la Phase 1.5** (demande de Frédéric, 2026-06-23 ; cohérent
+      avec l'ordre déjà prévu dans `ORCHESTRATION.md`)
+  - [ ] Bloc A — Client / parent acheteur
+    - [x] 1.6.A1 Achat invité fluide (page athlète → paiement)
+    - [x] 1.6.A2 Création de compte encouragée après l'achat
+    - [ ] 1.6.A3 Espace parent : suivi, reçus et rachat en un clic
+    - [ ] 1.6.A4 Répartition entre plusieurs enfants, version simple
+  - [ ] Bloc B — Responsable de campagne
+    - [ ] 1.6.B1 Assistant de campagne pas-à-pas avec sauvegarde automatique
+    - [ ] 1.6.B2 Défauts intelligents et saisie des athlètes sans douleur
+    - [ ] 1.6.B3 Aperçu, activation et écran « prochaines actions »
+  - [ ] Bloc C — Athlète
+    - [ ] 1.6.C1 Profil athlète et page publique soignée
+    - [ ] 1.6.C2 Suivi de progression et partage pour l'athlète
+- [ ] Phase 1.5 — Campagne pleinement opérationnelle (voir
+      `docs/prompts/phase-1-5.md`) — à faire APRÈS la Phase 1.6
