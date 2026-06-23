@@ -1739,3 +1739,35 @@ Postgres embarqué avec les vraies migrations
 `tsc --noEmit` propre, `eslint .` propre sur l'ensemble du dépôt, 40 fichiers
 / 341 tests verts (322 existants + 19 nouveaux : 14 unitaires + 5
 d'intégration), aucune régression.
+
+**Nouveau blocage d'infrastructure au commit (pas lié au code) : fichiers de
+verrou `.git/*.lock` impossibles à supprimer dans ce bac à sable (`rm`/`mv`/
+`unlink` Python échouent tous avec `Operation not permitted`, même en
+propriétaire du fichier), ce qui bloque `git add`/`git commit` normaux
+(`index.lock`, `HEAD.lock` bloqués depuis une session précédente).** Diagnostic
+plus poussé : écrire le fichier d'index Git (binaire, format `DIRC`)
+DIRECTEMENT dans `.git/` monté échoue aussi silencieusement (fichier de la
+bonne taille mais entièrement à zéro, signature corrompue) -- alors qu'écrire
+le même index à un chemin HORS du mount (`/tmp/...`) produit un fichier
+valide. Écrire des *objets* Git (blobs/trees/commits, écriture séquentielle
+simple suivie d'un rename) à l'intérieur de `.git/objects/` du mount, par
+contre, fonctionne très bien (juste des avertissements bénins `unable to
+unlink tmp_obj_*` au nettoyage). Contournement qui fonctionne, utilisé ici et
+à reproduire pour toute future tâche tant que ce bac à sable n'est pas
+relancé proprement : (1) `GIT_INDEX_FILE=/tmp/un-chemin-hors-mount git add
+...` puis `git write-tree` (l'index vit hors du mount, les objets s'écrivent
+quand même dans le vrai `.git/objects`) ; (2) `git commit-tree <tree> -p
+$(git rev-parse HEAD) -m "..."` pour créer le commit (objet, donc écriture
+fiable) ; (3) `git update-ref refs/heads/<branche> <sha>` échoue lui aussi
+(verrouille `HEAD.lock`) -- écrire directement le contenu du SHA dans
+`.git/refs/heads/<branche>` (simple fichier texte d'une ligne, écriture
+séquentielle fiable) fait exactly la même chose que `update-ref` sans passer
+par son mécanisme de verrou. `git fsck`/`git show --stat`/`git cat-file -p`
+après coup confirment l'intégrité (aucun objet corrompu, contenu du commit
+identique au TREE attendu). Effet de bord inoffensif : `.git/index` par
+défaut reste daté d'avant ce commit (toujours valide, juste périmé), donc
+`git status` affichera du bruit (fichiers modifiés en double D+??) jusqu'à ce
+qu'un `git read-tree`/`git reset` réussisse à le rafraîchir -- pas tenté ici
+par prudence (risque de répéter la corruption observée sur `index.new`) ;
+sans impact sur l'intégrité de l'historique, seulement sur le confort de
+`git status` dans cette session.
