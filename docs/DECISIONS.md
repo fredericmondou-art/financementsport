@@ -1859,3 +1859,71 @@ reorder, orders, UI, slug, format-cents, app-error/not-found, checkout,
 create-campaign, permissions) — 25 tests nouveaux/réécrits verts pour cette
 tâche précisément, en plus de tous les tests pré-existants relancés sans
 échec.
+
+## 2026-06-23 — Phase 1.6, Tâche 1.6.B1 : assistant de campagne pas-à-pas avec sauvegarde automatique
+
+**Refonte complète de `app/(portails)/campagnes/nouvelle` (formulaire unique
+de la Tâche 1.7) en assistant à 6 étapes pilotées par `?etape=1..6`.** Une
+seule décision par écran (type/nom → bénéficiaire → objectif/dates →
+participants → packs → récapitulatif), chacun son propre `<form>` Server
+Component natif (aucun Client Component, CLAUDE.md section 6) : « Continuer »
+sauvegarde l'étape ET avance ; « Revenir » (`components/wizard/wizard-nav.tsx`)
+est un simple lien `?etape=N-1`, jamais une perte de données puisque l'étape
+précédente a déjà été persistée côté serveur — critère « retour arrière sans
+perte » satisfait par construction.
+
+**Persistance exclusivement serveur (`campaign_drafts`, migration 0010, RLS
+propriétaire seul) — jamais cookie/localStorage.** Un brouillon est lié à
+`auth.uid()`, pas à un appareil : si `?etape` est absent au chargement, la
+page reprend `current_step` du brouillon existant — critère « reprise
+multi-appareil » satisfait sans aucun état côté navigateur. Un brouillon ne
+crée jamais de ligne `campaigns` (donc jamais de fuite vers
+`v_public_campaign`) avant l'étape finale, qui délègue à `createCampaign`
+(Tâche 1.7) inchangé.
+
+**Retrait complet de la section « Règle de crédit » de l'assistant (principe
+du Bloc B, docs/prompts/phase-1-6.md : « le responsable ne touche jamais aux
+règles de crédit ni aux taux »).** `buildCampaignInputFromDraft`
+(`lib/campaigns/draft.ts`) force systématiquement `creditRule: null` à
+l'assemblage final, quel que soit le contenu du brouillon — pas un oubli,
+la seule valeur que cet assistant peut produire. La capacité self-service
+plafonnée (`SELF_SERVICE_*_CAP`, migration 0008, Tâche 1.7) reste intacte au
+niveau données/RLS pour un usage admin futur, simplement plus jamais exposée
+dans cette interface.
+
+**Schéma de validation par étape dérivé de `campaignBaseSchema`, pas
+dupliqué.** `lib/campaigns/create-campaign.ts` exporte désormais
+`campaignBaseSchema` (l'objet zod avant les `.refine()` croisés) pour que
+`lib/campaigns/draft.ts#stepSchemas` référence `campaignBaseSchema.shape.<champ>`
+au lieu de redéclarer les énumérations `type`/`beneficiaryType`/etc. Seules
+les règles croisées strictement internes à une étape (« équipe ou club
+requis », « fin ≥ début ») sont reproduites au niveau de l'étape ; la
+validation complète et finale reste `campaignInputSchema.parse`, à l'étape
+recap.
+
+**Fusion de brouillon volontairement superficielle (`mergeDraftData` =
+spread).** Chaque étape possède un sous-ensemble disjoint de clés
+(`stepSchemas`), donc `{ ...current, ...patch }` ne perd jamais une donnée
+déjà enregistrée par une étape antérieure — combiné à `saveStepAndAdvance`
+(un seul aller-retour DB par étape, `app/(portails)/campagnes/nouvelle/
+actions.ts`), ce mécanisme rend le « retour arrière sans perte » et la
+sauvegarde automatique triviaux à prouver (15 tests unitaires couvrent
+chaque étape, la fusion, et le forçage `creditRule: null` —
+`tests/unit/campaign-draft.test.ts`).
+
+**9e à 12e manifestations du bug de cache mount/git (voir entrées
+précédentes et la mémoire persistante dédiée), cette fois sur 4 fichiers en
+une seule passe : `lib/campaigns/create-campaign.ts` et `lib/db/types.ts`
+(Edit), `app/(portails)/campagnes/nouvelle/page.tsx` et `actions.ts` (Write
+complet).** Tous apparus tronqués en plein milieu d'une instruction côté
+bash (`tsc --noEmit` rapportait 6 erreurs de syntaxe), alors que l'outil Read
+affichait dans chaque cas un contenu complet et correct — confirme que le
+bug affecte indifféremment les réécritures complètes et les éditions
+partielles de fichiers déjà existants. Réparé par la procédure désormais
+standard : réécriture heredoc bash directe sur le mount à partir du contenu
+vérifié par Read, puis `wc -l` + scan Python d'octets nuls + `tail -c` sur
+chacun des 4 fichiers avant de refaire confiance à `tsc`.
+
+**Vérification finale.** `tsc --noEmit` propre, `vitest run tests/unit`
+complet sans régression (217 tests, dont les 15 nouveaux de cette tâche).
+`npm run lint` à confirmer avant clôture définitive de la tâche.

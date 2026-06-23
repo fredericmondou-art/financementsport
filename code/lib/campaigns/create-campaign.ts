@@ -69,24 +69,37 @@ const creditRuleInputSchema = z
   });
 export type CreditRuleInput = z.infer<typeof creditRuleInputSchema>;
 
-export const campaignInputSchema = z
-  .object({
-    type: z.enum(['team', 'club', 'athlete', 'event', 'annual', 'reorder']),
-    name: z.string().trim().min(1, 'Le nom de la campagne est requis.').max(200),
-    publicMessage: z.string().trim().max(2000).nullable().optional(),
-    beneficiaryType: z.enum(['athlete', 'team', 'club']),
-    beneficiaryId: z.string().uuid('Un bénéficiaire est requis.'),
-    clubId: z.string().uuid().nullable().optional(),
-    teamId: z.string().uuid().nullable().optional(),
-    goalCents: z.number().int().min(0).nullable().optional(),
-    startsAt: z.string().datetime({ message: 'La date de début est requise et doit être une date valide.' }),
-    endsAt: z.string().datetime().nullable().optional(),
-    participantAthleteIds: z.array(z.string().uuid()).max(500).optional().default([]),
-    productIds: z
-      .array(z.string().uuid())
-      .min(1, 'Au moins un pack doit être inclus dans la campagne.'),
-    creditRule: creditRuleInputSchema.nullable().optional(),
-  })
+/**
+ * Objet de base AVANT les `.refine()` croisés ci-dessous — exporté séparément
+ * (Tâche 1.6.B1) pour que `lib/campaigns/draft.ts` puisse réutiliser les
+ * mêmes sous-schémas de champs (`campaignBaseSchema.shape.type`, etc.) lors
+ * de la validation étape par étape de l'assistant, SANS dupliquer les listes
+ * d'énumération (`type`, `beneficiaryType`) ailleurs — un seul endroit à
+ * tenir à jour. `campaignInputSchema` (validation complète, croisée entre
+ * champs) reste la SEULE source de vérité utilisée à la création réelle de la
+ * campagne (`createCampaign` ci-dessous) ; les schémas par étape de
+ * `draft.ts` ne valident que des sous-ensembles de champs et ne remplacent
+ * jamais cette validation finale.
+ */
+export const campaignBaseSchema = z.object({
+  type: z.enum(['team', 'club', 'athlete', 'event', 'annual', 'reorder']),
+  name: z.string().trim().min(1, 'Le nom de la campagne est requis.').max(200),
+  publicMessage: z.string().trim().max(2000).nullable().optional(),
+  beneficiaryType: z.enum(['athlete', 'team', 'club']),
+  beneficiaryId: z.string().uuid('Un bénéficiaire est requis.'),
+  clubId: z.string().uuid().nullable().optional(),
+  teamId: z.string().uuid().nullable().optional(),
+  goalCents: z.number().int().min(0).nullable().optional(),
+  startsAt: z.string().datetime({ message: 'La date de début est requise et doit être une date valide.' }),
+  endsAt: z.string().datetime().nullable().optional(),
+  participantAthleteIds: z.array(z.string().uuid()).max(500).optional().default([]),
+  productIds: z
+    .array(z.string().uuid())
+    .min(1, 'Au moins un pack doit être inclus dans la campagne.'),
+  creditRule: creditRuleInputSchema.nullable().optional(),
+});
+
+export const campaignInputSchema = campaignBaseSchema
   .refine((v) => v.clubId != null || v.teamId != null, {
     message: 'Une campagne doit être rattachée à au moins une équipe ou un club.',
     path: ['teamId'],

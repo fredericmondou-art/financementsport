@@ -664,6 +664,32 @@ textarea {
   gap: var(--space-3);
   align-items: center;
 }
+.form__actions--end {
+  justify-content: flex-end;
+}
+
+/* Récapitulatif de l'assistant de campagne (Tâche 1.6.B1) */
+.recap-list {
+  display: grid;
+  grid-template-columns: minmax(140px, 220px) 1fr;
+  gap: var(--space-2) var(--space-4);
+  margin: 0;
+}
+.recap-list dt {
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+.recap-list dd {
+  margin: 0;
+}
+@media (max-width: 640px) {
+  .recap-list {
+    grid-template-columns: 1fr;
+  }
+  .recap-list dt {
+    margin-top: var(--space-2);
+  }
+}
 
 .checkbox-list {
   display: flex;
@@ -782,33 +808,4 @@ textarea {
   gap: var(--space-1);
 }
 .public-profile__identity h1 {
-  margin: 0;
-}
-.public-profile__meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-3);
-  color: var(--color-text-secondary);
-}
-
-.hero {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  padding: var(--space-7) 0 var(--space-6);
-}
-.hero h1 {
-  max-width: 36ch;
-}
-.hero p {
-  max-width: 60ch;
-  color: var(--color-text-secondary);
-  font-size: 1.0625rem;
-}
-.hero ol,
-.hero__steps {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  padding-left: var(--space-5);
-}
+  margin: 

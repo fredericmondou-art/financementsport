@@ -748,6 +748,33 @@ export interface StripeEventsTable {
   Update: Partial<StripeEventsTable['Insert']>;
 }
 
+/**
+ * Ajoutée par la migration 0010 (Tâche 1.6.B1) : un brouillon par
+ * gestionnaire pour l'assistant de création de campagne en étapes — voir
+ * `lib/campaigns/draft.ts`. `draft_data` est un objet libre (validé par étape
+ * en TypeScript, jamais en base) tant que la campagne réelle n'a pas été
+ * créée.
+ */
+export interface CampaignDraftsTable {
+  Row: {
+    id: string;
+    user_id: string;
+    current_step: string;
+    draft_data: unknown;
+    created_at: string;
+    updated_at: string;
+  };
+  Insert: {
+    id?: string;
+    user_id: string;
+    current_step?: string;
+    draft_data?: unknown;
+    created_at?: string;
+    updated_at?: string;
+  };
+  Update: Partial<CampaignDraftsTable['Insert']>;
+}
+
 // =============================================================================
 // VIEWS
 // =============================================================================
@@ -871,6 +898,7 @@ export interface Database {
       payouts: PayoutsTable;
       email_log: EmailLogTable;
       stripe_events: StripeEventsTable;
+      campaign_drafts: CampaignDraftsTable;
     };
     Views: {
       v_beneficiary_credit_totals: VBeneficiaryCreditTotalsView;

@@ -386,4 +386,46 @@
       autonomes (Client Component scoping, convention d'arrondi, redistribution
       égale plutôt que proportionnelle à l'ajustement) — voir docs/DECISIONS.md.
       25 nouveaux tests unitaires (8 fonctions pures + 7 composant, plus
-      ajustements de tests existants), aucune régression sur les suites déj
+      ajustements de tests existants), aucune régression sur les suites déjà
+      en place, `tsc --noEmit` et `eslint .` propres.
+
+- [x] Phase 1.6, Tâche 1.6.B1 — Assistant de campagne pas-à-pas avec
+      sauvegarde automatique — refonte complète de `app/(portails)/
+      campagnes/nouvelle` (formulaire unique de la Tâche 1.7) en assistant à
+      6 étapes pilotées par `?etape=1..6` (type/nom → bénéficiaire →
+      objectif/dates → participants → packs → récapitulatif), chaque étape
+      son propre `<form>` Server Component natif. Persistance exclusivement
+      serveur (`campaign_drafts`, migration 0010, RLS propriétaire seul,
+      reprise multi-appareil sans cookie/localStorage). Retrait complet de
+      la section « Règle de crédit » (principe du Bloc B :
+      `buildCampaignInputFromDraft` force toujours `creditRule: null`).
+      Nouveaux fichiers : `lib/campaigns/draft.ts` (validation par étape,
+      fusion superficielle, assemblage final), `components/wizard/*`
+      (progression + navigation « Revenir »/« Continuer »),
+      `app/(portails)/campagnes/nouvelle/actions.ts` (Server Actions par
+      étape, `redirect()` toujours hors try/catch). `lib/campaigns/
+      create-campaign.ts` exporte désormais `campaignBaseSchema` pour que
+      les schémas par étape n'aient pas à redupliquer les énumérations.
+      9e à 12e manifestations du bug de cache mount/git rencontrées et
+      réparées (voir docs/DECISIONS.md). 15 nouveaux tests unitaires
+      (`tests/unit/campaign-draft.test.ts`), aucune régression,
+      `tsc --noEmit` propre.
+
+## À venir
+- [ ] Phase 1.6 — UX de tous les usagers (voir `docs/prompts/phase-1-6.md`) —
+      **à faire AVANT la Phase 1.5** (demande de Frédéric, 2026-06-23 ; cohérent
+      avec l'ordre déjà prévu dans `ORCHESTRATION.md`)
+  - [ ] Bloc A — Client / parent acheteur
+    - [x] 1.6.A1 Achat invité fluide (page athlète → paiement)
+    - [x] 1.6.A2 Création de compte encouragée après l'achat
+    - [x] 1.6.A3 Espace parent : suivi, reçus et rachat en un clic
+    - [x] 1.6.A4 Répartition entre plusieurs enfants, version simple
+  - [ ] Bloc B — Responsable de campagne
+    - [x] 1.6.B1 Assistant de campagne pas-à-pas avec sauvegarde automatique
+    - [ ] 1.6.B2 Défauts intelligents et saisie des athlètes sans douleur
+    - [ ] 1.6.B3 Aperçu, activation et écran « prochaines actions »
+  - [ ] Bloc C — Athlète
+    - [ ] 1.6.C1 Profil athlète et page publique soignée
+    - [ ] 1.6.C2 Suivi de progression et partage pour l'athlète
+- [ ] Phase 1.5 — Campagne pleinement opérationnelle (voir
+      `docs/prompts/phase-1-5.md`) — à faire APRÈS la Phase 1.6
