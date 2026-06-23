@@ -4,7 +4,7 @@
  * Fonction PURE : aucune I/O. Les `rules` pertinentes sont chargées par
  * l'appelant (Tâche 1.5 fera la requête DB) ; cette fonction se contente
  * d'appliquer la hiérarchie exactement comme documentée dans
- * `01-schema-base-de-donnees.sql` (table `credit_rules`) :
+ * `docs/schema-reference.sql` (table `credit_rules`) :
  *
  *   1. `products.fixed_credit_cents` (crédit fixe sur le produit/pack)
  *   2. `credit_rules` ciblant (campaign_id + product_id)

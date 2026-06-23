@@ -3,7 +3,7 @@
 -- atomique commande/lignes/crédits.
 -- =============================================================================
 -- Contexte (voir docs/DECISIONS.md) :
---   - Le schéma fourni (01-schema-base-de-donnees.sql) ne contient aucune table
+--   - Le schéma fourni (docs/schema-reference.sql) ne contient aucune table
 --     de suivi des évènements Stripe déjà traités. CLAUDE.md section 4 exige
 --     « Idempotence des webhooks : un même évènement Stripe reçu deux fois ne
 --     doit créer qu'un seul crédit. Utilise l'id d'évènement Stripe comme

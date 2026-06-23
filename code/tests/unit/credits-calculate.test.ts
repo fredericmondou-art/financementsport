@@ -1,7 +1,7 @@
 /**
  * Tests unitaires du calcul de crédit et de la répartition par bénéficiaire
  * (Tâche 1.3). Couvre les critères d'acceptation du cahier mot pour mot
- * (03-prompts-phase-0-et-1.md), le bonus de seuil, les arrondis, le crédit 0
+ * (docs/prompts/phase-0-et-1.md), le bonus de seuil, les arrondis, le crédit 0
  * et la campagne inactive.
  */
 import { describe, expect, it } from 'vitest';

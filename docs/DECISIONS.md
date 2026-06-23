@@ -319,7 +319,7 @@ bonus de seuil »).
 
 **Fichiers de test placés à `tests/credits/*.test.ts` (pas
 `tests/unit/credits-*.test.ts`).** Le cahier des charges (section TÂCHE 1.3
-de `03-prompts-phase-0-et-1.md`) nomme explicitement ce chemin, à la
+de `docs/prompts/phase-0-et-1.md`) nomme explicitement ce chemin, à la
 différence des Tâches 1.1/1.2 qui utilisaient la convention
 `tests/unit`/`tests/integration`. `vitest.config.ts` a été étendu pour inclure
 `tests/credits/**/*.test.ts`.
@@ -689,7 +689,7 @@ de l'application ; toutes sont vérifiées par 281/281 tests verts +
    pré-migrations, intégralement repris et déjà appliqué en production via
    `supabase/migrations/0001-0003`. Le garder créait un risque de double
    source de vérité divergente. Les rapports historiques qui le mentionnent
-   (`rapports/RAPPORT-0.3.md`, `0.4.md`) restent inchangés (comptes-rendus
+   (`docs/rapports/RAPPORT-0.3.md`, `docs/rapports/RAPPORT-0.4.md`) restent inchangés (comptes-rendus
    datés).
 2. **`lib/validation/` supprimé.** Annoncé comme futur module de schémas
    zod partagés, jamais créé (0 import nulle part, confirmé par grep). La
@@ -1336,8 +1336,8 @@ et perdue plutôt que de committer un fichier coupé en plein mot
 (`- RLS activée sur les`, sans retour à la ligne final). Document de
 gouvernance du processus (pas de code, pas de logique métier, pas
 d'argent/sécurité/mineurs) — perte limitée à une réorganisation éditoriale
-déjà partiellement reflétée par les fichiers `docs/02-prompts-phase-1-4.md`/
-`docs/04-prompts-phase-1-5.md`/`docs/RAPPORTS.md` eux-mêmes (qui existent
+déjà partiellement reflétée par les fichiers `docs/prompts/phase-1-4.md`/
+`docs/prompts/phase-1-5.md`/`docs/gabarit-rapport.md` eux-mêmes (qui existent
 toujours sur disque, seule la mise à jour du guide d'orchestration les
 référençant a été perdue). Signalé à Frédéric : s'il avait des instructions
 spécifiques dans cette édition perdue (au-delà de ce que les fichiers de phase
@@ -1466,3 +1466,21 @@ et vérifiés avec des données réelles (site public accessible, parcours
 d'achat TEST bout en bout fonctionnel webhook compris, redéploiement
 automatique sur push déjà démontré par les déploiements précédents,
 `docs/DEPLOIEMENT.md` rédigé). Tâche 1.4.6 close.
+
+## 2026-06-23 — Promotion manuelle club_admin (production)
+
+Utilisateur a demandé comment créer une campagne pour la première fois.
+Aucune interface libre-service n'existe pour obtenir un rôle team_manager/
+club_admin ni pour créer un club/équipe (Tâche 1.1 : modèle admin-driven,
+sans back-office encore construit). L'utilisateur s'est inscrit via
+`/signup` (fredericmondou@gmail.com, profil id `5928ab2c-f57b-40dc-acbd-
+8effeb35c702`), puis j'ai, directement en base de production via le
+connecteur Supabase MCP :
+- mis à jour `profiles.role` à `club_admin` pour ce profil ;
+- inséré une ligne `memberships` (role `club_admin`, `club_id` =
+  `22222222-2222-2222-2222-222222222201`, club "Corsaires").
+
+Décision autonome (pas de risque financier ni de donnée de mineur engagée
+par cette promotion de rôle elle-même) : utiliser le club déjà seedé
+"Corsaires" plutôt que d'en créer un nouveau, faute de précision contraire
+de l'utilisateur. Peut être changé sur demande.

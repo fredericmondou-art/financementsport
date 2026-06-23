@@ -6,8 +6,8 @@ tâche. Après chaque tâche, Claude Code doit lancer les tests, committer, et
 mettre à jour `docs/PROGRESS.md`.
 
 Avant de commencer : place `CLAUDE.md` à la racine du projet et
-`01-schema-base-de-donnees.sql` dans `supabase/migrations/` (ou
-`docs/`). Donne aussi le cahier des charges (`ecommerce.docx`) à Claude Code
+`docs/schema-reference.sql` dans `supabase/migrations/` (ou
+`docs/`). Donne aussi le cahier des charges (`docs/cahier-des-charges.docx`) à Claude Code
 comme référence.
 
 ---
@@ -51,7 +51,7 @@ structure de dossiers reflétant l'architecture du cahier des charges (section
 ## TÂCHE 0.2 — Migration du schéma de base de données
 
 **Contexte.** Le schéma complet de la V1 est fourni dans
-`01-schema-base-de-donnees.sql`. Il encode les décisions d'architecture (crédits
+`docs/schema-reference.sql`. Il encode les décisions d'architecture (crédits
 en centimes, bénéficiaire polymorphe, règles configurables, masquage mineurs).
 
 **Objectif.** Appliquer le schéma à Supabase via une migration, générer les types

@@ -727,7 +727,7 @@ export interface EmailLogTable {
 
 /**
  * Ajoutée par la migration 0006 (Tâche 1.5) : table d'idempotence des
- * évènements Stripe, absente du schéma fourni (01-schema-base-de-donnees.sql)
+ * évènements Stripe, absente du schéma fourni (docs/schema-reference.sql)
  * -- voir le commentaire en tête de cette migration et docs/DECISIONS.md.
  */
 export interface StripeEventsTable {

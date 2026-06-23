@@ -1,9 +1,9 @@
-# RAPPORTS.md — Rapport obligatoire après chaque tâche
+# gabarit-rapport.md — Rapport obligatoire après chaque tâche
 
 Après CHAQUE tâche terminée (0.1, 0.2, 1.1, etc.), avant de passer à la suivante,
 tu produis un rapport en suivant EXACTEMENT le gabarit ci-dessous. Tu l'écris
-dans `rapports/RAPPORT-<numéro>.md` (ex: `rapports/RAPPORT-0.1.md`) ET tu me le
-présentes dans la conversation.
+dans `docs/rapports/RAPPORT-<numéro>.md` (ex: `docs/rapports/RAPPORT-0.1.md`) ET
+tu me le présentes dans la conversation.
 
 Règles du rapport :
 - En français, clair, sans jargon inutile. J'explique = quelqu'un de non
@@ -32,7 +32,7 @@ les grandes étapes.
 
 ## 3. Critères d'acceptation
 Reprends CHAQUE critère d'acceptation de la tâche (depuis
-`03-prompts-phase-0-et-1.md`) et indique pour chacun :
+`docs/prompts/phase-0-et-1.md`) et indique pour chacun :
 - ✅ rempli / ❌ non rempli
 - la preuve (quel test, quelle vérification, quel résultat observé)
 
@@ -49,7 +49,7 @@ Reprends CHAQUE critère d'acceptation de la tâche (depuis
 
 ## 5. Décisions prises en autonomie
 Tout choix que j'ai fait seul sur un point flou, et pourquoi. Renvoie aussi vers
-`DECISIONS.md`. S'il n'y en a pas : « aucune ».
+`docs/DECISIONS.md`. S'il n'y en a pas : « aucune ».
 
 ## 6. Respect des règles non négociables
 Confirme explicitement (ou signale un écart) :

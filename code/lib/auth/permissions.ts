@@ -5,7 +5,7 @@
  * Server Actions). Ne jamais faire confiance à une vérification UI seule
  * (CLAUDE.md section 5).
  *
- * Rôles : voir `user_role` dans le schéma (01-schema-base-de-donnees.sql).
+ * Rôles : voir `user_role` dans le schéma (docs/schema-reference.sql).
  * `platform_admin` a toujours accès total (court-circuite les autres règles).
  * Toute combinaison (rôle, action, ressource) non listée explicitement est
  * REFUSÉE par défaut (deny-by-default) — voir le `return false` final de

@@ -6,7 +6,7 @@ navigation professionnelles, cohérentes et responsives, puis le déployer en li
 sur une URL Vercel.
 
 Mêmes règles : une tâche à la fois, dans l'ordre ; tests verts avant de continuer ;
-rapport `RAPPORTS.md` après chaque tâche ; respect du `CLAUDE.md` (français par
+rapport `docs/gabarit-rapport.md` après chaque tâche ; respect du `CLAUDE.md` (français par
 défaut, CAD, mobile-first, confidentialité mineurs).
 
 Prérequis : Phase 1 terminée et verte (le site « marche » fonctionnellement, même

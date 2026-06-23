@@ -29,7 +29,7 @@ function makeRule(overrides: Partial<CreditRuleRow> = {}): CreditRuleRow {
 const PRODUCT_A = 'product-a';
 const CAMPAIGN_X = 'campaign-x';
 
-describe('resolveRule() — hiérarchie (CLAUDE.md / 01-schema-base-de-donnees.sql)', () => {
+describe('resolveRule() — hiérarchie (CLAUDE.md / docs/schema-reference.sql)', () => {
   it('niveau 1 : crédit fixe produit court-circuite tout, même avec des règles plus spécifiques en présence', () => {
     const rules = [
       makeRule({ campaign_id: CAMPAIGN_X, product_id: PRODUCT_A, percent_bps: 9999 }),
