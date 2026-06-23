@@ -14,7 +14,7 @@ ordre, tu vérifies, et tu tiens le journal d'avancement.
   leurs critères d'acceptation et leurs tests.
 - `02-prompts-phase-1-4.md` — Phase 1.4 : design UI/UX professionnel + mise en
   ligne sur Vercel. À faire APRÈS la Phase 1, AVANT la 1.6 et la 1.5.
-- `05-prompts-phase-1-6-ux-usagers.md` — Phase 1.6 : UX des trois usagers (parent
+- `docs/prompts/phase-1-6.md` — Phase 1.6 : UX des trois usagers (parent
   acheteur, responsable, athlète). À faire APRÈS la 1.4, AVANT la 1.5.
 - `04-prompts-phase-1-5.md` — Phase 1.5 : campagne pleinement opérationnelle.
   À faire EN DERNIER de ce groupe.
@@ -32,7 +32,7 @@ ordre, tu vérifies, et tu tiens le journal d'avancement.
    des phases :
    a. `03-prompts-phase-0-et-1.md` (tâches 0.1 → 1.7) — fondations + flux vendable
    b. `02-prompts-phase-1-4.md` (1.4.1 → 1.4.6) — design + mise en ligne
-   c. `05-prompts-phase-1-6-ux-usagers.md` (blocs A, puis B, puis C) — UX des usagers
+   c. `docs/prompts/phase-1-6.md` (blocs A, puis B, puis C) — UX des usagers
    d. `04-prompts-phase-1-5.md` (1.5.1 → 1.5.11) — campagne opérationnelle
    Ne saute jamais une tâche : l'ordre respecte les dépendances et les priorités
    (on rend les parcours d'achat et de création excellents AVANT d'ajouter les

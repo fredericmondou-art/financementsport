@@ -316,4 +316,20 @@
       Tâche 1.4.6 sont remplis.
 
 ## À venir
-- (rien après la Phase 1.4 dans le cahier des charges fourni à ce jour)
+- [ ] Phase 1.6 — UX de tous les usagers (voir `docs/prompts/phase-1-6.md`) —
+      **à faire AVANT la Phase 1.5** (demande de Frédéric, 2026-06-23 ; cohérent
+      avec l'ordre déjà prévu dans `ORCHESTRATION.md`)
+  - [ ] Bloc A — Client / parent acheteur
+    - [ ] 1.6.A1 Achat invité fluide (page athlète → paiement)
+    - [ ] 1.6.A2 Création de compte encouragée après l'achat
+    - [ ] 1.6.A3 Espace parent : suivi, reçus et rachat en un clic
+    - [ ] 1.6.A4 Répartition entre plusieurs enfants, version simple
+  - [ ] Bloc B — Responsable de campagne
+    - [ ] 1.6.B1 Assistant de campagne pas-à-pas avec sauvegarde automatique
+    - [ ] 1.6.B2 Défauts intelligents et saisie des athlètes sans douleur
+    - [ ] 1.6.B3 Aperçu, activation et écran « prochaines actions »
+  - [ ] Bloc C — Athlète
+    - [ ] 1.6.C1 Profil athlète et page publique soignée
+    - [ ] 1.6.C2 Suivi de progression et partage pour l'athlète
+- [ ] Phase 1.5 — Campagne pleinement opérationnelle (voir
+      `docs/prompts/phase-1-5.md`) — à faire APRÈS la Phase 1.6
