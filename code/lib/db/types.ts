@@ -795,6 +795,20 @@ export interface VCampaignProgressView {
   };
 }
 
+/**
+ * Ajoutée par la migration 0011 (Tâche 1.6.C2) : nombre de commandes
+ * distinctes ayant généré un crédit actif/en attente pour une campagne --
+ * voir le commentaire de la migration pour pourquoi cette vue existe plutôt
+ * qu'une lecture directe de `order_credits` (lacune RLS pour le tuteur d'un
+ * bénéficiaire qui n'est pas l'acheteur).
+ */
+export interface VCampaignSupporterCountView {
+  Row: {
+    campaign_id: string;
+    supporter_count: number;
+  };
+}
+
 export interface VPublicAthleteView {
   Row: {
     id: string;
@@ -903,6 +917,7 @@ export interface Database {
     Views: {
       v_beneficiary_credit_totals: VBeneficiaryCreditTotalsView;
       v_campaign_progress: VCampaignProgressView;
+      v_campaign_supporter_count: VCampaignSupporterCountView;
       v_public_athlete: VPublicAthleteView;
       v_public_team: VPublicTeamView;
       v_public_club: VPublicClubView;

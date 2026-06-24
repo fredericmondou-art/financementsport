@@ -481,21 +481,48 @@
       `hide_photo`/`hide_city`), non exécutable en sandbox comme les
       précédents -- suppose un jeu `supabase/seed-e2e.sql` toujours à créer.
 
+- [x] Phase 1.6, Tâche 1.6.C2 — Suivi de progression et partage pour
+      l'athlète — migration `0011_campaign_supporter_count_view.sql`
+      (`v_campaign_supporter_count`, agrégat sans PII contournant le trou RLS
+      de `order_credits` pour un tuteur non-acheteur -- voir docs/DECISIONS.md),
+      `lib/athletes/profile.ts#loadAthleteSuivi` (compose
+      `loadOwnerCampaignSection` + `repo.getSupporterCount`, `null` si aucune
+      campagne active distinct de `0` supporter), `lib/athletes/
+      share-message.ts#buildAthleteShareMessage` (message pré-rédigé à la
+      troisième personne, cadre parental), page
+      `app/(portails)/compte/athletes/[athleteId]/suivi` (objectif/montant/
+      supporters, AUCUN palmarès, partage en un clic : copier le lien, copier
+      le message, courriel, Messenger -- mêmes briques que l'écran de
+      démarrage de campagne, Tâche 1.6.B3 ; QR code toujours différé à la
+      Tâche 1.7), lien « Voir mon suivi » ajouté à `app/(portails)/compte/
+      athletes/page.tsx`. Une nouvelle manifestation (la 17e à 20e selon le
+      fichier touché) du bug de cache mount/git rencontrée et réparée par
+      réécriture heredoc complète à chaque occurrence (voir mémoire
+      persistante `mount-staleness-ecommerce.md`). 18 tests d'intégration
+      (4 nouveaux pour `loadAthleteSuivi`) + 3 nouveaux tests unitaires
+      (`athlete-share-message.test.ts`) verts, aucune régression,
+      `tsc --noEmit` propre. Nouveau e2e `tests/e2e/athlete-suivi.spec.ts`
+      (consulter le suivi → partager le lien → message pré-rédigé), non
+      exécutable en sandbox comme les précédents -- suppose le même jeu
+      `supabase/seed-e2e.sql` (toujours à créer) qu'`athlete-profile-edit.spec.ts`.
+      **Phase 1.6 (Blocs A, B, C) entièrement complétée.**
+
 ## À venir
-- [ ] Phase 1.6 — UX de tous les usagers (voir `docs/prompts/phase-1-6.md`) —
-      **à faire AVANT la Phase 1.5** (demande de Frédéric, 2026-06-23 ; cohérent
-      avec l'ordre déjà prévu dans `ORCHESTRATION.md`)
-  - [ ] Bloc A — Client / parent acheteur
+- [x] Phase 1.6 — UX de tous les usagers (voir `docs/prompts/phase-1-6.md`) —
+      **demandée AVANT la Phase 1.5** (demande de Frédéric, 2026-06-23 ; cohérent
+      avec l'ordre déjà prévu dans `ORCHESTRATION.md`) — Blocs A, B et C tous
+      complétés.
+  - [x] Bloc A — Client / parent acheteur
     - [x] 1.6.A1 Achat invité fluide (page athlète → paiement)
     - [x] 1.6.A2 Création de compte encouragée après l'achat
     - [x] 1.6.A3 Espace parent : suivi, reçus et rachat en un clic
     - [x] 1.6.A4 Répartition entre plusieurs enfants, version simple
-  - [ ] Bloc B — Responsable de campagne
+  - [x] Bloc B — Responsable de campagne
     - [x] 1.6.B1 Assistant de campagne pas-à-pas avec sauvegarde automatique
     - [x] 1.6.B2 Défauts intelligents et saisie des athlètes sans douleur
     - [x] 1.6.B3 Aperçu, activation et écran « prochaines actions »
-  - [ ] Bloc C — Athlète
+  - [x] Bloc C — Athlète
     - [x] 1.6.C1 Profil athlète et page publique soignée
-    - [ ] 1.6.C2 Suivi de progression et partage pour l'athlète
+    - [x] 1.6.C2 Suivi de progression et partage pour l'athlète
 - [ ] Phase 1.5 — Campagne pleinement opérationnelle (voir
       `docs/prompts/phase-1-5.md`) — à faire APRÈS la Phase 1.6

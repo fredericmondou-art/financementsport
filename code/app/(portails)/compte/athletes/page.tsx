@@ -71,6 +71,9 @@ export default async function MyAthletesPage(): Promise<JSX.Element> {
                     <Button href={`/compte/athletes/${athlete.id}`} variant="outline" size="sm">
                       Modifier le profil
                     </Button>
+                    <Button href={`/compte/athletes/${athlete.id}/suivi`} variant="outline" size="sm">
+                      Voir mon suivi
+                    </Button>
                     {publiclyVisible ? (
                       <Button href={`/${athlete.slug}`} variant="outline" size="sm">
                         Voir la page publique

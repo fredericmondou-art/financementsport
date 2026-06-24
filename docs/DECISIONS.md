@@ -3,6 +3,32 @@
 Ce fichier consigne les choix mineurs pris sans validation, conformément à la
 section 9 de CLAUDE.md. Format : date — contexte — décision — raison.
 
+## 2026-06-24 — Tâche 1.6.C2 : nombre de supporters via une vue agrégée, pas une nouvelle policy RLS
+`order_credits` n'a que deux policies SELECT : `_select_staff` (admin/gérant) et
+`_select_own_order` (l'acheteur de la commande, migration 0009). Aucune ne
+couvre le cas du tuteur d'un bénéficiaire qui n'est pas lui-même l'acheteur —
+or la page de suivi de l'athlète (Tâche 1.6.C2) doit afficher le nombre de
+supporters de la campagne active de son enfant. Plutôt qu'ajouter une policy
+RLS qui exposerait des lignes `order_credits` entières (montants, statuts,
+notes internes) à un tuteur, décision : exposer uniquement un agrégat sans
+aucune PII via une vue dédiée (`v_campaign_supporter_count`, migration 0011,
+`GRANT SELECT ... TO anon, authenticated`), même pattern que
+`v_campaign_progress` (Tâche 1.6). `PublicProfileRepo#getSupporterCount`
+interroge cette vue ; `0` si la campagne existe mais n'a aucun supporter,
+jamais lu directement depuis `order_credits` depuis une page tuteur.
+
+## 2026-06-24 — Tâche 1.6.C2 : message de partage séparé du gabarit de démarrage de campagne
+`lib/athletes/share-message.ts#buildAthleteShareMessage` duplique en partie
+`lib/campaigns/demarrage-message.ts#buildParentMessage` plutôt que de le
+réutiliser : les deux s'adressent à un moment différent du parcours (lancement
+d'une campagne vs. suivi d'une campagne déjà en cours) et une réutilisation
+forcerait un couplage artificiel entre Bloc B et Bloc C. Contrainte commune
+conservée : toujours à la TROISIÈME PERSONNE, jamais signé au nom de l'enfant
+— cette page de suivi reste accessible à l'athlète mineur lui-même en lecture
+seule, et CLAUDE.md section 5 exige que toute communication impliquant un
+mineur passe par le cadre parental. Garde-fou ajouté côté test
+(`tests/unit/athlete-share-message.test.ts`) : regex interdisant « je »/« j' ».
+
 ## 2026-06-19 — Environnement de développement
 Le dossier de travail sélectionné par l'utilisateur (mount Windows) présente un
 problème de synchronisation cache/fichiers lorsqu'on y exécute `git init` ou des
@@ -2205,7 +2231,7 @@ puis fait notable : **`lib/entities/athletes.ts` lui-même** (fichier de logique
 métier sensible -- mineurs, permissions -- pas seulement des tests) et
 `app/(portails)/compte/page.tsx` (troncature JSX, balises non fermées). Même
 procédure de réparation que les fois précédentes (réécriture heredoc complète
-à partir du contenu confirmé par l'outil Read, puis revérification
+nu confirmé par l'outil Read, puis revérification
 `wc -l`/`wc -c`/`tr -d '\0' | wc -c`). Mémoire persistante du projet déjà à
 jour avec ce pattern (`mount-staleness-ecommerce.md`) ; ce journal sert
 seulement à en tracer la fréquence réelle au fil des tâches. **Dixième

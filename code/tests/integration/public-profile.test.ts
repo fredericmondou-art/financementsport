@@ -17,7 +17,7 @@ import {
   type PublicProfileRepo,
   type PublicTeamRow,
 } from '@/lib/public/profile';
-import { loadOwnerCampaignSection } from '@/lib/athletes/profile';
+import { loadAthleteSuivi, loadOwnerCampaignSection } from '@/lib/athletes/profile';
 import type { PublicCampaignRow } from '@/lib/public/campaign-progress';
 import type { ProductRepo, ProductRow } from '@/lib/catalog/products';
 import type { BeneficiaryType, VCampaignProgressView } from '@/lib/db/types';
@@ -112,6 +112,12 @@ interface FakeProfileFixtures {
   campaigns?: PublicCampaignRow[];
   progressByCampaignId?: Map<string, number>;
   campaignProductIdsByCampaignId?: Map<string, string[]>;
+  /** Tâche 1.6.C2 — nombre de supporters par campagne, simule
+   * `v_campaign_supporter_count` (migration 0011). Une campagne absente de
+   * cette map (mais présente dans `campaigns`) retourne `0`, jamais `null` --
+   * même convention que la vraie implémentation Supabase
+   * (`PublicProfileRepo#getSupporterCount`, lib/public/profile.ts). */
+  supporterCountByCampaignId?: Map<string, number>;
 }
 
 function createFakeProfileRepo(fixtures: FakeProfileFixtures = {}): PublicProfileRepo {
@@ -121,6 +127,7 @@ function createFakeProfileRepo(fixtures: FakeProfileFixtures = {}): PublicProfil
   const campaigns = fixtures.campaigns ?? [];
   const progressByCampaignId = fixtures.progressByCampaignId ?? new Map();
   const campaignProductIdsByCampaignId = fixtures.campaignProductIdsByCampaignId ?? new Map();
+  const supporterCountByCampaignId = fixtures.supporterCountByCampaignId ?? new Map();
 
   return {
     async getAthleteBySlug(slug) {
@@ -150,6 +157,9 @@ function createFakeProfileRepo(fixtures: FakeProfileFixtures = {}): PublicProfil
     },
     async getCampaignProductIds(campaignId) {
       return campaignProductIdsByCampaignId.get(campaignId) ?? [];
+    },
+    async getSupporterCount(campaignId) {
+      return supporterCountByCampaignId.get(campaignId) ?? 0;
     },
   };
 }
@@ -426,5 +436,76 @@ describe('loadOwnerCampaignSection (Tâche 1.6.C1 — vue privée du tuteur)', (
     const result = await loadOwnerCampaignSection(unusedSupabaseClient, 'athlete-masque', repo);
     expect(result?.progress.raisedCents).toBe(4999);
     expect(result?.progress.goalCents).toBe(5000);
+  });
+});
+
+describe('loadAthleteSuivi (Tâche 1.6.C2 — page de suivi de l’athlète)', () => {
+  it('retourne campaignSection et supporterCount tous deux null si aucune campagne active', async () => {
+    const repo = createFakeProfileRepo();
+    const result = await loadAthleteSuivi(unusedSupabaseClient, 'athlete-1', repo);
+    expect(result).toEqual({ campaignSection: null, supporterCount: null });
+  });
+
+  it('retourne 0 supporters (pas null) pour une campagne active sans aucun supporter', async () => {
+    const campaign = makeCampaign({
+      id: 'c1',
+      beneficiary_type: 'athlete',
+      beneficiary_id: 'athlete-1',
+      goal_cents: 10000,
+    });
+    const repo = createFakeProfileRepo({
+      campaigns: [campaign],
+      progressByCampaignId: new Map([['c1', 0]]),
+      // Campagne absente de `supporterCountByCampaignId` -- doit retomber sur 0.
+    });
+    const result = await loadAthleteSuivi(unusedSupabaseClient, 'athlete-1', repo);
+    expect(result.campaignSection?.campaign.id).toBe('c1');
+    expect(result.supporterCount).toBe(0);
+  });
+
+  it('reporte le nombre de supporters distincts de la campagne active', async () => {
+    const campaign = makeCampaign({
+      id: 'c1',
+      beneficiary_type: 'athlete',
+      beneficiary_id: 'athlete-1',
+      goal_cents: 10000,
+    });
+    const repo = createFakeProfileRepo({
+      campaigns: [campaign],
+      progressByCampaignId: new Map([['c1', 2500]]),
+      supporterCountByCampaignId: new Map([['c1', 7]]),
+    });
+    const result = await loadAthleteSuivi(unusedSupabaseClient, 'athlete-1', repo);
+    expect(result.campaignSection?.progress.raisedCents).toBe(2500);
+    expect(result.supporterCount).toBe(7);
+  });
+
+  it('n’interroge le nombre de supporters que de la campagne active, jamais d’une autre', async () => {
+    // Garde-fou contre une régression où l'on confondrait le `campaign_id`
+    // d'une autre campagne (ex. une campagne passée non active) -- une seule
+    // entrée existe dans `supporterCountByCampaignId`, sous l'id de la
+    // campagne active ; si l'implémentation interrogeait le mauvais id, ce
+    // test échouerait avec `0` au lieu de `3`.
+    const campagneInactive = makeCampaign({
+      id: 'c-ancienne',
+      beneficiary_type: 'athlete',
+      beneficiary_id: 'athlete-1',
+      starts_at: '2020-01-01T00:00:00Z',
+      ends_at: '2020-06-01T00:00:00Z',
+    });
+    const campagneActive = makeCampaign({
+      id: 'c-active',
+      beneficiary_type: 'athlete',
+      beneficiary_id: 'athlete-1',
+      starts_at: '2026-01-01T00:00:00Z',
+    });
+    const repo = createFakeProfileRepo({
+      campaigns: [campagneInactive, campagneActive],
+      progressByCampaignId: new Map([['c-active', 100]]),
+      supporterCountByCampaignId: new Map([['c-active', 3]]),
+    });
+    const result = await loadAthleteSuivi(unusedSupabaseClient, 'athlete-1', repo);
+    expect(result.campaignSection?.campaign.id).toBe('c-active');
+    expect(result.supporterCount).toBe(3);
   });
 });

@@ -53,6 +53,36 @@ export async function loadOwnerCampaignSection(
   };
 }
 
+export interface AthleteSuivi {
+  campaignSection: PublicCampaignSection | null;
+  /** Nombre de commandes distinctes ayant soutenu la campagne active
+   * (`PublicProfileRepo#getSupporterCount`, vue `v_campaign_supporter_count`,
+   * migration 0011) -- `null` si aucune campagne active (rien à compter),
+   * distinct de `0` (campagne active, aucun supporter pour l'instant). Pas
+   * de classement (cahier des charges, Tâche 1.6.C2 : « pas de palmarès »). */
+  supporterCount: number | null;
+}
+
+/**
+ * Tâche 1.6.C2 — données de la page de suivi de progression de l'athlète :
+ * objectif, montant amassé, nombre de supporters. Compose
+ * `loadOwnerCampaignSection` (déjà utilisée par la page d'édition, Tâche
+ * 1.6.C1) avec `repo.getSupporterCount`, appelé seulement s'il y a une
+ * campagne active (sinon aucun `campaign_id` à interroger).
+ */
+export async function loadAthleteSuivi(
+  supabase: SupabaseClient,
+  athleteId: string,
+  repo: PublicProfileRepo = createSupabasePublicProfileRepo(supabase),
+): Promise<AthleteSuivi> {
+  const campaignSection = await loadOwnerCampaignSection(supabase, athleteId, repo);
+  if (!campaignSection) {
+    return { campaignSection: null, supporterCount: null };
+  }
+  const supporterCount = await repo.getSupporterCount(campaignSection.campaign.id);
+  return { campaignSection, supporterCount };
+}
+
 /** Accès en lecture seule aux athlètes dont l'utilisateur courant est le
  * tuteur (`guardian_id`) ou l'athlète majeur lui-même (`user_id`) — séparé de
  * `AthleteRepo` (lib/entities/athletes.ts) pour ne pas alourdir son contrat

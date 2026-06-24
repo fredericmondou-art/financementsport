@@ -9,7 +9,14 @@
  * (`campaigns` n'a aucune policy SELECT pour `anon`) — voir docs/DECISIONS.md.
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { BeneficiaryType, VCampaignProgressView, VPublicAthleteView, VPublicClubView, VPublicTeamView } from '@/lib/db/types';
+import type {
+  BeneficiaryType,
+  VCampaignProgressView,
+  VCampaignSupporterCountView,
+  VPublicAthleteView,
+  VPublicClubView,
+  VPublicTeamView,
+} from '@/lib/db/types';
 import { createSupabaseProductRepo, listPublicProducts, type ProductRepo, type ProductRow } from '@/lib/catalog/products';
 import {
   applyAmountsMask,
@@ -39,6 +46,16 @@ export interface PublicProfileRepo {
   ): Promise<PublicCampaignRow[]>;
   getCampaignProgress(campaignId: string): Promise<VCampaignProgressView['Row'] | null>;
   getCampaignProductIds(campaignId: string): Promise<string[]>;
+  /** Nombre de commandes DISTINCTES ayant généré un crédit actif/en attente
+   * pour cette campagne (Tâche 1.6.C2, page de suivi de l'athlète) --
+   * PAS le nombre de personnes uniques (pas d'identité unifiée invité/
+   * connecté dans ce projet, CLAUDE.md section 63 ; une même personne qui
+   * achète deux fois compte deux fois). L'agrégation (COUNT DISTINCT) vit
+   * dans la vue `v_campaign_supporter_count` (migration 0011), pas ici --
+   * même principe que `raised_cents`/`v_campaign_progress` : jamais de
+   * lecture brute de `order_credits` depuis une page, seulement des vues
+   * d'agrégation (voir docs/DECISIONS.md). */
+  getSupporterCount(campaignId: string): Promise<number>;
 }
 
 export function createSupabasePublicProfileRepo(supabase: SupabaseClient): PublicProfileRepo {
@@ -83,6 +100,15 @@ export function createSupabasePublicProfileRepo(supabase: SupabaseClient): Publi
         .eq('campaign_id', campaignId);
       if (error) throw error;
       return ((data as Array<{ product_id: string }>) ?? []).map((row) => row.product_id);
+    },
+    async getSupporterCount(campaignId) {
+      const { data, error } = await supabase
+        .from('v_campaign_supporter_count')
+        .select('supporter_count')
+        .eq('campaign_id', campaignId)
+        .maybeSingle();
+      if (error) throw error;
+      return (data as VCampaignSupporterCountView['Row'] | null)?.supporter_count ?? 0;
     },
   };
 }
