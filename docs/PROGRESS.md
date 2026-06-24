@@ -603,4 +603,69 @@
       `0015_order_status_transitions.sql` (table `order_status_log` traçable,
       fonction gardée `advance_order_status` en `SECURITY DEFINER` --  même
       patron que `create_paid_order`, migration 0006 -- aucune policy RLS
-      `UPDATE` additive sur `orders
+      `UPDATE` additive sur `orders`, c'est le seul chemin d'écriture pour
+      team_manager/club_admin), `lib/orders/status.ts` (machine de
+      transitions pure, miroir manuel de la table plpgsql), page
+      `app/(portails)/campagnes/[campaignId]/livraison` + Server Action.
+      Notification `email_log` seulement à distribué/complété, jamais à la
+      réception interne. Bug trouvé et corrigé avant tout commit :
+      `public.is_platform_admin()`/`public.current_user_role()` n'existent
+      plus depuis la migration 0005 (déplacées vers `private.*`), détecté
+      uniquement parce que le test d'intégration rejoue les migrations
+      contre un vrai Postgres embarqué. 43 nouveaux tests
+      (`orders-status.test.ts` -- 37, `order-status-transitions-rls.test.ts`
+      -- 6), tous verts. Suite complète relancée (46 fichiers unitaires,
+      175+ tests + 14 fichiers d'intégration, 127 tests), aucune régression.
+      `tsc --noEmit`/`eslint .` propres. Voir docs/rapports/RAPPORT-1.5.5.md
+      et docs/DECISIONS.md.
+
+- [x] **1.5.6 — Dashboard équipe.** Migration `0016_payouts_campaign_manager_access.sql`
+      (policy additive `payouts_select_campaign_managers`, réutilise
+      `private.manages_beneficiary` -- comble un trou réel : un team_manager
+      ne pouvait pas lire le versement de sa propre équipe ; `payouts_staff_read`
+      non touchée, additive plutôt que remplacée). `lib/dashboards/team.ts`
+      (agrégations pures par bénéficiaire -- objectif collectif, ventes
+      totales, crédits générés, nombre de commandes, panier moyen, ventes par
+      athlète, progression hebdomadaire, commandes à distribuer, statut de
+      versement ; `totalCents` construit comme somme littérale des parties,
+      garantissant par construction que les ventes par athlète totalisent les
+      ventes de l'équipe), page `app/(portails)/equipe/[teamId]` (réutilise
+      `ProgressBar` existant, aucune nouvelle dépendance de graphiques).
+      32 nouveaux tests (`dashboards-team.test.ts` -- 25 unitaires sur un jeu
+      de données connu, `team-dashboard-rls.test.ts` -- 7 d'intégration contre
+      un vrai Postgres embarqué, scope équipe + les deux formes de
+      bénéficiaire de versement). Suite complète relancée (34 fichiers
+      unitaires/412 tests + 15 fichiers d'intégration/134 tests, 546 tests au
+      total), aucune régression. `tsc --noEmit`/`eslint .` propres. Voir
+      docs/rapports/RAPPORT-1.5.6.md et docs/DECISIONS.md.
+
+## À venir
+- [x] Phase 1.6 — UX de tous les usagers (voir `docs/prompts/phase-1-6.md`) —
+      **demandée AVANT la Phase 1.5** (demande de Frédéric, 2026-06-23 ; cohérent
+      avec l'ordre déjà prévu dans `ORCHESTRATION.md`) — Blocs A, B et C tous
+      complétés.
+  - [x] Bloc A — Client / parent acheteur
+    - [x] 1.6.A1 Achat invité fluide (page athlète → paiement)
+    - [x] 1.6.A2 Création de compte encouragée après l'achat
+    - [x] 1.6.A3 Espace parent : suivi, reçus et rachat en un clic
+    - [x] 1.6.A4 Répartition entre plusieurs enfants, version simple
+  - [x] Bloc B — Responsable de campagne
+    - [x] 1.6.B1 Assistant de campagne pas-à-pas avec sauvegarde automatique
+    - [x] 1.6.B2 Défauts intelligents et saisie des athlètes sans douleur
+    - [x] 1.6.B3 Aperçu, activation et écran « prochaines actions »
+  - [x] Bloc C — Athlète
+    - [x] 1.6.C1 Profil athlète et page publique soignée
+    - [x] 1.6.C2 Suivi de progression et partage pour l'athlète
+- [ ] Phase 1.5 — Campagne pleinement opérationnelle (voir
+      `docs/prompts/phase-1-5.md`)
+  - [x] 1.5.1 QR codes téléchargeables (PNG/PDF)
+  - [x] 1.5.2 Génération automatique d'affiches
+  - [x] 1.5.3 Saved splits (répartitions favorites)
+  - [x] 1.5.4 Liste de distribution par équipe
+  - [x] 1.5.5 Confirmation réception et livraison groupée
+  - [x] 1.5.6 Dashboard équipe
+  - [ ] 1.5.7 Dashboard admin plateforme **(prochaine tâche)**
+  - [ ] 1.5.8 Clôture de campagne
+  - [ ] 1.5.9 Rapport de campagne
+  - [ ] 1.5.10 Calcul des versements (manuel)
+  - [ ] 1.5.11 Export des commandes (admin)

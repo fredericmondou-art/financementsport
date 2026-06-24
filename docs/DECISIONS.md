@@ -3,6 +3,57 @@
 Ce fichier consigne les choix mineurs pris sans validation, conformément à la
 section 9 de CLAUDE.md. Format : date — contexte — décision — raison.
 
+## 2026-06-24 — Tâche 1.5.6 : Dashboard équipe
+Cinq décisions autonomes pour cette tâche.
+
+**Trou RLS trouvé sur `payouts`, comblé par une policy additive (migration
+0016).** Le dashboard doit afficher un « statut de versement » (cahier). En
+relisant les policies existantes avant d'écrire du code, `order_credits`/
+`campaigns`/`athletes`/`teams` accordaient déjà l'accès en lecture à un
+`team_manager`/`club_admin` pour ses propres bénéficiaires (via
+`private.manages_beneficiary`/`manages_team`/`manages_athlete`/
+`manages_campaign`), mais `payouts_staff_read` (migration 0005) ne couvrait
+que `platform_admin`/`accounting` — aucun chemin pour qu'un responsable lise
+le versement de sa propre équipe. Plutôt que modifier la policy existante,
+ajout d'une policy SUPPLÉMENTAIRE `payouts_select_campaign_managers`
+réutilisant `private.manages_beneficiary(beneficiary_type, beneficiary_id)`
+(même fonction que `order_credits`, donc déjà éprouvée et couvrant les deux
+formes de bénéficiaire — équipe directe et athlète de l'équipe). Postgres
+combine les policies permissives `FOR SELECT` par OR, donc `payouts_staff_read`
+reste intacte (additive, pas un remplacement) — vérifié par un test de
+régression dédié.
+
+**Agrégation par BÉNÉFICIAIRE, pas par campagne.** Comme pour la Tâche 1.5.4
+(liste de distribution), les ventes/crédits/versements sont regroupés par
+`(beneficiary_type, beneficiary_id)` réel plutôt que par `campaign_id` — une
+équipe peut avoir plusieurs campagnes actives simultanément (cas couvert par
+un test unitaire dédié sur `computeCollectiveGoalCents`), et le cahier demande
+explicitement la vue « équipe », pas « campagne ».
+
+**`totalCents` construit comme la somme littérale des parties, jamais
+recalculé séparément.** `buildAthleteCreditBreakdown` calcule `totalCents`
+comme `sum(byAthlete) + unassignedToAthleteCents` par construction plutôt que
+par une requête d'agrégation indépendante — garantit mécaniquement le critère
+d'acceptation « les ventes par athlète totalisent les ventes de l'équipe »,
+sans dépendre de la cohérence de deux calculs séparés. Testé explicitement
+comme invariant dans `tests/unit/dashboards-team.test.ts`.
+
+**Pas de nouvelle bibliothèque de graphiques.** Le cahier demande des
+« graphiques simples ». Aucune bibliothèque de ce type n'existe ailleurs dans
+le projet ; réutilisation de `components/ui/progress-bar.tsx` (déjà existant
+depuis la Tâche 1.4.2) pour la progression de l'objectif, les ventes par
+athlète et la progression hebdomadaire — cohérent avec la sobriété
+d'architecture du reste du projet (CLAUDE.md section 6) plutôt que d'ajouter
+une dépendance pour cette seule tâche.
+
+**Corrections CSS pendant la relecture de la page.** Deux classes invoquées
+dans une première version de `app/(portails)/equipe/[teamId]/page.tsx`
+n'existaient pas dans `app/globals.css` (`.grid`/`.stat`, confondues avec une
+convention d'un autre projet) — remplacées par la convention `.table-wrap`/
+`.table` déjà utilisée par les pages similaires (Tâches 1.5.4/1.5.5). Les
+boutons d'action en bas de page utilisent `.form__actions` (existante,
+Tâche 1.4.4), pas une nouvelle classe.
+
 ## 2026-06-24 — Tâche 1.6.C2 : nombre de supporters via une vue agrégée, pas une nouvelle policy RLS
 `order_credits` n'a que deux policies SELECT : `_select_staff` (admin/gérant) et
 `_select_own_order` (l'acheteur de la commande, migration 0009). Aucune ne
@@ -2587,50 +2638,4 @@ l'échappatoire pour corrections/litiges, hors de cette machine.
 **Table des transitions valides dupliquée volontairement en deux endroits**
 (`VALID_ORDER_STATUS_TRANSITIONS` dans `lib/orders/status.ts`, et un miroir
 manuel en `IF` plpgsql dans `advance_order_status`). plpgsql ne peut pas
-importer du TypeScript ; la validation côté TypeScript existe pour un
-message d'erreur clair sans aller-retour réseau, celle côté SQL est la
-garde réelle (un client pourrait appeler la fonction Postgres directement).
-Un commentaire est laissé aux deux endroits pour rappeler que toute
-évolution de l'une doit être répercutée dans l'autre.
-
-**Notification (`email_log`) seulement à `distributed`/`completed`, jamais à
-`delivered_to_team`.** Conforme au cahier (Tâche 1.5.5) : la réception par
-l'équipe est une étape interne, le client n'a pas besoin d'être notifié
-avant que ses articles soient effectivement distribués. L'insertion
-`email_log` échoue silencieusement (sans annuler la transition) si aucune
-adresse n'est trouvable -- même philosophie défensive que le reste de
-`lib/email/email-log.ts`, une notification manquante ne doit jamais bloquer
-une opération métier déjà valide.
-
-**Bug trouvé et corrigé dans la migration 0015 : `public.is_platform_admin()`
-et `public.current_user_role()` n'existent plus.** La migration 0005 avait
-déplacé toutes les fonctions d'aide RLS vers le schéma `private` et
-explicitement supprimé (`DROP FUNCTION IF EXISTS`) les versions `public.*`
-— décision déjà actée (PostgREST n'expose pas `private`, donc l'EXECUTE peut
-y être large sans risque d'appel RPC direct). En écrivant la policy de
-lecture de `order_status_log` et le corps de `advance_order_status`, j'ai
-référencé par erreur les noms `public.*`, qui n'existent plus silencieusement
-(`DROP FUNCTION IF EXISTS` ne lève pas d'erreur). Le test d'intégration
-(`tests/integration/order-status-transitions-rls.test.ts`), qui rejoue les
-migrations contre un vrai Postgres embarqué, a immédiatement échoué à
-`function public.is_platform_admin() does not exist` -- exactement le genre
-de bug qu'un test unitaire avec repo simulé n'aurait jamais pu détecter.
-Corrigé en remplaçant les deux occurrences par `private.is_platform_admin()`
-/ `private.current_user_role()`, avec un commentaire ajouté dans l'en-tête
-de la migration pour éviter la récidive sur une future migration.
-
-**Vérification finale.** `tsc --noEmit` propre, `eslint .` propre. 37
-nouveaux tests unitaires (`tests/unit/orders-status.test.ts`) + 6 nouveaux
-tests d'intégration RLS (`tests/integration/order-status-transitions-rls.test.ts`),
-tous verts. Suite complète relancée par lots (contrainte de sandbox, voir
-`mount-staleness-ecommerce.md`) : 46 fichiers de tests unitaires (175+
-tests) + 14 fichiers de tests d'intégration (127 tests), tous verts, aucune
-régression. Bug de cache mount rencontré une nouvelle fois sur
-`0015_order_status_transitions.sql` après deux modifications consécutives
-via l'outil `Edit` (troncature mi-mot dans la vue bash), réparé par la
-procédure habituelle (heredoc + `cat` par-dessus le fichier cible) -- et une
-nouvelle manifestation rencontrée cette fois sur une simple lecture de
-`docs/DECISIONS.md` lui-même (`wc -l` bash resté bloqué à une ancienne
-longueur de fichier alors que l'outil `Read` montrait du contenu plus loin),
-confirmant que le bug n'est pas strictement limité aux modifications via
-`Edit` -- voir mise à jour de `mount-staleness-ecommerce.md`.
+i
