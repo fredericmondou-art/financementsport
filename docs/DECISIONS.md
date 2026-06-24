@@ -2259,3 +2259,185 @@ nouveaux tests d'intégration ciblant `loadOwnerCampaignSection` et le
 traitement de `photoUrl` à la création/mise à jour, plus 4 nouveaux tests
 unitaires de validation zod (`photoUrl` valide/invalide, création/mise à
 jour). Aucune régression.
+
+## Tâche 1.5.1 — QR codes téléchargeables (PNG/PDF)
+
+**Bibliothèques retenues : `qrcode` (PNG) et `pdf-lib` (PDF).** Toutes deux en
+JS pur, sans dépendance native -- compatibles avec l'exécution serverless de
+Vercel (pas de binaire à compiler/déployer comme certaines libs C de rendu
+d'image).
+
+**Le PNG/PDF téléchargé encode l'URL TRAÇABLE `/api/qr/[code]`, jamais l'URL
+publique finale directement.** Sinon un scan du QR imprimé ne passerait
+jamais par la route qui incrémente `scan_count`, ce qui viderait de son sens
+le compteur de scans exigé par le cahier (section 18). C'est la route
+`/api/qr/[code]` qui résout ensuite la cible réelle et redirige.
+
+**Client `service_role` pour la résolution PUBLIQUE d'un scan
+(`app/api/qr/[code]/route.ts`), client anon/RLS pour les routes de
+TÉLÉCHARGEMENT (`/png`, `/pdf`) et pour la page portail `/qr`.** Cohérent avec
+le commentaire déjà présent dans la migration 0003 sur la policy
+`qr_codes_scoped` : « la résolution publique d'un QR scanné passe par une
+route serveur avec le client service_role, jamais par anon directement »
+(un visiteur anonyme qui scanne n'a par définition aucune session RLS).
+Côté téléchargement, la policy `qr_codes_scoped`
+(`manages_qr_target`) suffit déjà à limiter l'accès au gérant/admin
+concerné -- aucune vérification de rôle dupliquée côté application.
+
+**Fonction Postgres atomique `resolve_and_count_qr_scan`
+(migration 0012)**, un seul `UPDATE ... RETURNING`, plutôt qu'un
+SELECT puis UPDATE séparés côté TypeScript -- même raisonnement que
+`create_paid_order` (migration 0006) pour éviter une fenêtre de course
+(deux scans quasi simultanés se voleraient un incrément). Testé avec 10
+appels concurrents (`tests/integration/qr-scan-increment.test.ts`) : aucun
+incrément perdu.
+
+**Résolution de la cible par `target_type` :**
+- `athlete` / `team` / `club` : page publique du bénéficiaire (en respectant
+  les `hide_*` et le consentement mineur via `lib/public/preview.ts`, déjà
+  écrit en tâche 1.6).
+- `campaign` : si `status = 'active'`, page publique du bénéficiaire de la
+  campagne ; **pour TOUT autre statut** (`draft`, `pending_approval`,
+  `scheduled`, `ended`, `closed`, `paid`, `cancelled`, `archived`) →
+  redirection vers la boutique permanente (`/boutique`) ou `redirect_url` si
+  défini. Le cahier ne mentionne explicitement que `ended`/`closed`/
+  `cancelled` (section 18) ; j'ai élargi à tous les statuts non-`active` par
+  cohérence (un QR de campagne `draft` ou `scheduled` ne doit pas non plus
+  mener à une page qui n'existe pas encore publiquement).
+- `product` : aucune page produit publique individuelle n'existe dans ce
+  projet (le cahier section 63 exclut la marketplace ouverte) → fallback
+  `/boutique` systématique.
+- `redirect_url` renseigné sur la ligne `qr_codes` : prioritaire sur toute
+  résolution par cible.
+- `expires_at` dépassé : fallback `/boutique`, même si la cible serait
+  sinon valide.
+
+**Page portail `/campagnes/[campaignId]/qr` liste un QR par campagne ET un
+QR par athlète participant, pas seulement celui de la campagne.** Découvert
+en relisant `lib/campaigns/create-campaign.ts` : l'activation crée déjà N+1
+lignes `qr_codes` (1 pour la campagne + 1 par ligne `campaign_participants`).
+Cette page se contente donc d'afficher ce qui existe déjà en base -- elle
+correspond directement au critère d'acceptation explicite « On télécharge le
+QR d'un athlète en PNG et en PDF ».
+
+**Cinquième bug de cache mount/git rencontré dans CETTE tâche**, cette fois
+sur des fichiers neufs après un DEUXIÈME passage d'édition (pas seulement
+sur de vieux fichiers suivis) : `app/api/qr/[code]/png/route.ts` et
+`app/api/qr/[code]/pdf/route.ts`, tronqués en plein milieu d'une chaîne de
+caractères après la correction `Buffer` → `Uint8Array` (voir mémoire
+persistante `mount-staleness-ecommerce.md`, mise à jour avec cette nuance :
+le risque existe dès qu'un fichier a été modifié une deuxième fois dans la
+session, pas seulement sur les fichiers anciens). Réparé par réécriture
+heredoc complète à partir du contenu confirmé par l'outil Read, puis
+revérification `wc -l` + scan d'octets nuls.
+
+**Vérification finale.** `tsc --noEmit` propre, `eslint .` propre. `vitest
+run`, découpé en petits lots pour rester sous la fenêtre de l'outil bash
+(41/41 fichiers unitaires verts, 11/11 fichiers d'intégration verts -- dont
+les 21 nouveaux tests unitaires de `qr-resolve-target.test.ts`, les 6
+nouveaux tests unitaires de `qr-generate.test.ts` et les 4 nouveaux tests
+d'intégration de `qr-scan-increment.test.ts`). Aucune régression. Nouveau
+e2e `tests/e2e/campagne-qr.spec.ts` (téléchargement PNG/PDF + scan →
+redirection + incrément du compteur), non exécutable en sandbox comme tous
+les e2e précédents (réseau Chromium/Supabase bloqué), suppose le même jeu
+`supabase/seed-e2e.sql` toujours pas créé (lacune documentée depuis la
+tâche 1.6).
+
+## Tâche 1.5.2 — Génération automatique d'affiches
+
+**Les 3 formats (lettre/carré/story) sont des PDF, jamais des images
+raster (PNG/JPEG).** Aucune bibliothèque de composition d'image n'est
+installée dans ce projet (pas de `canvas`/`sharp`/`satori`/`@vercel/og`) --
+seules `pdf-lib` et `qrcode` sont disponibles, toutes deux déjà retenues à la
+Tâche 1.5.1 pour les mêmes raisons (JS pur, sans binaire natif, compatible
+Vercel serverless). `pdf-lib` permet de créer des pages à dimensions
+personnalisées (`addPage([largeur, hauteur])`), ce qui couvre les 3 formats
+demandés (lettre 8,5x11po, carré 1:1, story 9:16) sans avoir à produire de
+vrai raster. Limite documentée : un réseau social qui exigerait un PNG/JPEG
+direct (plutôt qu'un PDF) ne serait pas servi tel quel par cette
+implémentation -- à revisiter si ce besoin réel apparaît (aucune mention
+explicite d'un format de fichier précis dans le cahier, section TÂCHE 1.5.2).
+
+**Portée de `hide_amounts` sur l'affiche : masque uniquement
+`campaign.goalCents`, jamais le prix des forfaits.** Lu directement dans
+`lib/public/campaign-progress.ts#applyAmountsMask` (déjà en place depuis la
+Tâche 1.6) avant d'écrire le code de l'affiche : ce masquage existant ne
+neutralise que `raisedCents`/`goalCents`/`percent`/`isGoalExceeded`, jamais
+le prix d'un produit/forfait -- ces prix sont traités partout ailleurs dans
+le projet comme une information publique de catalogue, pas une donnée
+personnelle de l'athlète. L'affiche suit exactement ce précédent plutôt que
+d'inventer une portée plus large : `buildPosterContent`
+(`lib/posters/generate.ts`) ne masque `goalCents` que si le bénéficiaire est
+un athlète ET `hideAmounts === true` ; les prix/crédits des forfaits restent
+toujours visibles, quel que soit le bénéficiaire.
+
+**Une seule affiche par campagne (bénéficiaire direct), pas une par athlète
+participant.** Contrairement aux codes QR de la Tâche 1.5.1 (qui couvrent
+explicitement un QR par athlète participant, exigé par le cahier), le texte
+de la Tâche 1.5.2 ne demande pas d'affiche individuelle par athlète
+participant à une campagne d'équipe/club. Portée volontairement alignée sur
+le texte du cahier -- à étendre si un besoin réel d'affiches individuelles
+apparaît (changement isolé : ajouter une route `/affiches/[athleteId]/
+[format]` réutilisant les mêmes fonctions pures).
+
+**Le QR intégré à l'affiche réutilise le code `qr_codes` existant
+(`target_type = 'campaign'`), jamais une nouvelle URL non traçable.** Même
+raisonnement que la Tâche 1.5.1 : un scan depuis une affiche imprimée doit
+compter comme n'importe quel autre scan
+(`resolve_and_count_qr_scan`, migration 0012), pas être une URL parallèle
+hors mesure. Si aucune ligne `qr_codes` n'existe pour la campagne (cas
+théorique, ne devrait jamais arriver après activation), repli sur l'URL
+publique directe du bénéficiaire -- l'affiche reste générable même dans ce
+cas limite plutôt que d'échouer entièrement.
+
+**L'ancienne page `demarrage/affiche` (affiche texte simple, Tâche 1.6.B3)
+reste inchangée ; une nouvelle carte numérotée « 5. Télécharger les
+affiches » a été ajoutée à l'écran de démarrage plutôt que de remplacer
+l'ancienne carte « 3. Télécharger l'affiche ».** Les deux affiches répondent
+à des besoins différents (texte simple à imprimer tout de suite, vs. PDF
+complet avec photo/QR/prix dans 3 formats pour usage prolongé) et
+`tests/e2e/campagne-apercu-correction.spec.ts` (Tâche 1.6.B3) vérifie déjà le
+lien « Voir et imprimer l'affiche » -- le remplacer aurait cassé ce test sans
+bénéfice fonctionnel. La carte « Suivre les ventes » a été renumérotée de 4
+à 6 pour conserver un ordre continu (vérifié par grep que ce test ne dépend
+d'aucun numéro de section, seulement des intitulés "Campagne lancée !"/
+"Récapitulatif").
+
+**Onzième et douzième manifestations du bug de cache mount/git (voir
+`mount-staleness-ecommerce.md`), cette fois sur deux fichiers édités une
+SECONDE fois dans la même tâche** (`app/(portails)/campagnes/[campaignId]/
+demarrage/page.tsx`, tronqué en plein mot après l'ajout de la nouvelle carte
+-- `tsc` rapportait des balises JSX non fermées en fin de fichier alors que
+l'outil Read montrait le fichier complet et correct ; `app/(portails)/
+campagnes/[campaignId]/affiches/page.tsx`, cette fois 2 octets nuls ajoutés
+en toute fin de fichier après une simple réorganisation d'un commentaire
+`eslint-disable-next-line`). Réparés par réécriture heredoc complète à
+partir du contenu confirmé par l'outil Read, puis revérification
+`wc -l` + scan d'octets nuls Python -- même procédure que toutes les fois
+précédentes.
+
+**Bug ESLint trouvé et corrigé (pas un bug de cache) : un commentaire
+`eslint-disable-next-line` réparti sur 3 lignes consécutives ne supprime
+pas l'avertissement, car la ligne du commentaire portant la directive n'est
+plus *immédiatement* au-dessus de la ligne ciblée.** `eslint-disable-next-line`
+exige que la ligne de code source juste après le commentaire contenant la
+directive soit la ligne visée -- avec deux lignes de commentaire
+supplémentaires entre la directive et le `<img>`, ESLint ne reconnaît plus
+le lien. Corrigé en plaçant l'explication AVANT la directive plutôt
+qu'après, de sorte que la dernière ligne de commentaire (celle qui contient
+`eslint-disable-next-line`) précède immédiatement le `<img>`.
+
+**Vérification finale.** `tsc --noEmit` propre, `eslint .` propre (1 seul
+avertissement attendu sur `<img>`, supprimé par la correction ci-dessus ;
+l'avertissement « fichier ignoré » sur `tests/e2e/campagne-affiches.spec.ts`
+est normal, comme pour tous les fichiers e2e du projet). `vitest run`
+découpé en 2 lots pour rester sous la fenêtre de l'outil bash : 29/29
+fichiers unitaires verts, 321 tests verts au total, dont les 16 nouveaux
+tests de `tests/unit/posters-generate.test.ts` (masquage `hide_amounts` +
+génération PDF dans les 3 formats, photo PNG valide, image corrompue, packs
+vides, texte long avec retour à la ligne). Aucune régression. Nouveau e2e
+`tests/e2e/campagne-affiches.spec.ts` (téléchargement PDF dans les 3
+formats + absence de `<img>` pour un bénéficiaire `hide_photo=true`), non
+exécutable en sandbox comme tous les e2e précédents (réseau Chromium/
+Supabase bloqué), suppose le même jeu `supabase/seed-e2e.sql` toujours pas
+créé (lacune documentée depuis la tâche 1.6).

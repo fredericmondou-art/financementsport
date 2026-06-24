@@ -521,4 +521,69 @@
       publique finale), page `app/(portails)/campagnes/[campaignId]/qr` (un
       QR par campagne + un par athlète participant, découvert dans la
       logique déjà existante de `create-campaign.ts`), lien ajouté à l'écran
-     
+      de démarrage (`demarrage/page.tsx`, action « 4. Télécharger les codes
+      QR », renumérotation de « Suivre les ventes » en 5). Cinquième
+      manifestation du bug de cache mount/git rencontrée et réparée (cette
+      fois sur des fichiers neufs après un deuxième passage d'édition --
+      mémoire `mount-staleness-ecommerce.md` mise à jour). 41/41 tests
+      unitaires + 11/11 fichiers d'intégration verts (dont 21 nouveaux tests
+      `qr-resolve-target`, 6 nouveaux `qr-generate`, 4 nouveaux
+      `qr-scan-increment`), aucune régression, `tsc --noEmit`/`eslint .`
+      propres. Nouveau e2e `tests/e2e/campagne-qr.spec.ts`, non exécutable en
+      sandbox (même limitation réseau que les précédents). Voir
+      docs/rapports/RAPPORT-1.5.1.md et docs/DECISIONS.md.
+- [x] 1.5.2 Génération automatique d'affiches — `lib/posters/generate.ts`
+      (`buildPosterContent` pur + `generatePosterPdfBuffer`, 3 formats lettre/
+      carré/story en PDF via `pdf-lib`, jamais de raster PNG/JPEG -- aucune
+      lib de composition d'image dans le projet) ; QR intégré réutilise le
+      code `qr_codes` existant (`target_type = 'campaign'`, repli sur l'URL
+      publique si absent) ; `hide_amounts` masque uniquement `goalCents`,
+      jamais le prix des forfaits (même portée que `applyAmountsMask`
+      existant) ; une affiche par campagne, pas par athlète participant.
+      Nouvelle page `app/(portails)/campagnes/[campaignId]/affiches` +
+      nouvelle route `app/api/campagnes/[campaignId]/affiches/[format]`,
+      nouvelle carte « 5. Télécharger les affiches » ajoutée à l'écran de
+      démarrage (ancienne affiche texte simple de la Tâche 1.6.B3 conservée
+      intacte, « Suivre les ventes » renuméroté 4→6). Onzième et douzième
+      manifestations du bug de cache mount/git (deux fichiers tronqués après
+      une seconde édition dans la même tâche), réparées par réécriture
+      heredoc + revérification octets nuls. Bug ESLint distinct trouvé et
+      corrigé : `eslint-disable-next-line` réparti sur 3 lignes ne
+      désactive pas l'avertissement -- corrigé en replaçant la directive
+      immédiatement au-dessus du `<img>` visé. `tsc --noEmit`/`eslint .`
+      propres, 29/29 fichiers unitaires verts (321 tests au total dont 16
+      nouveaux pour `posters-generate.test.ts`), aucune régression. Nouveau
+      e2e `tests/e2e/campagne-affiches.spec.ts`, non exécutable en sandbox
+      (même limitation réseau que les précédents). Voir
+      docs/rapports/RAPPORT-1.5.2.md et docs/DECISIONS.md.
+
+## À venir
+- [x] Phase 1.6 — UX de tous les usagers (voir `docs/prompts/phase-1-6.md`) —
+      **demandée AVANT la Phase 1.5** (demande de Frédéric, 2026-06-23 ; cohérent
+      avec l'ordre déjà prévu dans `ORCHESTRATION.md`) — Blocs A, B et C tous
+      complétés.
+  - [x] Bloc A — Client / parent acheteur
+    - [x] 1.6.A1 Achat invité fluide (page athlète → paiement)
+    - [x] 1.6.A2 Création de compte encouragée après l'achat
+    - [x] 1.6.A3 Espace parent : suivi, reçus et rachat en un clic
+    - [x] 1.6.A4 Répartition entre plusieurs enfants, version simple
+  - [x] Bloc B — Responsable de campagne
+    - [x] 1.6.B1 Assistant de campagne pas-à-pas avec sauvegarde automatique
+    - [x] 1.6.B2 Défauts intelligents et saisie des athlètes sans douleur
+    - [x] 1.6.B3 Aperçu, activation et écran « prochaines actions »
+  - [x] Bloc C — Athlète
+    - [x] 1.6.C1 Profil athlète et page publique soignée
+    - [x] 1.6.C2 Suivi de progression et partage pour l'athlète
+- [ ] Phase 1.5 — Campagne pleinement opérationnelle (voir
+      `docs/prompts/phase-1-5.md`)
+  - [x] 1.5.1 QR codes téléchargeables (PNG/PDF)
+  - [x] 1.5.2 Génération automatique d'affiches
+  - [ ] 1.5.3 Saved splits (répartitions favorites) **(prochaine tâche)**
+  - [ ] 1.5.4 Liste de distribution par équipe
+  - [ ] 1.5.5 Confirmation réception et livraison groupée
+  - [ ] 1.5.6 Dashboard équipe
+  - [ ] 1.5.7 Dashboard admin plateforme
+  - [ ] 1.5.8 Clôture de campagne
+  - [ ] 1.5.9 Rapport de campagne
+  - [ ] 1.5.10 Calcul des versements (manuel)
+  - [ ] 1.5.11 Export des commandes (admin)

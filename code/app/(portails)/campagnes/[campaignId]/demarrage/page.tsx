@@ -3,9 +3,10 @@
  * d'une campagne (Tâche 1.6.B3) -- remplace l'ancien message `?succes=`
  * (Tâche 1.7) qui se contentait d'une bannière sur la page de l'assistant.
  * Le cahier demande un écran de DÉMARRAGE avec au moins 3-4 actions
- * concrètes ; cette page en propose 4 : partager le lien, envoyer le
- * message aux parents (déjà rédigé, copiable), télécharger l'affiche, et
- * suivre les ventes.
+ * concrètes ; cette page en propose 6 : partager le lien, envoyer le
+ * message aux parents (déjà rédigé, copiable), télécharger l'affiche texte
+ * simple (1.6.B3), télécharger les codes QR (1.5.1), télécharger les
+ * affiches PDF complètes avec QR/photo/prix (1.5.2), et suivre les ventes.
  *
  * Autorisation : aucune vérification applicative ici -- la policy RLS
  * `campaigns_select_scoped` (migration 0003) n'autorise déjà la lecture
@@ -183,7 +184,20 @@ export default async function DemarragePage({ params }: DemarragePageProps): Pro
 
       <Card>
         <section className="stack stack--sm">
-          <h2>5. Suivre les ventes</h2>
+          <h2>5. Télécharger les affiches</h2>
+          <p>
+            Affiches prêtes à imprimer ou à partager (formats lettre, carré, story) avec photo,
+            objectif, prix des forfaits et un code QR scannable.
+          </p>
+          <Button href={`/campagnes/${campaign.id}/affiches`} variant="outline">
+            Voir et télécharger les affiches
+          </Button>
+        </section>
+      </Card>
+
+      <Card>
+        <section className="stack stack--sm">
+          <h2>6. Suivre les ventes</h2>
           <p>
             {formatCents(raisedCents)} amassés
             {progress.goalCents !== null ? ` sur un objectif de ${formatCents(progress.goalCents)}` : ''}
