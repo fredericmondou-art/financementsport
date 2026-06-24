@@ -556,6 +556,30 @@
       e2e `tests/e2e/campagne-affiches.spec.ts`, non exécutable en sandbox
       (même limitation réseau que les précédents). Voir
       docs/rapports/RAPPORT-1.5.2.md et docs/DECISIONS.md.
+- [x] 1.5.3 Saved splits (répartitions favorites) — migration 0013
+      (`saved_splits`/`saved_split_items`, RLS propriétaire), `lib/cart/
+      saved-splits.ts` (`saveSplitAsNamed`/`listSavedSplitsForUser`/
+      `deleteSavedSplit`/`findInactiveItems`, réutilise intégralement
+      `assertSplitTotals10000`/`beneficiarySplitInputSchema` de la Tâche
+      1.4, aucune validation dupliquée), nouvelle fonction sœur
+      `loadBeneficiaryActiveStatus` dans `lib/cart/beneficiary-labels.ts`.
+      `components/beneficiary-split.tsx` étendu avec un sélecteur « Charger
+      une répartition favorite », un formulaire « Enregistrer comme
+      répartition favorite » et une liste « Mes répartitions favorites »
+      avec suppression -- tout masqué pour un invité (`canSaveSplits`
+      faux), jamais affiché désactivé. Une répartition favorite référençant
+      un bénéficiaire devenu inactif ou supprimé affiche un avertissement
+      non bloquant (`role="alert"`) après chargement. Bug d'infrastructure
+      de test trouvé et corrigé : `GRANT ... ON ALL TABLES IN SCHEMA
+      public` n'est pas rétroactif en Postgres -- déplacé pour s'exécuter
+      après la boucle complète de migrations plutôt que juste après la
+      migration 0001 (sinon `saved_splits`/`saved_split_items`, créées à la
+      migration 0013, n'héritent jamais du GRANT). 11 nouveaux tests
+      unitaires (`saved-splits.test.ts`) + 5 nouveaux tests d'intégration
+      RLS (`saved-splits-rls.test.ts`, vrai Postgres embarqué) + tests
+      `beneficiary-split.test.tsx` étendus, tous verts, aucune régression.
+      `tsc --noEmit`/`eslint .` propres. Voir docs/rapports/RAPPORT-1.5.3.md
+      et docs/DECISIONS.md.
 
 ## À venir
 - [x] Phase 1.6 — UX de tous les usagers (voir `docs/prompts/phase-1-6.md`) —
@@ -578,8 +602,8 @@
       `docs/prompts/phase-1-5.md`)
   - [x] 1.5.1 QR codes téléchargeables (PNG/PDF)
   - [x] 1.5.2 Génération automatique d'affiches
-  - [ ] 1.5.3 Saved splits (répartitions favorites) **(prochaine tâche)**
-  - [ ] 1.5.4 Liste de distribution par équipe
+  - [x] 1.5.3 Saved splits (répartitions favorites)
+  - [ ] 1.5.4 Liste de distribution par équipe **(prochaine tâche)**
   - [ ] 1.5.5 Confirmation réception et livraison groupée
   - [ ] 1.5.6 Dashboard équipe
   - [ ] 1.5.7 Dashboard admin plateforme

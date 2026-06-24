@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { setBeneficiarySplitAction } from '@/app/(shop)/panier/actions';
+import { deleteSavedSplitAction, saveSplitAction, setBeneficiarySplitAction } from '@/app/(shop)/panier/actions';
 import { splitCreditAmongBeneficiaries } from '@/lib/credits/calculate';
 import { equalSplitBps, splitBpsEqually } from '@/lib/cart/beneficiaries';
 import { formatCents } from '@/lib/format-cents';
@@ -14,6 +14,20 @@ export interface BeneficiarySplitRow {
   shareBps: number;
 }
 
+/** Tâche 1.5.3 : une répartition favorite, déjà enrichie (libellé + statut
+ * actif par bénéficiaire) par `lib/cart/saved-splits.ts#listSavedSplitsForUser`. */
+export interface SavedSplitOption {
+  id: string;
+  name: string;
+  items: Array<{
+    beneficiaryType: 'athlete' | 'team' | 'club';
+    beneficiaryId: string;
+    label: string;
+    shareBps: number;
+    isActive: boolean;
+  }>;
+}
+
 interface BeneficiarySplitProps {
   cartId: string;
   rows: BeneficiarySplitRow[];
@@ -24,6 +38,16 @@ interface BeneficiarySplitProps {
    * même fonction que le serveur réappliquera après enregistrement de la
    * répartition. */
   totalCreditCents: number;
+  /** Tâche 1.5.3 : répartitions favorites déjà enregistrées par ce client --
+   * vide pour un invité (réservé aux clients connectés, voir
+   * docs/prompts/phase-1-5.md). Optionnel pour ne pas casser les tests/
+   * usages existants antérieurs à cette tâche. */
+  savedSplits?: SavedSplitOption[];
+  /** Tâche 1.5.3 : `true` uniquement pour un client connecté -- masque tout
+   * le bloc "répartitions favorites" pour un invité plutôt que de l'afficher
+   * désactivé (un invité n'a de toute façon jamais de panier persistant
+   * multi-appareil, voir page panier). */
+  canSaveSplits?: boolean;
 }
 
 interface EditableRow {
@@ -63,8 +87,20 @@ function toEditableRows(rows: BeneficiarySplitRow[]): EditableRow[] {
  * `setCartBeneficiarySplit` (défense en profondeur déjà en place avant cette
  * tâche, jamais reproduite ici).
  */
-export default function BeneficiarySplit({ cartId, rows, totalCreditCents }: BeneficiarySplitProps): JSX.Element {
+export default function BeneficiarySplit({
+  cartId,
+  rows,
+  totalCreditCents,
+  savedSplits = [],
+  canSaveSplits = false,
+}: BeneficiarySplitProps): JSX.Element {
   const [editableRows, setEditableRows] = useState<EditableRow[]>(() => toEditableRows(rows));
+  // Tâche 1.5.3 : avertissement non bloquant affiché après le CHARGEMENT
+  // d'une répartition favorite référençant un bénéficiaire devenu inactif
+  // (critère d'acceptation : « signalée à l'application », jamais bloquée
+  // silencieusement -- le client reste libre de corriger puis d'enregistrer,
+  // ou d'ignorer et enregistrer quand même).
+  const [inactiveWarning, setInactiveWarning] = useState<string | null>(null);
 
   const liveImpact = splitCreditAmongBeneficiaries(
     totalCreditCents,
@@ -148,8 +184,65 @@ export default function BeneficiarySplit({ cartId, rows, totalCreditCents }: Ben
     setEditableRows((current) => current.map((row) => (row.key === key ? { ...row, [field]: value } : row)));
   }
 
+  /**
+   * Tâche 1.5.3 : « réapplique à un panier » -- remplace simplement les
+   * lignes éditables par celles de la répartition favorite choisie. Aucun
+   * aller-retour serveur ici : l'enregistrement final repasse par le bouton
+   * "Enregistrer la répartition" existant, donc par la même validation
+   * serveur qu'une répartition saisie à la main (`setCartBeneficiarySplit`),
+   * jamais dupliquée.
+   */
+  function handleApplySavedSplit(savedSplitId: string): void {
+    const savedSplit = savedSplits.find((candidate) => candidate.id === savedSplitId);
+    if (!savedSplit) return;
+
+    setEditableRows(
+      savedSplit.items.map((item) => ({
+        key: nextRowKey(),
+        beneficiaryType: item.beneficiaryType,
+        beneficiaryId: item.beneficiaryId,
+        label: item.label,
+        shareBps: item.shareBps,
+      })),
+    );
+
+    const inactiveLabels = savedSplit.items.filter((item) => !item.isActive).map((item) => item.label);
+    setInactiveWarning(
+      inactiveLabels.length > 0
+        ? `Attention : « ${savedSplit.name} » contient ${inactiveLabels.length > 1 ? 'des bénéficiaires inactifs' : 'un bénéficiaire inactif'} (${inactiveLabels.join(', ')}). Corrigez la répartition avant d'enregistrer si nécessaire.`
+        : null,
+    );
+  }
+
   return (
-    <form action={setBeneficiarySplitAction}>
+    <div className="stack stack--sm">
+      {canSaveSplits && savedSplits.length > 0 ? (
+        <div className="stack stack--sm">
+          <label htmlFor="saved-split-select">Charger une répartition favorite</label>
+          <select
+            id="saved-split-select"
+            defaultValue=""
+            onChange={(event) => {
+              if (event.target.value) {
+                handleApplySavedSplit(event.target.value);
+              }
+            }}
+          >
+            <option value="" disabled>
+              Choisir...
+            </option>
+            {savedSplits.map((savedSplit) => (
+              <option key={savedSplit.id} value={savedSplit.id}>
+                {savedSplit.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      ) : null}
+
+      {inactiveWarning ? <p role="alert">{inactiveWarning}</p> : null}
+
+      <form action={setBeneficiarySplitAction}>
       <input type="hidden" name="cartId" value={cartId} />
 
       {editableRows.length === 0 ? (
@@ -243,6 +336,50 @@ export default function BeneficiarySplit({ cartId, rows, totalCreditCents }: Ben
       <Button type="submit" disabled={editableRows.length === 0}>
         Enregistrer la répartition
       </Button>
-    </form>
+      </form>
+
+      {canSaveSplits ? (
+        <form action={saveSplitAction} className="stack stack--sm">
+          {editableRows.map((row) => (
+            <span key={row.key}>
+              <input type="hidden" name="beneficiaryType" value={row.beneficiaryType} />
+              <input type="hidden" name="beneficiaryId" value={row.beneficiaryId} />
+              <input type="hidden" name="shareBps" value={row.shareBps} />
+            </span>
+          ))}
+          <label htmlFor="saved-split-name">Enregistrer cette répartition sous un nom</label>
+          <input
+            id="saved-split-name"
+            type="text"
+            name="savedSplitName"
+            placeholder="ex. Thomas et Emma"
+            maxLength={80}
+            required
+          />
+          <Button type="submit" variant="outline" size="sm" disabled={editableRows.length === 0}>
+            Enregistrer comme répartition favorite
+          </Button>
+        </form>
+      ) : null}
+
+      {canSaveSplits && savedSplits.length > 0 ? (
+        <div className="stack stack--sm">
+          <h3>Mes répartitions favorites</h3>
+          <ul>
+            {savedSplits.map((savedSplit) => (
+              <li key={savedSplit.id}>
+                {savedSplit.name}
+                <form action={deleteSavedSplitAction} style={{ display: 'inline' }}>
+                  <input type="hidden" name="savedSplitId" value={savedSplit.id} />
+                  <Button type="submit" variant="outline" size="sm">
+                    Supprimer
+                  </Button>
+                </form>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+    </div>
   );
 }

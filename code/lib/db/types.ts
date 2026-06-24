@@ -775,6 +775,46 @@ export interface CampaignDraftsTable {
   Update: Partial<CampaignDraftsTable['Insert']>;
 }
 
+/** Tâche 1.5.3 (migration 0013) : répartition favorite nommée. */
+export interface SavedSplitsTable {
+  Row: {
+    id: string;
+    user_id: string;
+    name: string;
+    created_at: string;
+    updated_at: string;
+  };
+  Insert: {
+    id?: string;
+    user_id: string;
+    name: string;
+    created_at?: string;
+    updated_at?: string;
+  };
+  Update: Partial<SavedSplitsTable['Insert']>;
+}
+
+/** Tâche 1.5.3 (migration 0013) : une ligne bénéficiaire d'une `SavedSplitsTable`. */
+export interface SavedSplitItemsTable {
+  Row: {
+    id: string;
+    saved_split_id: string;
+    beneficiary_type: BeneficiaryType;
+    beneficiary_id: string;
+    campaign_id: string | null;
+    share_bps: number;
+  };
+  Insert: {
+    id?: string;
+    saved_split_id: string;
+    beneficiary_type: BeneficiaryType;
+    beneficiary_id: string;
+    campaign_id?: string | null;
+    share_bps: number;
+  };
+  Update: Partial<SavedSplitItemsTable['Insert']>;
+}
+
 // =============================================================================
 // VIEWS
 // =============================================================================
@@ -913,6 +953,8 @@ export interface Database {
       email_log: EmailLogTable;
       stripe_events: StripeEventsTable;
       campaign_drafts: CampaignDraftsTable;
+      saved_splits: SavedSplitsTable;
+      saved_split_items: SavedSplitItemsTable;
     };
     Views: {
       v_beneficiary_credit_totals: VBeneficiaryCreditTotalsView;

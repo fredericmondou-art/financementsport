@@ -21,6 +21,8 @@ import { formatCents } from '@/lib/format-cents';
 
 vi.mock('@/app/(shop)/panier/actions', () => ({
   setBeneficiarySplitAction: vi.fn(),
+  saveSplitAction: vi.fn(),
+  deleteSavedSplitAction: vi.fn(),
 }));
 
 const ALICE_ID = '11111111-1111-1111-1111-111111111111';
@@ -190,5 +192,111 @@ describe('BeneficiarySplit', () => {
     expect(typeInputs).toEqual(['athlete', 'team']);
     expect(idInputs).toEqual([ALICE_ID, BOB_ID]);
     expect(shareInputs).toEqual(['4000', '6000']);
+  });
+
+  /** Tâche 1.5.3 : pour un invité (`canSaveSplits` absent/false), aucun des
+   * blocs "répartitions favorites" ne doit apparaître -- même si la page
+   * passait par erreur un tableau `savedSplits` non vide. */
+  it('ne montre aucun bloc de répartitions favorites pour un invité', () => {
+    render(
+      <BeneficiarySplit
+        cartId="c1"
+        rows={[{ beneficiaryType: 'athlete', beneficiaryId: ALICE_ID, label: 'Alice', shareBps: 10000 }]}
+        totalCreditCents={1000}
+        savedSplits={[{ id: 'split-1', name: '50/50', items: [] }]}
+      />,
+    );
+
+    expect(screen.queryByText('Charger une répartition favorite')).not.toBeInTheDocument();
+    expect(screen.queryByText('Mes répartitions favorites')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Enregistrer cette répartition sous un nom')).not.toBeInTheDocument();
+  });
+
+  it('un client connecté voit le sélecteur et la liste de répartitions favorites', () => {
+    render(
+      <BeneficiarySplit
+        cartId="c1"
+        rows={[{ beneficiaryType: 'athlete', beneficiaryId: ALICE_ID, label: 'Alice', shareBps: 10000 }]}
+        totalCreditCents={1000}
+        canSaveSplits
+        savedSplits={[
+          {
+            id: 'split-1',
+            name: '50/50 Thomas et Emma',
+            items: [
+              { beneficiaryType: 'athlete', beneficiaryId: ALICE_ID, label: 'Alice', shareBps: 5000, isActive: true },
+              { beneficiaryType: 'athlete', beneficiaryId: BOB_ID, label: 'Bob', shareBps: 5000, isActive: true },
+            ],
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getByText('Charger une répartition favorite')).toBeInTheDocument();
+    // Le nom apparaît deux fois : dans l'option du sélecteur ET dans la
+    // liste "Mes répartitions favorites" (avec son bouton "Supprimer") --
+    // toutes deux attendues, voir le JSX de components/beneficiary-split.tsx.
+    expect(screen.getAllByText('50/50 Thomas et Emma')).toHaveLength(2);
+    expect(screen.getByLabelText('Enregistrer cette répartition sous un nom')).toBeInTheDocument();
+  });
+
+  it('appliquer une répartition favorite remplace les lignes et reflète le nouveau total', async () => {
+    const user = userEvent.setup();
+    render(
+      <BeneficiarySplit
+        cartId="c1"
+        rows={[{ beneficiaryType: 'athlete', beneficiaryId: ALICE_ID, label: 'Alice', shareBps: 10000 }]}
+        totalCreditCents={1000}
+        canSaveSplits
+        savedSplits={[
+          {
+            id: 'split-1',
+            name: '50/50',
+            items: [
+              { beneficiaryType: 'athlete', beneficiaryId: ALICE_ID, label: 'Alice', shareBps: 5000, isActive: true },
+              { beneficiaryType: 'athlete', beneficiaryId: BOB_ID, label: 'Bob', shareBps: 5000, isActive: true },
+            ],
+          },
+        ]}
+      />,
+    );
+
+    await user.selectOptions(screen.getByLabelText('Charger une répartition favorite'), 'split-1');
+
+    expect(screen.getByLabelText('Part (%) pour Alice')).toHaveValue(50);
+    expect(screen.getByLabelText('Part (%) pour Bob')).toHaveValue(50);
+    expect(screen.getAllByText(moneyText(500))).toHaveLength(2);
+  });
+
+  it('appliquer une répartition favorite référençant un bénéficiaire inactif affiche un avertissement', async () => {
+    const user = userEvent.setup();
+    render(
+      <BeneficiarySplit
+        cartId="c1"
+        rows={[{ beneficiaryType: 'athlete', beneficiaryId: ALICE_ID, label: 'Alice', shareBps: 10000 }]}
+        totalCreditCents={1000}
+        canSaveSplits
+        savedSplits={[
+          {
+            id: 'split-1',
+            name: 'Avec inactif',
+            items: [
+              { beneficiaryType: 'athlete', beneficiaryId: ALICE_ID, label: 'Alice', shareBps: 5000, isActive: true },
+              {
+                beneficiaryType: 'athlete',
+                beneficiaryId: BOB_ID,
+                label: 'Bob (retraité)',
+                shareBps: 5000,
+                isActive: false,
+              },
+            ],
+          },
+        ]}
+      />,
+    );
+
+    await user.selectOptions(screen.getByLabelText('Charger une répartition favorite'), 'split-1');
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Bob (retraité)');
   });
 });

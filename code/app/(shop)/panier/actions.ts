@@ -27,6 +27,7 @@ import {
   removeItemFromCart,
   updateCartItemQuantity,
 } from '@/lib/cart/items';
+import { createSupabaseSavedSplitsRepo, deleteSavedSplit, saveSplitAsNamed } from '@/lib/cart/saved-splits';
 import { BusinessRuleError, NotFoundError, PermissionError } from '@/lib/entities/errors';
 
 const PANIER_PATH = '/panier';
@@ -195,22 +196,24 @@ export async function removeItemAction(formData: FormData): Promise<void> {
  * affichée par components/beneficiary-split.tsx). On les recombine ici
  * avant de les faire valider par `beneficiarySplitInputSchema` -- pas de
  * logique de validation dupliquée, seulement le "reshape" du FormData.
+ *
+ * Extraite en fonction partagée (Tâche 1.5.3) : `saveSplitAction` ci-dessous
+ * enregistre la MÊME forme de lignes (issues du même formulaire) sous un
+ * nom -- ce reshape ne devait pas être recopié une seconde fois.
  */
-const splitFormSchema = z.object({
-  cartId: z.string().uuid(),
+const splitFormArraysSchema = z.object({
   beneficiaryType: z.array(z.string()),
   beneficiaryId: z.array(z.string()),
   shareBps: z.array(z.string()),
 });
 
-export async function setBeneficiarySplitAction(formData: FormData): Promise<void> {
+function parseSplitRowsFromFormData(formData: FormData): unknown[] {
   const beneficiaryType = formData.getAll('beneficiaryType').map(String);
   const beneficiaryId = formData.getAll('beneficiaryId').map(String);
   const shareBps = formData.getAll('shareBps').map(String);
-  const cartId = formData.get('cartId');
 
-  const parsedForm = splitFormSchema.safeParse({ cartId, beneficiaryType, beneficiaryId, shareBps });
-  if (!parsedForm.success) {
+  const parsedArrays = splitFormArraysSchema.safeParse({ beneficiaryType, beneficiaryId, shareBps });
+  if (!parsedArrays.success) {
     redirectWithError(new BusinessRuleError('Répartition invalide.'));
   }
 
@@ -218,14 +221,27 @@ export async function setBeneficiarySplitAction(formData: FormData): Promise<voi
   // nouveau bénéficiaire sans JS, voir components/beneficiary-split.tsx)
   // n'ont ni id rempli ni part > 0 : on les retire avant validation plutôt
   // que de les faire échouer sur le format UUID.
-  const rawSplit = parsedForm.data.beneficiaryType
+  return parsedArrays.data.beneficiaryType
     .map((type, index) => ({
       beneficiaryType: type,
-      beneficiaryId: parsedForm.data.beneficiaryId[index] ?? '',
-      shareBps: Number(parsedForm.data.shareBps[index] ?? '0'),
+      beneficiaryId: parsedArrays.data.beneficiaryId[index] ?? '',
+      shareBps: Number(parsedArrays.data.shareBps[index] ?? '0'),
     }))
     .filter((row) => row.beneficiaryId.trim() !== '' && row.shareBps > 0);
+}
 
+const splitFormSchema = z.object({
+  cartId: z.string().uuid(),
+});
+
+export async function setBeneficiarySplitAction(formData: FormData): Promise<void> {
+  const cartId = formData.get('cartId');
+  const parsedForm = splitFormSchema.safeParse({ cartId });
+  if (!parsedForm.success) {
+    redirectWithError(new BusinessRuleError('Répartition invalide.'));
+  }
+
+  const rawSplit = parseSplitRowsFromFormData(formData);
   const parsedSplit = beneficiarySplitInputSchema.safeParse(rawSplit);
   if (!parsedSplit.success) {
     redirectWithError(new BusinessRuleError(parsedSplit.error.issues[0]?.message ?? 'Répartition invalide.'));
@@ -247,6 +263,66 @@ export async function setBeneficiarySplitAction(formData: FormData): Promise<voi
 
   revalidatePath(PANIER_PATH);
   redirect(PANIER_PATH);
+}
+
+/**
+ * Tâche 1.5.3 : enregistre la répartition COURANTE du formulaire (mêmes
+ * tableaux parallèles que `setBeneficiarySplitAction`) sous un nom, pour
+ * réapplication ultérieure à un autre panier -- réservé aux clients
+ * connectés (`saved_splits.user_id NOT NULL`, RLS propriétaire, migration
+ * 0013). Toute la validation (somme = 10000, format) est déléguée à
+ * `lib/cart/saved-splits.ts#saveSplitAsNamed`, qui réutilise lui-même
+ * `beneficiarySplitInputSchema`/`assertSplitTotals10000` -- rien n'est
+ * revalidé ici.
+ */
+export async function saveSplitAction(formData: FormData): Promise<void> {
+  const user = await getCurrentUser();
+  if (!user) {
+    redirectWithError(new PermissionError('Connectez-vous pour enregistrer une répartition favorite.'));
+  }
+
+  const name = formData.get('savedSplitName');
+  const rawSplit = parseSplitRowsFromFormData(formData);
+
+  try {
+    const supabase = createSupabaseServerClient();
+    const saved = await saveSplitAsNamed(
+      user.id,
+      { name, items: rawSplit },
+      createSupabaseSavedSplitsRepo(supabase),
+    );
+    revalidatePath(PANIER_PATH);
+    redirect(`${PANIER_PATH}?avis=${encodeURIComponent(`Répartition « ${saved.name} » enregistrée.`)}`);
+  } catch (error) {
+    redirectWithError(error);
+  }
+}
+
+const deleteSavedSplitSchema = z.object({ savedSplitId: z.string().uuid() });
+
+/** Tâche 1.5.3 : supprime une répartition favorite -- propriété vérifiée
+ * deux fois (RLS + `lib/cart/saved-splits.ts#deleteSavedSplit`), voir le
+ * commentaire d'en-tête de ce dernier. */
+export async function deleteSavedSplitAction(formData: FormData): Promise<void> {
+  const user = await getCurrentUser();
+  if (!user) {
+    redirectWithError(new PermissionError('Connectez-vous pour gérer vos répartitions favorites.'));
+  }
+
+  const parsed = deleteSavedSplitSchema.safeParse({ savedSplitId: formData.get('savedSplitId') });
+  if (!parsed.success) {
+    redirectWithError(new BusinessRuleError('Répartition favorite invalide.'));
+  }
+
+  try {
+    const supabase = createSupabaseServerClient();
+    await deleteSavedSplit(user.id, parsed.data.savedSplitId, createSupabaseSavedSplitsRepo(supabase));
+  } catch (error) {
+    redirectWithError(error);
+  }
+
+  revalidatePath(PANIER_PATH);
+  redirect(`${PANIER_PATH}?avis=${encodeURIComponent('Répartition favorite supprimée.')}`);
 }
 
 /**

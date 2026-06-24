@@ -80,3 +80,44 @@ export async function loadBeneficiaryLabels(
 
   return labels;
 }
+
+/**
+ * Charge le statut `is_active` de plusieurs bénéficiaires polymorphes,
+ * indexé par `beneficiaryLabelKey` -- même découpage par type que
+ * `loadBeneficiaryLabels` ci-dessus (une requête par type), volontairement
+ * une fonction SŒUR plutôt qu'une fusion des deux : `loadBeneficiaryLabels`
+ * est déjà utilisée par plusieurs pages qui n'ont besoin que du nom
+ * d'affichage (reçu, compte, webhook Stripe) et ne doivent pas payer le coût
+ * d'une colonne supplémentaire ni risquer une régression de leur contrat de
+ * retour (`Map<string, string>`).
+ *
+ * Ajoutée pour la Tâche 1.5.3 (répartitions favorites,
+ * docs/prompts/phase-1-5.md) : un bénéficiaire enregistré dans une
+ * répartition favorite peut être devenu inactif (`is_active = false`)
+ * depuis -- voir `lib/cart/saved-splits.ts`. Un bénéficiaire absent de la
+ * table (supprimé) est traité comme inactif (`false`) par l'appelant
+ * (`?? false`), jamais comme une absence silencieuse de clé.
+ */
+export async function loadBeneficiaryActiveStatus(
+  supabase: SupabaseClient,
+  beneficiaries: Array<{ beneficiaryType: BeneficiaryType; beneficiaryId: string }>,
+): Promise<Map<string, boolean>> {
+  const activeByKey = new Map<string, boolean>();
+  const idsByType: Record<BeneficiaryType, string[]> = { athlete: [], team: [], club: [] };
+  for (const beneficiary of beneficiaries) {
+    idsByType[beneficiary.beneficiaryType].push(beneficiary.beneficiaryId);
+  }
+
+  const tableByType: Record<BeneficiaryType, string> = { athlete: 'athletes', team: 'teams', club: 'clubs' };
+  for (const type of ['athlete', 'team', 'club'] as const) {
+    const ids = [...new Set(idsByType[type])];
+    if (ids.length === 0) continue;
+    const { data, error } = await supabase.from(tableByType[type]).select('id, is_active').in('id', ids);
+    if (error) throw error;
+    for (const row of (data as Array<{ id: string; is_active: boolean }>) ?? []) {
+      activeByKey.set(beneficiaryLabelKey(type, row.id), row.is_active);
+    }
+  }
+
+  return activeByKey;
+}

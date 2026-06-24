@@ -54,6 +54,7 @@ import { estimateCartCredit, formatCreditMessage } from '@/lib/cart/estimate-cre
 import { resolveCartIdentity } from '@/lib/cart/identity';
 import { createSupabaseCartItemsRepo, listCartItems } from '@/lib/cart/items';
 import { createSupabaseProductRepo } from '@/lib/catalog/products';
+import { createSupabaseSavedSplitsRepo, listSavedSplitsForUser } from '@/lib/cart/saved-splits';
 import { Card } from '@/components/ui/card';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -94,6 +95,12 @@ export default async function PanierPage({ searchParams }: PanierPageProps): Pro
     supabase,
     beneficiaries.map((b) => ({ beneficiaryType: b.beneficiary_type, beneficiaryId: b.beneficiary_id })),
   );
+
+  // Tâche 1.5.3 : répartitions favorites -- réservé aux clients connectés
+  // (voir lib/cart/saved-splits.ts), jamais chargé pour un invité.
+  const savedSplits = user
+    ? await listSavedSplitsForUser(user.id, createSupabaseSavedSplitsRepo(supabase), supabase)
+    : [];
 
   // Tâche 1.6.A1 : noms de produits pour l'affichage (voir en-tête de
   // fichier) -- une requête par produit distinct du panier, comme
@@ -206,6 +213,8 @@ export default async function PanierPage({ searchParams }: PanierPageProps): Pro
             shareBps: b.share_bps,
           }))}
           totalCreditCents={creditEstimate.totalCreditCents}
+          savedSplits={savedSplits}
+          canSaveSplits={Boolean(user)}
         />
       </section>
 

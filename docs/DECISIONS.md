@@ -2441,3 +2441,70 @@ formats + absence de `<img>` pour un bénéficiaire `hide_photo=true`), non
 exécutable en sandbox comme tous les e2e précédents (réseau Chromium/
 Supabase bloqué), suppose le même jeu `supabase/seed-e2e.sql` toujours pas
 créé (lacune documentée depuis la tâche 1.6).
+
+## Tâche 1.5.3 — Saved splits (répartitions favorites)
+
+**Aucune logique de validation dupliquée : `saveSplitAsNamed` réutilise
+directement `assertSplitTotals10000`/`beneficiarySplitInputSchema` (Tâche
+1.4), et `findInactiveItems`/le statut actif réutilisent le motif déjà
+existant de `loadBeneficiaryLabels` (lib/cart/beneficiary-labels.ts) plutôt
+que d'écrire une seconde fonction de résolution de bénéficiaire.** Une
+nouvelle fonction sœur, `loadBeneficiaryActiveStatus`, a été ajoutée dans le
+même fichier (même motif `.from(table).select(...).in('id', ids)`) plutôt
+que de surcharger `loadBeneficiaryLabels` avec un paramètre optionnel --
+deux responsabilités (libellé d'affichage vs. statut actif) restent deux
+fonctions distinctes, chacune testée isolément.
+
+**Un bénéficiaire complètement SUPPRIMÉ (absent de la table, pas seulement
+`is_active = false`) est traité comme inactif, jamais ignoré
+silencieusement.** Le cahier (Tâche 1.5.3, critère d'acceptation) exige
+qu'un bénéficiaire devenu inactif soit signalé ; un bénéficiaire supprimé
+est un sur-ensemble de ce cas (encore moins valide qu'un athlète simplement
+désactivé) et doit donc déclencher le même avertissement, avec un libellé
+explicite (« Bénéficiaire introuvable ») plutôt qu'un champ vide.
+
+**Le repo Supabase (`createSupabaseSavedSplitsRepo`) n'est pas exercé par
+des tests unitaires -- même convention que `CampaignDraftRepo`
+(tests/unit/campaign-draft.test.ts) : fine couche d'accès aux données, sans
+logique métier propre. Toute la logique pure (validation, détection des
+inactifs, enrichissement) est testée via un repo en mémoire ; l'isolation
+RLS réelle (qu'un client ne voit jamais le split d'un autre) est testée à
+part, contre un vrai Postgres embarqué
+(`tests/integration/saved-splits-rls.test.ts`), puisqu'un repo en mémoire
+ignore RLS par construction.**
+
+**Bug d'infrastructure de test trouvé et corrigé en écrivant
+`tests/integration/saved-splits-rls.test.ts` : `GRANT ... ON ALL TABLES IN
+SCHEMA public` n'est PAS rétroactif en Postgres -- il ne vise que les tables
+qui existent déjà au moment où la commande s'exécute.** Le harnais de test
+RLS (calqué sur `tests/integration/order-credits-own-order-rls.test.ts`)
+lançait jusqu'ici ce GRANT une seule fois, juste après la migration
+`0001_initial_schema.sql`, à l'intérieur de la boucle de migrations. Les
+tables `saved_splits`/`saved_split_items` n'existant qu'à la migration
+`0013_saved_splits.sql` (bien plus tardive), elles n'avaient jamais reçu ce
+GRANT : tout `INSERT` en tant que rôle `authenticated` échouait avec
+`permission denied for table saved_splits`. Aucun autre test RLS existant
+n'avait jamais exposé ce trou, car aucun n'exerçait d'`INSERT` en tant
+qu'`authenticated` sur une table créée après la migration 0001 -- le bug
+était donc latent depuis l'introduction de ce harnais. **Corrigé** en
+déplaçant les trois instructions `GRANT` pour qu'elles s'exécutent une
+seule fois, APRÈS la boucle complète de migrations (donc après la toute
+dernière migration présente, peu importe son numéro) plutôt que juste après
+une migration nommée explicitement. C'est désormais le patron à suivre pour
+tout futur test RLS de ce projet qui exerce une table créée après la
+migration 0001 -- voir le commentaire laissé directement dans
+`saved-splits-rls.test.ts`.
+
+**Vérification finale.** `tsc --noEmit` propre, `eslint .` propre. 11
+nouveaux tests unitaires (`tests/unit/saved-splits.test.ts`) + 5 nouveaux
+tests d'intégration RLS (`tests/integration/saved-splits-rls.test.ts`) + 11
+tests mis à jour/ajoutés sur `tests/unit/beneficiary-split.test.tsx`
+(intégration UI du sélecteur de répartitions favorites), tous verts, aucune
+régression sur le reste de la suite (`tests/unit` au complet, et
+`tests/integration/db-migration.test.ts` re-vérifié pour confirmer que la
+chaîne de migrations jusqu'à 0013 s'applique toujours proprement). Plusieurs
+nouvelles manifestations du bug de cache mount/git (voir
+`mount-staleness-ecommerce.md`) rencontrées sur `saved-splits-rls.test.ts`
+lui-même, y compris une troncature survenue sur une modification pourtant
+appliquée via l'outil `Edit` (pas seulement `Write`/heredoc) -- réparées par
+la procédure habituelle (réécriture heredoc + scan d'octets nuls).
