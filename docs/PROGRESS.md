@@ -433,6 +433,34 @@
       15 noms, non exécutable dans ce bac à sable). 395 tests verts au
       total, `tsc --noEmit`/`eslint .` propres.
 
+- [x] Phase 1.6, Tâche 1.6.B3 — Aperçu, activation et écran « prochaines
+      actions » — `components/public-profile-view.tsx` extrait comme rendu
+      partagé unique entre les 3 pages publiques ET l'aperçu du
+      récapitulatif de l'assistant (`RecapStep`, via
+      `lib/public/preview.ts#loadBeneficiaryPreviewIdentity`), pour éviter
+      toute divergence entre l'aperçu et la vraie page publique. Mécanisme
+      `retour=recap` (champ caché `<ReturnToField>`, `saveStepAndAdvance`
+      dans `app/(portails)/campagnes/nouvelle/actions.ts`) : corriger une
+      section ramène directement au récapitulatif en un seul clic après
+      l'ouverture de l'étape. Bouton d'activation « Lancer ma campagne » →
+      nouvel écran `app/(portails)/campagnes/[campaignId]/demarrage`
+      (4 actions concrètes : copier le lien, copier le message aux parents
+      via `lib/campaigns/demarrage-message.ts#buildParentMessage` — un seul
+      gabarit pour les 3 types de bénéficiaire —, affiche imprimable, suivi
+      des ventes ; lien Messenger via `fb-messenger://`, pas l'API Graph).
+      Décisions autonomes (composant d'aperçu partagé, sémantique de
+      `retour=recap`, Messenger en lien profond plutôt qu'intégration Graph,
+      écran de démarrage volontairement limité à des actions plutôt qu'un
+      tableau de bord complet, gabarit de message unique, nom de route
+      `[campaignId]`) — voir docs/DECISIONS.md. Bug réel trouvé et corrigé :
+      `userEvent.setup()` (testing-library v14) écrase silencieusement le
+      mock `navigator.clipboard` posé avant son appel — voir
+      docs/DECISIONS.md. 414/414 tests verts (395 existants + 19 nouveaux :
+      `campaign-demarrage-message.test.ts`, `campaign-draft-preview.test.ts`,
+      `public-preview.test.ts`, `copy-button.test.tsx`) + 1 nouveau e2e
+      (`campagne-apercu-correction.spec.ts`, non exécutable en sandbox comme
+      les précédents), `tsc --noEmit` et `eslint .` propres.
+
 ## À venir
 - [ ] Phase 1.6 — UX de tous les usagers (voir `docs/prompts/phase-1-6.md`) —
       **à faire AVANT la Phase 1.5** (demande de Frédéric, 2026-06-23 ; cohérent
@@ -445,7 +473,7 @@
   - [ ] Bloc B — Responsable de campagne
     - [x] 1.6.B1 Assistant de campagne pas-à-pas avec sauvegarde automatique
     - [x] 1.6.B2 Défauts intelligents et saisie des athlètes sans douleur
-    - [ ] 1.6.B3 Aperçu, activation et écran « prochaines actions »
+    - [x] 1.6.B3 Aperçu, activation et écran « prochaines actions »
   - [ ] Bloc C — Athlète
     - [ ] 1.6.C1 Profil athlète et page publique soignée
     - [ ] 1.6.C2 Suivi de progression et partage pour l'athlète

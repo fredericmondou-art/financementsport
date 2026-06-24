@@ -8,6 +8,12 @@
  * Critère d'acceptation : « la progression est visible sur mobile et
  * desktop » — `<ol>` passe en colonne sur petit écran (voir
  * app/globals.css), jamais masquée.
+ *
+ * Navigation directe (Tâche 1.6.B3) : une étape déjà complétée (`isDone`)
+ * devient un lien vers `?etape=N` — on peut revenir corriger une étape
+ * antérieure sans repasser par chaque « Continuer » intermédiaire. L'étape
+ * courante et les étapes futures restent du texte simple (rien à afficher
+ * pour une étape pas encore atteinte).
  */
 import { ProgressBar } from '@/components/ui/progress-bar';
 import {
@@ -19,9 +25,14 @@ import {
 
 export interface WizardProgressProps {
   currentStepId: CampaignDraftStepId;
+  /** Chemin de base de l'assistant (`/campagnes/nouvelle`) — injecté plutôt
+   * que codé en dur, au cas où l'assistant serait un jour monté sous un
+   * autre chemin (cohérent avec `WizardNav`, qui reçoit déjà ses `href` en
+   * props plutôt que de les construire lui-même). */
+  basePath?: string;
 }
 
-export function WizardProgress({ currentStepId }: WizardProgressProps): JSX.Element {
+export function WizardProgress({ currentStepId, basePath = '/campagnes/nouvelle' }: WizardProgressProps): JSX.Element {
   const total = CAMPAIGN_DRAFT_STEP_IDS.length;
   const currentIndex = stepIndexFromStepId(currentStepId);
   const percent = total > 1 ? ((currentIndex - 1) / (total - 1)) * 100 : 100;
@@ -49,7 +60,7 @@ export function WizardProgress({ currentStepId }: WizardProgressProps): JSX.Elem
                 .join(' ')}
               aria-current={isCurrent ? 'step' : undefined}
             >
-              {CAMPAIGN_DRAFT_STEP_LABELS[stepId]}
+              {isDone ? <a href={`${basePath}?etape=${stepNumber}`}>{CAMPAIGN_DRAFT_STEP_LABELS[stepId]}</a> : CAMPAIGN_DRAFT_STEP_LABELS[stepId]}
             </li>
           );
         })}

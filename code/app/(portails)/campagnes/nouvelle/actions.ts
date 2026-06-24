@@ -92,10 +92,18 @@ async function requireUser(): Promise<AuthUser> {
  * `try/catch` (contrairement au `redirect()` final) car certaines coercions
  * (`toIsoOrNull`, `Number(...)`) peuvent lever une erreur métier — elle doit
  * suivre le même chemin "redirige avec message" que les erreurs Zod.
+ *
+ * `retour` (Tâche 1.6.B3) : présent quand l'étape a été ouverte depuis le
+ * lien « Modifier » du récapitulatif (champ caché `<ReturnToField>`, voir
+ * app/(portails)/campagnes/nouvelle/page.tsx). Dans ce cas, on enregistre
+ * toujours l'étape, mais on revient au récapitulatif au lieu d'avancer à
+ * l'étape suivante — c'est ce qui rend la correction d'un champ "en un clic"
+ * (un clic pour ouvrir l'étape, un clic pour enregistrer et revenir).
  */
 async function saveStepAndAdvance(
   stepId: CampaignDraftStepId,
   stepIndex: number,
+  retour: string | null,
   buildRawInput: () => unknown,
 ): Promise<void> {
   const user = await requireUser();
@@ -108,9 +116,9 @@ async function saveStepAndAdvance(
     const patch = parseStepInput(stepId, rawInput);
     const existing = await draftRepo.getDraft(user.id);
     const merged = mergeDraftData(existing?.data ?? {}, patch);
-    const next = nextStepId(stepId);
-    await draftRepo.saveStep(user.id, next ?? stepId, merged);
-    targetStepIndex = stepIndexFromStepId(next ?? stepId);
+    const next: CampaignDraftStepId = retour === 'recap' ? 'recap' : nextStepId(stepId) ?? stepId;
+    await draftRepo.saveStep(user.id, next, merged);
+    targetStepIndex = stepIndexFromStepId(next);
   } catch (error) {
     redirectWithError(stepIndex, error);
   }
@@ -119,7 +127,7 @@ async function saveStepAndAdvance(
 }
 
 export async function saveTypeNomStepAction(formData: FormData): Promise<void> {
-  await saveStepAndAdvance('type_nom', 1, () => ({
+  await saveStepAndAdvance('type_nom', 1, emptyToNull(formData.get('retour')), () => ({
     type: formData.get('type'),
     name: emptyToNull(formData.get('name')),
     publicMessage: emptyToNull(formData.get('publicMessage')),
@@ -127,7 +135,7 @@ export async function saveTypeNomStepAction(formData: FormData): Promise<void> {
 }
 
 export async function saveBeneficiaireStepAction(formData: FormData): Promise<void> {
-  await saveStepAndAdvance('beneficiaire', 2, () => ({
+  await saveStepAndAdvance('beneficiaire', 2, emptyToNull(formData.get('retour')), () => ({
     teamId: emptyToNull(formData.get('teamId')),
     clubId: emptyToNull(formData.get('clubId')),
     beneficiaryType: formData.get('beneficiaryType'),
@@ -136,7 +144,7 @@ export async function saveBeneficiaireStepAction(formData: FormData): Promise<vo
 }
 
 export async function saveObjectifDatesStepAction(formData: FormData): Promise<void> {
-  await saveStepAndAdvance('objectif_dates', 3, () => {
+  await saveStepAndAdvance('objectif_dates', 3, emptyToNull(formData.get('retour')), () => {
     const startsAtRaw = emptyToNull(formData.get('startsAt'));
     const endsAtRaw = emptyToNull(formData.get('endsAt'));
     return {
@@ -148,13 +156,13 @@ export async function saveObjectifDatesStepAction(formData: FormData): Promise<v
 }
 
 export async function saveParticipantsStepAction(formData: FormData): Promise<void> {
-  await saveStepAndAdvance('participants', 4, () => ({
+  await saveStepAndAdvance('participants', 4, emptyToNull(formData.get('retour')), () => ({
     participantAthleteIds: formData.getAll('participantAthleteIds').map(String),
   }));
 }
 
 export async function savePacksStepAction(formData: FormData): Promise<void> {
-  await saveStepAndAdvance('packs', 5, () => ({
+  await saveStepAndAdvance('packs', 5, emptyToNull(formData.get('retour')), () => ({
     productIds: formData.getAll('productIds').map(String),
   }));
 }
@@ -167,24 +175,29 @@ export async function savePacksStepAction(formData: FormData): Promise<void> {
  * (`discardDraft`) : une campagne créée n'a plus besoin de son brouillon, et
  * cela libère l'unique brouillon par gestionnaire pour une prochaine
  * campagne.
+ *
+ * Redirection (Tâche 1.6.B3) : vers l'écran de démarrage dédié
+ * (`/campagnes/[campaignId]/demarrage`), qui remplace l'ancien message
+ * `?succes=` affiché sur cette même page (Tâche 1.7) — « activer puis montrer
+ * les prochaines actions concrètes », pas seulement une bannière de succès.
  */
 export async function createCampaignFromDraftAction(_formData: FormData): Promise<void> {
   const user = await requireUser();
   const supabase = createSupabaseServerClient();
   const draftRepo = createSupabaseCampaignDraftRepo(supabase);
 
-  let createdSlug: string;
+  let createdCampaignId: string;
   try {
     const draft = await draftRepo.getDraft(user.id);
     const rawInput = buildCampaignInputFromDraft(draft?.data ?? {});
     const result = await createCampaign(user, rawInput, createSupabaseCampaignRepo(supabase));
     await draftRepo.discardDraft(user.id);
-    createdSlug = result.campaign.slug;
+    createdCampaignId = result.campaign.id;
   } catch (error) {
     redirectWithError(stepIndexFromStepId('recap'), error);
   }
 
-  redirect(`${NOUVELLE_CAMPAGNE_PATH}?succes=${encodeURIComponent(createdSlug)}`);
+  redirect(`/campagnes/${createdCampaignId}/demarrage`);
 }
 
 /**

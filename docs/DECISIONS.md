@@ -2024,3 +2024,126 @@ pour cette tâche : `tests/unit/campaign-defaults.test.ts` (9),
 `tests/unit/entities-validation.test.ts`). `tests/e2e/
 campagne-defauts-bulk.spec.ts` ajouté (non exécutable dans ce bac à sable,
 voir ci-dessus).
+
+## 2026-06-24 -- Phase 1.6, Tache 1.6.B3 : apercu, activation et ecran « prochaines actions »
+
+**Apercu fidele du recapitulatif = le meme composant que la vraie page
+publique, pas une re-creation.** `components/public-profile-view.tsx` est
+extrait comme rendu partage unique, utilise a la fois par les 3 pages
+publiques (`app/(public)/[athleteSlug]`, `team/[slug]`, `club/[slug]`) ET par
+`RecapStep` de l'assistant (`lib/public/preview.ts#loadBeneficiaryPreviewIdentity`
+charge l'identite par id plutot que par slug, seule difference). Decision
+autonome : un apercu reconstruit separement aurait pu diverger silencieusement
+de la vraie page (texte, mise en page, respect des `hide_*`) -- le risque de
+divergence est plus grave que le cout de factoriser le composant.
+
+**`retour=recap` : mecanisme de correction en un clic.** Chaque etape de
+l'assistant accepte un parametre `retour=recap` (en plus de `etape=N`) propage
+via un champ cache `<ReturnToField>` dans son formulaire. `saveStepAndAdvance`
+(`app/(portails)/campagnes/nouvelle/actions.ts`) redirige vers `recap` au lieu
+de `nextStepId()` quand ce parametre est present, et le libelle du bouton
+devient « Enregistrer et revenir au recapitulatif » (`continueLabelFor`).
+Decision autonome (deux lectures du cahier etaient possibles : revenir a
+l'etape suivante normale, ou revenir directement au recap) : le cahier
+demande explicitement « corriger en un clic », ce qui n'a de sens que si la
+responsable revient directement ou elle etait, pas a l'etape suivante de
+l'enchainement normal.
+
+**Partage Messenger : lien profond `fb-messenger://`, pas l'API Graph.**
+Aucune application Facebook n'est enregistree cote plateforme (pas d'`app_id`
+Graph API, qui demanderait une revision Facebook et des secrets
+supplementaires hors scope V1). Le bouton « Envoyer sur Messenger » utilise
+`fb-messenger://share/?link=<url>` : fonctionne sur un appareil ou Messenger
+est installe, se degrade silencieusement (lien mort) ailleurs. Le bouton
+« Copier le lien » reste la solution universelle dans tous les cas --
+Messenger est un raccourci, jamais le seul chemin. A revisiter si une vraie
+integration Facebook devient necessaire apres la V1.
+
+**Ecran de demarrage = « prochaines actions » concretes, pas un tableau de
+bord complet.** Le cahier demande un ecran avec 3-4 actions apres activation ;
+celui livre en propose 4 (partager le lien, envoyer le message aux parents,
+imprimer l'affiche, suivre les ventes) avec le montant amasse a ce jour
+(`v_campaign_progress`) et une barre de progression si un objectif est fixe.
+Decision autonome : un vrai tableau de bord (historique des dons, liste des
+acheteurs, etc.) appartient au portail de gestion existant
+(`app/(portails)/compte`), pas a cet ecran ponctuel post-activation dont le
+seul role est de lancer la collecte -- eviter de dupliquer une fonctionnalite
+qui existe deja ailleurs.
+
+**Message aux parents : un seul gabarit francais pour les 3 types de
+beneficiaire.** `lib/campaigns/demarrage-message.ts#buildParentMessage` ne
+distingue jamais athlete/equipe/club : le nom du beneficiaire suffit a rendre
+la phrase naturelle dans les 3 cas (« L'equipe X lance... », « Le Club Y
+lance... », « Jean Tremblay lance... »). Decision autonome : 3 gabarits
+distincts auraient triple la surface a maintenir/traduire pour un gain de
+naturel marginal.
+
+**Route `app/(portails)/campagnes/[campaignId]/demarrage`, pas `[id]`.**
+Legere divergence du chemin litteral du cahier des charges : coherent avec le
+reste du projet, qui nomme toujours ses segments dynamiques d'apres l'entite
+(`[slug]`, `[athleteSlug]`, `[orderId]`), jamais `[id]` generique -- choix
+mineur, pas une question bloquante.
+
+**Bug de test decouvert et corrige : `userEvent.setup()` ecrase
+`navigator.clipboard`.** `@testing-library/user-event` v14 installe sa propre
+implementation de `navigator.clipboard` (support copier/coller integre) AU
+MOMENT de l'appel a `userEvent.setup()` -- si le mock du test
+(`Object.defineProperty(navigator, 'clipboard', ...)`) est pose AVANT cet
+appel, il est silencieusement ecrase. Symptome trompeur : le composant
+fonctionne quand meme (le faux clipboard de `user-event` resout aussi la
+promesse), donc les assertions sur le COMPORTEMENT visible (le bouton affiche
+« Copie ! ») passent, mais les assertions sur le MOCK lui-meme
+(`expect(writeText).toHaveBeenCalledWith(...)`) echouent avec 0 appel.
+Corrige dans `tests/unit/copy-button.test.tsx` : le mock est maintenant
+(re)defini APRES chaque `userEvent.setup()`, jamais avant ni dans un
+`beforeEach` partage. A retenir pour tout futur test impliquant a la fois
+`userEvent` et `navigator.clipboard`.
+
+**Nouvelles manifestations du bug de cache mount/git, avec une variante non
+documentee jusqu'ici.** En plus de la troncature deja connue (fichier coupe
+en plein mot sur le mount bash alors que l'outil Read renvoie le contenu
+correct et complet), cette tache a revele un second mode : des **octets nuls
+ajoutes apres un contenu par ailleurs intact et correct** (`app/(public)/
+[athleteSlug]/page.tsx`, `club/[slug]/page.tsx`, `team/[slug]/page.tsx`,
+`app/(portails)/campagnes/nouvelle/page.tsx`) -- invisibles a l'oeil mais
+cassant `tsc`/`eslint` (`TS1127: Invalid character`). Plus important : **les
+deux modes peuvent etre declenches par l'operation d'edition elle-meme**, pas
+seulement herites d'un etat de fichier preexistant -- `nouvelle/page.tsx` a
+ete corrompu une seconde fois par un simple retrait de 2 imports via l'outil
+Edit, et `tests/unit/copy-button.test.tsx` a ete tronque a repetition par des
+Edits par ailleurs anodins. Procedure etablie et appliquee systematiquement
+cette tache : apres CHAQUE Edit/Write, comparer `wc -c` (octets totaux) a
+`tr -d '\0' | wc -c` (octets non nuls) pour detecter le remplissage nul, et
+`wc -l`/`tail` contre le contenu reel (Read) pour detecter la troncature ;
+reparer par reecriture heredoc complete (troncature) ou `tr -d '\0'`
+(remplissage nul). Memoire persistante du projet deja a jour avec ce pattern
+(`mount-staleness-ecommerce.md`).
+
+**Limite confirmee de l'outil bash : chaque appel tourne dans son propre
+espace de noms PID (`bwrap --unshare-pid`).** Un processus detache via
+`nohup setsid <commande> & disown` apparait bien dans `ps aux` a la fin de
+l'appel qui le lance, mais a disparu -- sans aucune sortie au-dela de la
+banniere de demarrage -- des l'appel bash suivant : l'espace de noms PID
+complet (et tout ce qu'il contient) est detruit avec l'appel qui l'a cree,
+qu'importe `setsid`/`disown`. Aucun processus ne peut donc survivre entre deux
+appels `mcp__workspace__bash`. Consequence pratique : toute commande dont la
+duree depasse la fenetre d'un appel (~40-43s) doit etre decoupee en
+sous-commandes qui tiennent chacune dans un seul appel bloquant, jamais mise
+en arriere-plan dans l'espoir de la relire plus tard.
+
+**Verification finale.** `tsc --noEmit` propre, `eslint .` propre. `vitest
+run` complet (decoupe en 4 appels bloquants pour rester sous la fenetre de
+l'outil bash -- voir limite ci-dessus -- plutot qu'une seule commande sans
+filtre) : **414 tests verts sur 48 fichiers**, aucune regression (395
+existants + 19 nouveaux : `tests/unit/campaign-demarrage-message.test.ts`
+(3), `tests/unit/campaign-draft-preview.test.ts` (5),
+`tests/unit/public-preview.test.ts` (8), `tests/unit/copy-button.test.tsx`
+(3)). Detail : 271 tests (25 fichiers `tests/unit` hors jsdom) + 14 tests (4
+fichiers jsdom : `app-error`, `app-not-found`, `beneficiary-split`,
+`copy-button`) + 19 tests (5 fichiers jsdom : `ui-alert`, `ui-badge`,
+`ui-button`, `ui-card`, `ui-error-state`) + 13 tests (4 fichiers jsdom :
+`ui-field`, `ui-modal`, `ui-progress-bar`, `ui-spinner`) + 97 tests (10
+fichiers `tests/integration`, vrai Postgres embarque). `tests/e2e/
+campagne-apercu-correction.spec.ts` ajoute (apercu fidele, correction en un
+clic, activation, ecran de demarrage) -- non executable dans ce bac a sable
+comme tous les e2e precedents, a executer en CI/local avant production.

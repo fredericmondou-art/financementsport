@@ -39,10 +39,18 @@ import {
   type CampaignDraftData,
 } from '@/lib/campaigns/draft';
 import { applyCampaignDefaults } from '@/lib/campaigns/defaults';
+import {
+  createSupabaseBeneficiaryPreviewRepo,
+  loadBeneficiaryPreviewIdentity,
+  type BeneficiaryPreviewIdentity,
+} from '@/lib/public/preview';
+import { buildDraftPreviewCampaignSection } from '@/lib/campaigns/draft-preview';
 import { Card } from '@/components/ui/card';
 import { Field } from '@/components/ui/field';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { PublicProfileView } from '@/components/public-profile-view';
 import { WizardProgress } from '@/components/wizard/wizard-progress';
 import { WizardNav } from '@/components/wizard/wizard-nav';
 import {
@@ -74,7 +82,11 @@ const BENEFICIARY_TYPE_LABELS: Record<CampaignInput['beneficiaryType'], string> 
 };
 
 interface NouvelleCampagnePageProps {
-  searchParams: { etape?: string; erreur?: string; succes?: string; info?: string };
+  /** `succes`/`?succes=` (Tâche 1.7) a disparu à la Tâche 1.6.B3 :
+   * l'activation redirige désormais vers l'écran de démarrage dédié
+   * (`/campagnes/[campaignId]/demarrage`, voir actions.ts), qui remplace
+   * entièrement ce qu'affichait l'ancien message de succès ici. */
+  searchParams: { etape?: string; erreur?: string; retour?: string; info?: string };
 }
 
 export default async function NouvelleCampagnePage({
@@ -118,6 +130,26 @@ export default async function NouvelleCampagnePage({
   const backStepId = previousStepId(stepId);
   const backHref = backStepId ? `${NOUVELLE_CAMPAGNE_PATH}?etape=${stepIndexFromStepId(backStepId)}` : undefined;
 
+  // Navigation « corriger en un clic » depuis le récapitulatif (Tâche
+  // 1.6.B3) : un lien « Modifier » sur le récapitulatif ajoute `&retour=recap`
+  // à l'URL de l'étape visée. Une fois cette étape ré-enregistrée, on revient
+  // directement ici plutôt que d'avancer à l'étape suivante (voir
+  // `saveStepAndAdvance`, actions.ts) — repris dans un champ caché par chaque
+  // étape ci-dessous.
+  const returnTo = searchParams.retour === 'recap' ? 'recap' : undefined;
+
+  // L'aperçu fidèle de la page publique (et son identité bénéficiaire) n'est
+  // nécessaire qu'à l'étape récapitulatif — inutile de faire cet aller-retour
+  // Supabase supplémentaire sur les 5 autres étapes.
+  const previewIdentity: BeneficiaryPreviewIdentity | null =
+    stepId === 'recap'
+      ? await loadBeneficiaryPreviewIdentity(
+          data.beneficiaryType,
+          data.beneficiaryId,
+          createSupabaseBeneficiaryPreviewRepo(supabase),
+        )
+      : null;
+
   return (
     <main className="page stack">
       <div className="page-header">
@@ -126,12 +158,6 @@ export default async function NouvelleCampagnePage({
       </div>
 
       {searchParams.erreur ? <Alert variant="error">{searchParams.erreur}</Alert> : null}
-      {searchParams.succes ? (
-        <Alert variant="success">
-          Campagne créée et active : <strong>{searchParams.succes}</strong>. Elle apparaît dès
-          maintenant sur la page publique du bénéficiaire.
-        </Alert>
-      ) : null}
       {searchParams.info ? <Alert variant="info">{searchParams.info}</Alert> : null}
 
       <WizardProgress currentStepId={stepId} />
@@ -145,16 +171,18 @@ export default async function NouvelleCampagnePage({
       ) : null}
 
       <Card>
-        {stepId === 'type_nom' ? <TypeNomStep data={data} backHref={backHref} /> : null}
+        {stepId === 'type_nom' ? <TypeNomStep data={data} backHref={backHref} returnTo={returnTo} /> : null}
         {stepId === 'beneficiaire' ? (
-          <BeneficiaireStep data={data} teams={teams} clubs={clubs} backHref={backHref} />
+          <BeneficiaireStep data={data} teams={teams} clubs={clubs} backHref={backHref} returnTo={returnTo} />
         ) : null}
-        {stepId === 'objectif_dates' ? <ObjectifDatesStep data={data} backHref={backHref} /> : null}
+        {stepId === 'objectif_dates' ? (
+          <ObjectifDatesStep data={data} backHref={backHref} returnTo={returnTo} />
+        ) : null}
         {stepId === 'participants' ? (
-          <ParticipantsStep data={data} athletes={athletes} backHref={backHref} />
+          <ParticipantsStep data={data} athletes={athletes} backHref={backHref} returnTo={returnTo} />
         ) : null}
         {stepId === 'packs' ? (
-          <PacksStep data={data} products={products} backHref={backHref} />
+          <PacksStep data={data} products={products} backHref={backHref} returnTo={returnTo} />
         ) : null}
         {stepId === 'recap' ? (
           <RecapStep
@@ -164,6 +192,7 @@ export default async function NouvelleCampagnePage({
             athletes={athletes}
             products={products}
             backHref={backHref}
+            previewIdentity={previewIdentity}
           />
         ) : null}
       </Card>
@@ -193,11 +222,30 @@ function formatDateTime(iso?: string | null): string | null {
 interface StepProps {
   data: CampaignDraftData;
   backHref?: string;
+  /** `'recap'` quand cette étape a été ouverte depuis le lien « Modifier »
+   * du récapitulatif (Tâche 1.6.B3) — reporté dans un champ caché du
+   * formulaire pour que l'action de sauvegarde sache renvoyer ici plutôt que
+   * d'avancer à l'étape suivante (voir `saveStepAndAdvance`, actions.ts). */
+  returnTo?: 'recap';
 }
 
-function TypeNomStep({ data, backHref }: StepProps): JSX.Element {
+/** Champ caché commun à toutes les étapes — voir `StepProps.returnTo`. */
+function ReturnToField({ returnTo }: { returnTo?: 'recap' }): JSX.Element | null {
+  return returnTo ? <input type="hidden" name="retour" value={returnTo} /> : null;
+}
+
+/** « Continuer » par défaut, mais « Enregistrer et revenir au récapitulatif »
+ * quand l'étape a été ouverte depuis « Modifier » — pour que le bouton
+ * annonce honnêtement où il mène (Tâche 1.6.B3, critère « correction en un
+ * clic »). */
+function continueLabelFor(returnTo: 'recap' | undefined, defaultLabel = 'Continuer'): string {
+  return returnTo === 'recap' ? 'Enregistrer et revenir au récapitulatif' : defaultLabel;
+}
+
+function TypeNomStep({ data, backHref, returnTo }: StepProps): JSX.Element {
   return (
     <form action={saveTypeNomStepAction} className="form form--wide stack">
+      <ReturnToField returnTo={returnTo} />
       <section className="stack stack--sm">
         <h2>{CAMPAIGN_DRAFT_STEP_LABELS.type_nom}</h2>
 
@@ -221,7 +269,7 @@ function TypeNomStep({ data, backHref }: StepProps): JSX.Element {
         </Field>
       </section>
 
-      <WizardNav backHref={backHref} />
+      <WizardNav backHref={backHref} continueLabel={continueLabelFor(returnTo)} />
     </form>
   );
 }
@@ -231,9 +279,10 @@ interface BeneficiaireStepProps extends StepProps {
   clubs: ManagedClubOption[];
 }
 
-function BeneficiaireStep({ data, teams, clubs, backHref }: BeneficiaireStepProps): JSX.Element {
+function BeneficiaireStep({ data, teams, clubs, backHref, returnTo }: BeneficiaireStepProps): JSX.Element {
   return (
     <form action={saveBeneficiaireStepAction} className="form form--wide stack">
+      <ReturnToField returnTo={returnTo} />
       <section className="stack stack--sm">
         <h2>{CAMPAIGN_DRAFT_STEP_LABELS.beneficiaire}</h2>
         <p>
@@ -298,14 +347,15 @@ function BeneficiaireStep({ data, teams, clubs, backHref }: BeneficiaireStepProp
         </div>
       </section>
 
-      <WizardNav backHref={backHref} />
+      <WizardNav backHref={backHref} continueLabel={continueLabelFor(returnTo)} />
     </form>
   );
 }
 
-function ObjectifDatesStep({ data, backHref }: StepProps): JSX.Element {
+function ObjectifDatesStep({ data, backHref, returnTo }: StepProps): JSX.Element {
   return (
     <form action={saveObjectifDatesStepAction} className="form form--wide stack">
+      <ReturnToField returnTo={returnTo} />
       <section className="stack stack--sm">
         <h2>{CAMPAIGN_DRAFT_STEP_LABELS.objectif_dates}</h2>
 
@@ -333,7 +383,7 @@ function ObjectifDatesStep({ data, backHref }: StepProps): JSX.Element {
         </div>
       </section>
 
-      <WizardNav backHref={backHref} />
+      <WizardNav backHref={backHref} continueLabel={continueLabelFor(returnTo)} />
     </form>
   );
 }
@@ -342,10 +392,11 @@ interface ParticipantsStepProps extends StepProps {
   athletes: ManagedAthleteOption[];
 }
 
-function ParticipantsStep({ data, athletes, backHref }: ParticipantsStepProps): JSX.Element {
+function ParticipantsStep({ data, athletes, backHref, returnTo }: ParticipantsStepProps): JSX.Element {
   const selected = new Set(data.participantAthleteIds ?? []);
   return (
     <form action={saveParticipantsStepAction} className="form form--wide stack">
+      <ReturnToField returnTo={returnTo} />
       <section className="stack stack--sm">
         <h2>{CAMPAIGN_DRAFT_STEP_LABELS.participants}</h2>
 
@@ -394,7 +445,7 @@ function ParticipantsStep({ data, athletes, backHref }: ParticipantsStepProps): 
         )}
       </section>
 
-      <WizardNav backHref={backHref} />
+      <WizardNav backHref={backHref} continueLabel={continueLabelFor(returnTo)} />
     </form>
   );
 }
@@ -403,10 +454,11 @@ interface PacksStepProps extends StepProps {
   products: Array<{ id: string; name: string }>;
 }
 
-function PacksStep({ data, products, backHref }: PacksStepProps): JSX.Element {
+function PacksStep({ data, products, backHref, returnTo }: PacksStepProps): JSX.Element {
   const selected = new Set(data.productIds ?? []);
   return (
     <form action={savePacksStepAction} className="form form--wide stack">
+      <ReturnToField returnTo={returnTo} />
       <section className="stack stack--sm">
         <h2>{CAMPAIGN_DRAFT_STEP_LABELS.packs}</h2>
         {products.length === 0 ? (
@@ -429,7 +481,7 @@ function PacksStep({ data, products, backHref }: PacksStepProps): JSX.Element {
         )}
       </section>
 
-      <WizardNav backHref={backHref} />
+      <WizardNav backHref={backHref} continueLabel={continueLabelFor(returnTo)} />
     </form>
   );
 }
@@ -439,9 +491,35 @@ interface RecapStepProps extends StepProps {
   clubs: ManagedClubOption[];
   athletes: ManagedAthleteOption[];
   products: Array<{ id: string; name: string }>;
+  /** `null` si l'étape « Bénéficiaire » n'a encore désigné personne, ou si le
+   * bénéficiaire choisi n'a (plus) de ligne dans la vue publique
+   * correspondante — l'aperçu affiche alors un message plutôt qu'un faux
+   * profil (voir le rendu ci-dessous). */
+  previewIdentity: BeneficiaryPreviewIdentity | null;
 }
 
-function RecapStep({ data, teams, clubs, athletes, products, backHref }: RecapStepProps): JSX.Element {
+/** Lien « Modifier » d'une section du récapitulatif (Tâche 1.6.B3, critère
+ * « correction en un clic ») : amène à l'étape concernée avec
+ * `?retour=recap`, pour que « Enregistrer et revenir au récapitulatif »
+ * ramène ici directement après la correction — voir `ReturnToField` et
+ * `saveStepAndAdvance` (actions.ts). */
+function ModifierLink({ stepNumber }: { stepNumber: number }): JSX.Element {
+  return (
+    <Button href={`${NOUVELLE_CAMPAGNE_PATH}?etape=${stepNumber}&retour=recap`} variant="outline" size="sm">
+      Modifier
+    </Button>
+  );
+}
+
+function RecapStep({
+  data,
+  teams,
+  clubs,
+  athletes,
+  products,
+  backHref,
+  previewIdentity,
+}: RecapStepProps): JSX.Element {
   const teamById = new Map(teams.map((t) => [t.id, t]));
   const clubById = new Map(clubs.map((c) => [c.id, c]));
   const athleteById = new Map(athletes.map((a) => [a.id, a]));
@@ -455,66 +533,110 @@ function RecapStep({ data, teams, clubs, athletes, products, backHref }: RecapSt
     return athlete ? `${athlete.firstName} ${athlete.lastName}` : data.beneficiaryId;
   })();
 
+  const previewCampaignSection = buildDraftPreviewCampaignSection(data);
+  const previewEncouragerHref =
+    data.beneficiaryType && data.beneficiaryId
+      ? `/boutique?beneficiaryType=${data.beneficiaryType}&beneficiaryId=${data.beneficiaryId}`
+      : '/boutique';
+
   return (
     <form action={createCampaignFromDraftAction} className="form form--wide stack">
       <section className="stack stack--sm">
         <h2>{CAMPAIGN_DRAFT_STEP_LABELS.recap}</h2>
-        <p>Vérifiez les informations avant de créer et d&apos;activer la campagne.</p>
+        <p>Vérifiez les informations avant de lancer la campagne — tout reste modifiable en un clic.</p>
 
-        <dl className="recap-list">
-          <dt>Nom</dt>
-          <dd>{data.name ?? '—'}</dd>
+        <div className="recap-section">
+          <div className="recap-section__header">
+            <h3>Type et nom</h3>
+            <ModifierLink stepNumber={1} />
+          </div>
+          <dl className="recap-list">
+            <dt>Nom</dt>
+            <dd>{data.name ?? '—'}</dd>
 
-          <dt>Type</dt>
-          <dd>{data.type ? TYPE_LABELS[data.type] : '—'}</dd>
+            <dt>Type</dt>
+            <dd>{data.type ? TYPE_LABELS[data.type] : '—'}</dd>
 
-          {data.publicMessage ? (
-            <>
-              <dt>Message public</dt>
-              <dd>{data.publicMessage}</dd>
-            </>
-          ) : null}
+            {data.publicMessage ? (
+              <>
+                <dt>Message public</dt>
+                <dd>{data.publicMessage}</dd>
+              </>
+            ) : null}
+          </dl>
+        </div>
 
-          <dt>Équipe</dt>
-          <dd>{data.teamId ? teamById.get(data.teamId)?.name ?? data.teamId : '—'}</dd>
+        <div className="recap-section">
+          <div className="recap-section__header">
+            <h3>Bénéficiaire</h3>
+            <ModifierLink stepNumber={2} />
+          </div>
+          <dl className="recap-list">
+            <dt>Équipe</dt>
+            <dd>{data.teamId ? teamById.get(data.teamId)?.name ?? data.teamId : '—'}</dd>
 
-          <dt>Club</dt>
-          <dd>{data.clubId ? clubById.get(data.clubId)?.name ?? data.clubId : '—'}</dd>
+            <dt>Club</dt>
+            <dd>{data.clubId ? clubById.get(data.clubId)?.name ?? data.clubId : '—'}</dd>
 
-          <dt>Bénéficiaire</dt>
-          <dd>
-            {data.beneficiaryType ? BENEFICIARY_TYPE_LABELS[data.beneficiaryType] : '—'}
-            {beneficiaryLabel ? ` — ${beneficiaryLabel}` : ''}
-          </dd>
+            <dt>Bénéficiaire</dt>
+            <dd>
+              {data.beneficiaryType ? BENEFICIARY_TYPE_LABELS[data.beneficiaryType] : '—'}
+              {beneficiaryLabel ? ` — ${beneficiaryLabel}` : ''}
+            </dd>
+          </dl>
+        </div>
 
-          <dt>Objectif</dt>
-          <dd>{data.goalCents != null ? `${(data.goalCents / 100).toFixed(2)} $` : 'Aucun objectif fixé'}</dd>
+        <div className="recap-section">
+          <div className="recap-section__header">
+            <h3>Objectif et dates</h3>
+            <ModifierLink stepNumber={3} />
+          </div>
+          <dl className="recap-list">
+            <dt>Objectif</dt>
+            <dd>{data.goalCents != null ? `${(data.goalCents / 100).toFixed(2)} $` : 'Aucun objectif fixé'}</dd>
 
-          <dt>Dates</dt>
-          <dd>
-            {formatDateTime(data.startsAt) ?? '—'}
-            {data.endsAt ? ` → ${formatDateTime(data.endsAt)}` : ''}
-          </dd>
+            <dt>Dates</dt>
+            <dd>
+              {formatDateTime(data.startsAt) ?? '—'}
+              {data.endsAt ? ` → ${formatDateTime(data.endsAt)}` : ''}
+            </dd>
+          </dl>
+        </div>
 
-          <dt>Athlètes participants</dt>
-          <dd>
-            {data.participantAthleteIds && data.participantAthleteIds.length > 0
-              ? data.participantAthleteIds
-                  .map((id) => {
-                    const athlete = athleteById.get(id);
-                    return athlete ? `${athlete.firstName} ${athlete.lastName}` : id;
-                  })
-                  .join(', ')
-              : 'Aucun'}
-          </dd>
+        <div className="recap-section">
+          <div className="recap-section__header">
+            <h3>Athlètes participants</h3>
+            <ModifierLink stepNumber={4} />
+          </div>
+          <dl className="recap-list">
+            <dt>Athlètes participants</dt>
+            <dd>
+              {data.participantAthleteIds && data.participantAthleteIds.length > 0
+                ? data.participantAthleteIds
+                    .map((id) => {
+                      const athlete = athleteById.get(id);
+                      return athlete ? `${athlete.firstName} ${athlete.lastName}` : id;
+                    })
+                    .join(', ')
+                : 'Aucun'}
+            </dd>
+          </dl>
+        </div>
 
-          <dt>Packs inclus</dt>
-          <dd>
-            {data.productIds && data.productIds.length > 0
-              ? data.productIds.map((id) => productById.get(id)?.name ?? id).join(', ')
-              : '—'}
-          </dd>
-        </dl>
+        <div className="recap-section">
+          <div className="recap-section__header">
+            <h3>Packs inclus</h3>
+            <ModifierLink stepNumber={5} />
+          </div>
+          <dl className="recap-list">
+            <dt>Packs inclus</dt>
+            <dd>
+              {data.productIds && data.productIds.length > 0
+                ? data.productIds.map((id) => productById.get(id)?.name ?? id).join(', ')
+                : '—'}
+            </dd>
+          </dl>
+        </div>
 
         <Alert variant="info">
           Le calcul du crédit suit les règles déjà en vigueur (produit ou campagne) — réglées par
@@ -523,7 +645,54 @@ function RecapStep({ data, teams, clubs, athletes, products, backHref }: RecapSt
         </Alert>
       </section>
 
-      <WizardNav backHref={backHref} continueLabel="Créer et activer la campagne" />
+      <section className="stack stack--sm">
+        <h2>Aperçu de la page publique</h2>
+        <p>
+          Voici exactement ce que verra une personne qui visite la page publique du bénéficiaire,
+          dès l&apos;activation.
+        </p>
+        {previewIdentity ? (
+          <Card>
+            <PublicProfileView
+              imageUrl={previewIdentity.imageUrl}
+              imageAlt={previewIdentity.name}
+              name={previewIdentity.name}
+              badges={
+                <>
+                  {previewIdentity.sport ? <Badge variant="info">{previewIdentity.sport}</Badge> : null}
+                  {previewIdentity.category ? <Badge>{previewIdentity.category}</Badge> : null}
+                  {previewIdentity.city ? (
+                    <Badge>{[previewIdentity.city, previewIdentity.province].filter(Boolean).join(', ')}</Badge>
+                  ) : null}
+                </>
+              }
+              bodyText={previewIdentity.bodyText}
+              campaignSection={previewCampaignSection}
+              encouragerHref={previewEncouragerHref}
+              recommendedProducts={[]}
+            />
+          </Card>
+        ) : (
+          <Alert variant="info">
+            Choisissez d&apos;abord un bénéficiaire (étape « Bénéficiaire ») pour voir l&apos;aperçu de
+            sa page publique.
+          </Alert>
+        )}
+      </section>
+
+      <section className="stack stack--sm">
+        <h2>Aperçu de l&apos;affiche</h2>
+        <p>Une affiche imprimable (sans QR code pour l&apos;instant) sera disponible dès l&apos;activation.</p>
+        <Card>
+          <div className="poster poster--preview">
+            <h3>{data.name ?? 'Nom de la campagne'}</h3>
+            {data.publicMessage ? <p>{data.publicMessage}</p> : null}
+            <p className="poster__url">Lien généré automatiquement à l&apos;activation</p>
+          </div>
+        </Card>
+      </section>
+
+      <WizardNav backHref={backHref} continueLabel="Lancer ma campagne" />
     </form>
   );
 }

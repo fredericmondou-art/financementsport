@@ -143,10 +143,13 @@ test('création "tout par défaut" + ajout de 15 athlètes en lot (doublons sign
   //    (RecapStep, page.tsx, ne référence jamais credit_rules/share_bps — la
   //    seule mention de crédit est la phrase rassurante ci-dessous.)
   await expect(page.getByText(/Vous verrez ici uniquement le montant amassé/)).toBeVisible();
-  await page.getByRole('button', { name: 'Créer et activer la campagne' }).click();
+  await page.getByRole('button', { name: 'Lancer ma campagne' }).click();
 
-  await expect(page).toHaveURL(/\?succes=/);
-  await expect(page.getByText('Campagne créée et active')).toBeVisible();
+  // 8.bis Écran de démarrage (Tâche 1.6.B3) : remplace l'ancien `?succes=`.
+  await expect(page).toHaveURL(/\/campagnes\/[^/]+\/demarrage$/);
+  await expect(page.getByRole('heading', { name: 'Campagne lancée !' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Copier le lien' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Copier le message' })).toBeVisible();
 
   // 9. Vérification backend : campagne active + 13 nouveaux athlètes, tous
   //    mineurs sans tuteur (non publiables tant qu'aucun consentement n'est

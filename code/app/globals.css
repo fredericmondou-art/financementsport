@@ -691,6 +691,79 @@ textarea {
   }
 }
 
+/* Sections du récapitulatif (Tâche 1.6.B3) — chaque étape devient un bloc
+   séparé avec son propre lien « Modifier » (correction en un clic), plutôt
+   qu'une seule longue liste plate. */
+.recap-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.recap-section + .recap-section {
+  margin-top: var(--space-5);
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--color-border);
+}
+.recap-section__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.recap-section__header h3 {
+  margin: 0;
+}
+
+/* Affiche imprimable (Tâche 1.6.B3) — utilisée à la fois en aperçu (étape
+   Récapitulatif) et sur la vraie page d'impression. */
+.poster {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-6);
+  text-align: center;
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+.poster__title {
+  margin: 0;
+}
+.poster__message {
+  white-space: pre-line;
+  margin: 0;
+}
+.poster__url {
+  font-weight: 600;
+  word-break: break-all;
+  margin: 0;
+}
+.poster--preview {
+  opacity: 0.85;
+}
+
+/* Écran de démarrage post-activation (Tâche 1.6.B3) */
+.demarrage__link {
+  font-weight: 600;
+  word-break: break-all;
+}
+.demarrage__message-preview {
+  font-family: inherit;
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: var(--color-bg-alt);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  margin: 0;
+}
+
+/* Masque un élément à l'impression (ex. bouton « Retour ») sans affecter
+   son affichage à l'écran. */
+@media print {
+  .hide-print {
+    display: none;
+  }
+}
+
 .checkbox-list {
   display: flex;
   flex-direction: column;
@@ -808,4 +881,85 @@ textarea {
   gap: var(--space-1);
 }
 .public-profile__identity h1 {
-  margin: 
+  margin: 0;
+}
+.public-profile__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  color: var(--color-text-secondary);
+}
+
+.hero {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-7) 0 var(--space-6);
+}
+.hero h1 {
+  max-width: 36ch;
+}
+.hero p {
+  max-width: 60ch;
+  color: var(--color-text-secondary);
+  font-size: 1.0625rem;
+}
+.hero ol,
+.hero__steps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding-left: var(--space-5);
+}
+
+/* Assistant de campagne en étapes (Tâche 1.6.B1) */
+.wizard-progress {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.wizard-progress__status {
+  margin: 0;
+  font-size: 0.9375rem;
+  color: var(--color-text-secondary);
+}
+.wizard-progress__steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 0.8125rem;
+}
+.wizard-progress__step {
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+}
+.wizard-progress__step--done {
+  color: var(--color-success);
+  border-color: var(--color-success);
+}
+.wizard-progress__step--done a {
+  color: inherit;
+  text-decoration: underline;
+}
+.wizard-progress__step--current {
+  color: var(--color-text);
+  border-color: var(--color-text);
+  font-weight: 600;
+}
+
+.wizard-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-3);
+  position: sticky;
+  bottom: 0;
+  background: var(--color-bg);
+  padding: var(--space-4) 0;
+  border-top: 1px solid var(--color-border);
+}
