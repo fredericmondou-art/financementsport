@@ -580,6 +580,24 @@
       `beneficiary-split.test.tsx` étendus, tous verts, aucune régression.
       `tsc --noEmit`/`eslint .` propres. Voir docs/rapports/RAPPORT-1.5.3.md
       et docs/DECISIONS.md.
+- [x] 1.5.4 Liste de distribution par équipe — migration 0014
+      (`orders_select_campaign_managers`/`order_items_select_campaign_managers`/
+      `profiles_select_campaign_buyers`, policies SELECT additives via
+      `private.manages_campaign()`, n'altère aucune policy existante),
+      `lib/distribution/build-list.ts` (groupement athlète → client →
+      produits, statut de paiement, tri automatique),
+      `lib/export/csv.ts`/`lib/export/pdf.ts` (réutilisables, alimentés par
+      la même fonction `flattenDistributionGroups` pour garantir des données
+      identiques entre les deux formats), page
+      `app/(portails)/campagnes/[campaignId]/distribution` + routes API
+      d'export CSV/PDF. Une commande partagée entre plusieurs bénéficiaires
+      apparaît dans chacun de leurs groupes (sémantique de livraison
+      physique, pas de répartition financière). 24 nouveaux tests
+      (`distribution-build-list.test.ts` -- 11, `distribution-export.test.ts`
+      -- 7, `distribution-rls.test.ts` -- 6, vrai Postgres embarqué), tous
+      verts. Suite complète relancée (46 fichiers unitaires + 13 fichiers
+      d'intégration), aucune régression. `tsc --noEmit`/`eslint .` propres.
+      Voir docs/rapports/RAPPORT-1.5.4.md et docs/DECISIONS.md.
 
 ## À venir
 - [x] Phase 1.6 — UX de tous les usagers (voir `docs/prompts/phase-1-6.md`) —
@@ -587,27 +605,4 @@
       avec l'ordre déjà prévu dans `ORCHESTRATION.md`) — Blocs A, B et C tous
       complétés.
   - [x] Bloc A — Client / parent acheteur
-    - [x] 1.6.A1 Achat invité fluide (page athlète → paiement)
-    - [x] 1.6.A2 Création de compte encouragée après l'achat
-    - [x] 1.6.A3 Espace parent : suivi, reçus et rachat en un clic
-    - [x] 1.6.A4 Répartition entre plusieurs enfants, version simple
-  - [x] Bloc B — Responsable de campagne
-    - [x] 1.6.B1 Assistant de campagne pas-à-pas avec sauvegarde automatique
-    - [x] 1.6.B2 Défauts intelligents et saisie des athlètes sans douleur
-    - [x] 1.6.B3 Aperçu, activation et écran « prochaines actions »
-  - [x] Bloc C — Athlète
-    - [x] 1.6.C1 Profil athlète et page publique soignée
-    - [x] 1.6.C2 Suivi de progression et partage pour l'athlète
-- [ ] Phase 1.5 — Campagne pleinement opérationnelle (voir
-      `docs/prompts/phase-1-5.md`)
-  - [x] 1.5.1 QR codes téléchargeables (PNG/PDF)
-  - [x] 1.5.2 Génération automatique d'affiches
-  - [x] 1.5.3 Saved splits (répartitions favorites)
-  - [ ] 1.5.4 Liste de distribution par équipe **(prochaine tâche)**
-  - [ ] 1.5.5 Confirmation réception et livraison groupée
-  - [ ] 1.5.6 Dashboard équipe
-  - [ ] 1.5.7 Dashboard admin plateforme
-  - [ ] 1.5.8 Clôture de campagne
-  - [ ] 1.5.9 Rapport de campagne
-  - [ ] 1.5.10 Calcul des versements (manuel)
-  - [ ] 1.5.11 Export des commandes (admin)
+    - [x] 1.6.A1 Ach
