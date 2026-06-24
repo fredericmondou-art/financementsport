@@ -699,6 +699,25 @@ export interface PayoutsTable {
   Update: Partial<PayoutsTable['Insert']>;
 }
 
+/**
+ * Ajoutée par la migration 0015 (Tâche 1.5.5) : traçabilité horodatée des
+ * changements de statut de commande. Écrite UNIQUEMENT par la fonction
+ * Postgres `advance_order_status` -- aucun `Insert`/`Update` direct depuis ce
+ * module (pas de policy RLS d'écriture pour anon/authenticated).
+ */
+export interface OrderStatusLogTable {
+  Row: {
+    id: string;
+    order_id: string;
+    from_status: OrderStatus;
+    to_status: OrderStatus;
+    changed_by: string | null;
+    changed_at: string;
+  };
+  Insert: never;
+  Update: never;
+}
+
 export interface EmailLogTable {
   Row: {
     id: string;
@@ -955,6 +974,7 @@ export interface Database {
       campaign_drafts: CampaignDraftsTable;
       saved_splits: SavedSplitsTable;
       saved_split_items: SavedSplitItemsTable;
+      order_status_log: OrderStatusLogTable;
     };
     Views: {
       v_beneficiary_credit_totals: VBeneficiaryCreditTotalsView;

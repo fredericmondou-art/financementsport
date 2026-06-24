@@ -599,10 +599,8 @@
       d'intégration), aucune régression. `tsc --noEmit`/`eslint .` propres.
       Voir docs/rapports/RAPPORT-1.5.4.md et docs/DECISIONS.md.
 
-## À venir
-- [x] Phase 1.6 — UX de tous les usagers (voir `docs/prompts/phase-1-6.md`) —
-      **demandée AVANT la Phase 1.5** (demande de Frédéric, 2026-06-23 ; cohérent
-      avec l'ordre déjà prévu dans `ORCHESTRATION.md`) — Blocs A, B et C tous
-      complétés.
-  - [x] Bloc A — Client / parent acheteur
-    - [x] 1.6.A1 Ach
+- [x] **1.5.5 — Confirmation de réception et livraison groupée.** Migration
+      `0015_order_status_transitions.sql` (table `order_status_log` traçable,
+      fonction gardée `advance_order_status` en `SECURITY DEFINER` --  même
+      patron que `create_paid_order`, migration 0006 -- aucune policy RLS
+      `UPDATE` additive sur `orders

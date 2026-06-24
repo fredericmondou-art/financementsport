@@ -2508,3 +2508,129 @@ nouvelles manifestations du bug de cache mount/git (voir
 lui-même, y compris une troncature survenue sur une modification pourtant
 appliquée via l'outil `Edit` (pas seulement `Write`/heredoc) -- réparées par
 la procédure habituelle (réécriture heredoc + scan d'octets nuls).
+
+## 2026-06-24 — Tâche 1.5.4 : Liste de distribution par équipe
+
+**Écart RLS comblé par des policies ADDITIVES plutôt que par modification
+des policies existantes.** Pour qu'un `team_manager`/`club_admin` puisse lire
+les commandes/articles/profils nécessaires à la liste de distribution de sa
+campagne, il fallait étendre l'accès en lecture sur `orders`, `order_items`
+et `profiles`. Plutôt que de modifier les policies déjà testées
+`orders_select_scoped` / `order_items_select_scoped` /
+`profiles_select_own_or_admin` (migration 0003), la migration
+`0014_distribution_list_access.sql` ajoute trois policies SELECT
+supplémentaires (`orders_select_campaign_managers`,
+`order_items_select_campaign_managers`, `profiles_select_campaign_buyers`),
+toutes basées sur `private.manages_campaign(p_campaign_id)`. Raison :
+Postgres combine plusieurs policies permissives par OR sur une même table --
+ajouter une policy plutôt que toucher l'existante évite tout risque de
+régresser un accès déjà couvert par des tests verts (`rls-policies.test.ts`,
+`order-credits-own-order-rls.test.ts`). Le test dédié
+`tests/integration/distribution-rls.test.ts` prouve à la fois le nouvel
+accès et la non-régression de l'ancien (cas `CLIENT_A` lit toujours sa
+propre commande).
+
+**Une commande partagée entre deux bénéficiaires apparaît dans LES DEUX
+groupes de distribution, pas selon la proportion du crédit.** `lib/
+distribution/build-list.ts` groupe par bénéficiaire à partir de
+`order_credits` (chaque ligne de crédit = une apparition dans le groupe de
+ce bénéficiaire), même si une commande est split 50/50 entre deux athlètes.
+Raison : la liste de distribution sert à savoir QUI doit recevoir QUEL colis
+physique -- une commande de chocolat partagée entre deux familles doit être
+listée pour les deux, indépendamment de la répartition de l'argent. C'est
+une sémantique de livraison, pas de finance ; ne pas confondre avec
+`order_credits` qui reste la seule source de vérité pour les montants.
+
+**Repli du nom d'acheteur sur l'e-mail invité même si `user_id` est posé
+mais qu'aucun profil n'a pu être chargé.** `resolveBuyerIdentity` retourne
+toujours un libellé affichable (`"<email> (invité)"` en dernier recours)
+plutôt que de lancer une erreur ou d'afficher une valeur vide. Raison :
+défensif -- la page de distribution ne doit jamais planter à cause d'une
+incohérence de données (profil supprimé, jointure manquante), elle doit
+rester utilisable par le responsable même en cas de donnée partielle.
+
+**CSV et PDF partagent la même fonction d'aplatissement
+(`flattenDistributionGroups`) en amont de `buildDistributionCsv` et
+`buildDistributionPdf`.** Garantit le critère d'acceptation « Export PDF et
+CSV produisent les mêmes données » par construction (une seule structure de
+données alimente les deux exports) plutôt que par discipline de
+synchronisation entre deux implémentations parallèles qui pourraient
+diverger avec le temps.
+
+**Vérification finale.** `tsc --noEmit` propre, `eslint .` propre. 24
+nouveaux tests (`tests/unit/distribution-build-list.test.ts` -- 11,
+`tests/unit/distribution-export.test.ts` -- 7,
+`tests/integration/distribution-rls.test.ts` -- 6), tous verts. Suite
+complète relancée par lots (contrainte de sandbox, voir
+`mount-staleness-ecommerce.md`) : 46 fichiers de tests unitaires + 13
+fichiers de tests d'intégration, tous verts, aucune régression. Bug rencontré
+et corrigé pendant l'écriture du test d'intégration : `order_items.product_id`
+a une contrainte `FOREIGN KEY ... REFERENCES products(id)` -- le fixture
+insérait `gen_random_uuid()` au lieu de l'id réel d'un produit inséré au
+préalable, violation de contrainte corrigée en insérant une vraie ligne
+`products` et en réutilisant son id retourné.
+
+## 2026-06-24 — Tâche 1.5.5 : Confirmation de réception et livraison groupée
+
+**Aucune nouvelle policy RLS `UPDATE` sur `orders` pour team_manager/
+club_admin.** Une policy RLS ne peut pas restreindre les colonnes
+modifiables (seulement les lignes) : donner un `UPDATE` même scoped à la
+campagne du responsable lui permettrait de changer n'importe quelle colonne
+(montants, bénéficiaire, adresse), pas seulement `status`. Décision : même
+patron que `create_paid_order` (migration 0006) -- une fonction Postgres
+unique `advance_order_status` (migration 0015), `SECURITY DEFINER`, qui
+s'auto-vérifie (autorisation interne via `private.manages_campaign`), valide
+la transition contre une table figée, et est le SEUL chemin d'écriture pour
+ces rôles. `orders_admin_update` (platform_admin, migration 0003) reste
+l'échappatoire pour corrections/litiges, hors de cette machine.
+
+**Table des transitions valides dupliquée volontairement en deux endroits**
+(`VALID_ORDER_STATUS_TRANSITIONS` dans `lib/orders/status.ts`, et un miroir
+manuel en `IF` plpgsql dans `advance_order_status`). plpgsql ne peut pas
+importer du TypeScript ; la validation côté TypeScript existe pour un
+message d'erreur clair sans aller-retour réseau, celle côté SQL est la
+garde réelle (un client pourrait appeler la fonction Postgres directement).
+Un commentaire est laissé aux deux endroits pour rappeler que toute
+évolution de l'une doit être répercutée dans l'autre.
+
+**Notification (`email_log`) seulement à `distributed`/`completed`, jamais à
+`delivered_to_team`.** Conforme au cahier (Tâche 1.5.5) : la réception par
+l'équipe est une étape interne, le client n'a pas besoin d'être notifié
+avant que ses articles soient effectivement distribués. L'insertion
+`email_log` échoue silencieusement (sans annuler la transition) si aucune
+adresse n'est trouvable -- même philosophie défensive que le reste de
+`lib/email/email-log.ts`, une notification manquante ne doit jamais bloquer
+une opération métier déjà valide.
+
+**Bug trouvé et corrigé dans la migration 0015 : `public.is_platform_admin()`
+et `public.current_user_role()` n'existent plus.** La migration 0005 avait
+déplacé toutes les fonctions d'aide RLS vers le schéma `private` et
+explicitement supprimé (`DROP FUNCTION IF EXISTS`) les versions `public.*`
+— décision déjà actée (PostgREST n'expose pas `private`, donc l'EXECUTE peut
+y être large sans risque d'appel RPC direct). En écrivant la policy de
+lecture de `order_status_log` et le corps de `advance_order_status`, j'ai
+référencé par erreur les noms `public.*`, qui n'existent plus silencieusement
+(`DROP FUNCTION IF EXISTS` ne lève pas d'erreur). Le test d'intégration
+(`tests/integration/order-status-transitions-rls.test.ts`), qui rejoue les
+migrations contre un vrai Postgres embarqué, a immédiatement échoué à
+`function public.is_platform_admin() does not exist` -- exactement le genre
+de bug qu'un test unitaire avec repo simulé n'aurait jamais pu détecter.
+Corrigé en remplaçant les deux occurrences par `private.is_platform_admin()`
+/ `private.current_user_role()`, avec un commentaire ajouté dans l'en-tête
+de la migration pour éviter la récidive sur une future migration.
+
+**Vérification finale.** `tsc --noEmit` propre, `eslint .` propre. 37
+nouveaux tests unitaires (`tests/unit/orders-status.test.ts`) + 6 nouveaux
+tests d'intégration RLS (`tests/integration/order-status-transitions-rls.test.ts`),
+tous verts. Suite complète relancée par lots (contrainte de sandbox, voir
+`mount-staleness-ecommerce.md`) : 46 fichiers de tests unitaires (175+
+tests) + 14 fichiers de tests d'intégration (127 tests), tous verts, aucune
+régression. Bug de cache mount rencontré une nouvelle fois sur
+`0015_order_status_transitions.sql` après deux modifications consécutives
+via l'outil `Edit` (troncature mi-mot dans la vue bash), réparé par la
+procédure habituelle (heredoc + `cat` par-dessus le fichier cible) -- et une
+nouvelle manifestation rencontrée cette fois sur une simple lecture de
+`docs/DECISIONS.md` lui-même (`wc -l` bash resté bloqué à une ancienne
+longueur de fichier alors que l'outil `Read` montrait du contenu plus loin),
+confirmant que le bug n'est pas strictement limité aux modifications via
+`Edit` -- voir mise à jour de `mount-staleness-ecommerce.md`.
