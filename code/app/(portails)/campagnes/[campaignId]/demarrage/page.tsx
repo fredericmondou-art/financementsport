@@ -173,7 +173,17 @@ export default async function DemarragePage({ params }: DemarragePageProps): Pro
 
       <Card>
         <section className="stack stack--sm">
-          <h2>4. Suivre les ventes</h2>
+          <h2>4. Télécharger les codes QR</h2>
+          <p>Un code QR scannable par campagne et par athlète participant, en PNG ou en PDF.</p>
+          <Button href={`/campagnes/${campaign.id}/qr`} variant="outline">
+            Voir et télécharger les codes QR
+          </Button>
+        </section>
+      </Card>
+
+      <Card>
+        <section className="stack stack--sm">
+          <h2>5. Suivre les ventes</h2>
           <p>
             {formatCents(raisedCents)} amassés
             {progress.goalCents !== null ? ` sur un objectif de ${formatCents(progress.goalCents)}` : ''}

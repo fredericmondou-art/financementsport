@@ -506,23 +506,19 @@
       exécutable en sandbox comme les précédents -- suppose le même jeu
       `supabase/seed-e2e.sql` (toujours à créer) qu'`athlete-profile-edit.spec.ts`.
       **Phase 1.6 (Blocs A, B, C) entièrement complétée.**
-
-## À venir
-- [x] Phase 1.6 — UX de tous les usagers (voir `docs/prompts/phase-1-6.md`) —
-      **demandée AVANT la Phase 1.5** (demande de Frédéric, 2026-06-23 ; cohérent
-      avec l'ordre déjà prévu dans `ORCHESTRATION.md`) — Blocs A, B et C tous
-      complétés.
-  - [x] Bloc A — Client / parent acheteur
-    - [x] 1.6.A1 Achat invité fluide (page athlète → paiement)
-    - [x] 1.6.A2 Création de compte encouragée après l'achat
-    - [x] 1.6.A3 Espace parent : suivi, reçus et rachat en un clic
-    - [x] 1.6.A4 Répartition entre plusieurs enfants, version simple
-  - [x] Bloc B — Responsable de campagne
-    - [x] 1.6.B1 Assistant de campagne pas-à-pas avec sauvegarde automatique
-    - [x] 1.6.B2 Défauts intelligents et saisie des athlètes sans douleur
-    - [x] 1.6.B3 Aperçu, activation et écran « prochaines actions »
-  - [x] Bloc C — Athlète
-    - [x] 1.6.C1 Profil athlète et page publique soignée
-    - [x] 1.6.C2 Suivi de progression et partage pour l'athlète
-- [ ] Phase 1.5 — Campagne pleinement opérationnelle (voir
-      `docs/prompts/phase-1-5.md`) — à faire APRÈS la Phase 1.6
+- [x] 1.5.1 QR codes téléchargeables (PNG/PDF) — `lib/qr/generate.ts`
+      (`generateQrPngBuffer`/`generateQrPdfBuffer`, libs `qrcode`/`pdf-lib`),
+      `lib/qr/resolve-target.ts` (résolution pure injectable : athlète/équipe/
+      club → page publique respectant `hide_*` ; campagne active → page du
+      bénéficiaire, tout autre statut → `/boutique` ; produit → `/boutique` ;
+      `redirect_url`/`expires_at` prioritaires), migration 0012
+      (`resolve_and_count_qr_scan`, lecture+incrément atomique en un seul
+      `UPDATE ... RETURNING`), `app/api/qr/[code]/route.ts` (résolution
+      PUBLIQUE du scan, client `service_role`, redirection + incrément sans
+      bloquer si l'écriture échoue), `app/api/qr/[code]/{png,pdf}/route.ts`
+      (téléchargement, client anon/RLS via la policy `qr_codes_scoped`
+      existante, URL encodée TRAÇABLE `/api/qr/[code]` plutôt que l'URL
+      publique finale), page `app/(portails)/campagnes/[campaignId]/qr` (un
+      QR par campagne + un par athlète participant, découvert dans la
+      logique déjà existante de `create-campaign.ts`), lien ajouté à l'écran
+     
