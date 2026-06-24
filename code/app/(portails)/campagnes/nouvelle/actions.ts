@@ -32,6 +32,11 @@ import {
   stepIndexFromStepId,
   type CampaignDraftStepId,
 } from '@/lib/campaigns/draft';
+import {
+  bulkCreateAthletesFromPastedList,
+  createSupabaseExistingAthleteRepo,
+} from '@/lib/athletes/bulk-add';
+import { createSupabaseAthleteRepo } from '@/lib/entities/athletes';
 import { BusinessRuleError, NotFoundError, PermissionError } from '@/lib/entities/errors';
 import type { AuthUser } from '@/lib/auth/permissions';
 
@@ -180,6 +185,58 @@ export async function createCampaignFromDraftAction(_formData: FormData): Promis
   }
 
   redirect(`${NOUVELLE_CAMPAGNE_PATH}?succes=${encodeURIComponent(createdSlug)}`);
+}
+
+/**
+ * Saisie en lot d'athlètes (Tâche 1.6.B2) : colle une liste, crée les
+ * athlètes valides pour l'équipe déjà choisie à l'étape « Bénéficiaire »
+ * (`data.teamId`), les ajoute automatiquement aux participants du brouillon,
+ * puis revient à l'étape « Athlètes participants » avec un message
+ * récapitulatif (créés / doublons ignorés / mineurs en attente de
+ * consentement) — voir `lib/athletes/bulk-add.ts`.
+ *
+ * Utilise le paramètre `info` (et non `succes`, réservé au message de
+ * création de campagne) pour ce message, afin de ne pas mélanger les deux
+ * sémantiques dans la même page.
+ */
+export async function addAthletesBulkAction(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  const supabase = createSupabaseServerClient();
+  const draftRepo = createSupabaseCampaignDraftRepo(supabase);
+  const athleteRepo = createSupabaseAthleteRepo(supabase);
+  const existingAthleteRepo = createSupabaseExistingAthleteRepo(supabase);
+
+  let infoMessage: string;
+  try {
+    const teamId = emptyToNull(formData.get('teamId'));
+    if (teamId === null) {
+      throw new BusinessRuleError(
+        "Choisissez d'abord une équipe à l'étape « Bénéficiaire » avant d'ajouter des athlètes en lot.",
+      );
+    }
+    const pastedList = String(formData.get('pastedList') ?? '');
+    const existingAthletes = await existingAthleteRepo.listAthletesByTeam(teamId);
+    const result = await bulkCreateAthletesFromPastedList(user, teamId, pastedList, existingAthletes, athleteRepo);
+
+    const existingDraft = await draftRepo.getDraft(user.id);
+    const mergedParticipantIds = [
+      ...new Set([...(existingDraft?.data.participantAthleteIds ?? []), ...result.created.map((a) => a.id)]),
+    ];
+    const merged = mergeDraftData(existingDraft?.data ?? {}, { participantAthleteIds: mergedParticipantIds });
+    await draftRepo.saveStep(user.id, 'participants', merged);
+
+    const parts: string[] = [];
+    if (result.created.length > 0) parts.push(`${result.created.length} athlète(s) ajouté(s)`);
+    if (result.skippedDuplicates.length > 0) parts.push(`${result.skippedDuplicates.length} doublon(s) ignoré(s)`);
+    if (result.unpublishableMinors.length > 0) {
+      parts.push(`${result.unpublishableMinors.length} en attente de consentement parental (non publié(s) pour l'instant)`);
+    }
+    infoMessage = parts.length > 0 ? `${parts.join(', ')}.` : 'Aucun athlète valide trouvé dans la liste collée.';
+  } catch (error) {
+    redirectWithError(stepIndexFromStepId('participants'), error);
+  }
+
+  redirectToStep(stepIndexFromStepId('participants'), { info: infoMessage });
 }
 
 /** Permet à un gestionnaire de repartir de zéro sans attendre l'expiration

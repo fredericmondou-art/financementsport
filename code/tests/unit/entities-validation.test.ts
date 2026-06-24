@@ -42,12 +42,17 @@ describe('teamInputSchema', () => {
   });
 });
 
-describe('athleteInputSchema — règle "mineur exige guardianId"', () => {
-  it('refuse un athlète mineur sans guardianId (défaut isMinor = true)', () => {
+describe('athleteInputSchema — mineur sans tuteur connu (Tâche 1.6.B2)', () => {
+  it('accepte un athlète mineur SANS guardianId (défaut isMinor = true) — création non bloquée', () => {
+    // Décision de Frédéric, 2026-06-23 (docs/DECISIONS.md) : un gérant qui
+    // saisit des athlètes en lot n'a pas les coordonnées du tuteur ; bloquer
+    // la création contredirait la Tâche 1.6.B2 (« Mineur sans consentement :
+    // non publié, mais création non bloquée »).
     const result = athleteInputSchema.safeParse({ firstName: 'Thomas', lastName: 'Tremblay' });
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(result.error.issues.some((issue) => issue.path.includes('guardianId'))).toBe(true);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.isMinor).toBe(true);
+      expect(result.data.guardianId).toBeUndefined();
     }
   });
 

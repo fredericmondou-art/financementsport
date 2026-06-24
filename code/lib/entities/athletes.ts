@@ -1,10 +1,21 @@
 /**
- * CRUD athlète (Tâche 1.1) — le module le plus sensible de cette tâche
- * (données de mineurs, CLAUDE.md sections 2 et 5).
+ * CRUD athlète (Tâche 1.1, assoupli à la Tâche 1.6.B2) — le module le plus
+ * sensible de cette tâche (données de mineurs, CLAUDE.md sections 2 et 5).
  *
  * Règles non négociables, contrôlées ici :
  * - Un athlète mineur (`isMinor`, défaut `true`, même défaut que la colonne
- *   DB) exige un `guardianId`.
+ *   DB) peut être créé SANS `guardianId` (décision de Frédéric, 2026-06-23,
+ *   voir docs/DECISIONS.md — Tâche 1.6.B2 : « création non bloquée » même
+ *   sans tuteur connu, ex. saisie en lot par un gérant d'équipe qui n'a pas
+ *   les coordonnées du parent). Un tel athlète reste un mineur SANS tuteur
+ *   lié : `isAthletePubliclyVisible` le garde non publiable indéfiniment
+ *   (aucun consentement ne peut être enregistré sans tuteur), et
+ *   `canEditHiddenAthleteFields` (lib/auth/permissions.ts) ne donne accès aux
+ *   champs `hide_*`/consentement qu'au tuteur, à l'athlète majeur lui-même,
+ *   OU à `platform_admin` — c'est `platform_admin` qui rattache un tuteur
+ *   après coup (`athleteUpdateSchema` exclut volontairement `guardianId` de
+ *   la mise à jour générique ; le rattachement reste une opération admin
+ *   hors scope de ce module, à construire si besoin).
  * - Les champs `hide_*` et `parentalConsentAt` ne sont écrits que si le
  *   demandeur EST le tuteur (`guardianId`) ou l'athlète majeur lui-même
  *   (`userId`) — même à la création par un tiers autorisé (ex: un gérant
@@ -43,16 +54,10 @@ export const athleteInputSchema = z
     hideAmounts: z.boolean().optional().default(false),
     showTeamOnly: z.boolean().optional().default(false),
     parentalConsentAt: z.string().datetime().nullable().optional(),
-  })
-  .superRefine((data, ctx) => {
-    if (data.isMinor && !data.guardianId) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ['guardianId'],
-        message: 'Un athlète mineur exige un guardian_id (lien parent/tuteur).',
-      });
-    }
   });
+// Pas de `.superRefine()` exigeant `guardianId` quand `isMinor` est vrai : un
+// mineur sans tuteur connu est une entrée valide depuis la Tâche 1.6.B2 (voir
+// le commentaire d'en-tête) — seulement non publiable, jamais bloqué.
 export type AthleteInput = z.infer<typeof athleteInputSchema>;
 
 // `guardianId`, `userId` et `isMinor` ne sont volontairement PAS modifiables

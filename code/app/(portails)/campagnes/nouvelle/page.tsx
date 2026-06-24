@@ -38,6 +38,7 @@ import {
   stepIndexFromStepId,
   type CampaignDraftData,
 } from '@/lib/campaigns/draft';
+import { applyCampaignDefaults } from '@/lib/campaigns/defaults';
 import { Card } from '@/components/ui/card';
 import { Field } from '@/components/ui/field';
 import { Alert } from '@/components/ui/alert';
@@ -50,6 +51,7 @@ import {
   saveObjectifDatesStepAction,
   saveParticipantsStepAction,
   savePacksStepAction,
+  addAthletesBulkAction,
   createCampaignFromDraftAction,
   discardDraftAction,
 } from './actions';
@@ -72,7 +74,7 @@ const BENEFICIARY_TYPE_LABELS: Record<CampaignInput['beneficiaryType'], string> 
 };
 
 interface NouvelleCampagnePageProps {
-  searchParams: { etape?: string; erreur?: string; succes?: string };
+  searchParams: { etape?: string; erreur?: string; succes?: string; info?: string };
 }
 
 export default async function NouvelleCampagnePage({
@@ -105,7 +107,7 @@ export default async function NouvelleCampagnePage({
     listPublicProducts({}, createSupabaseProductRepo(supabase)),
   ]);
 
-  const data: CampaignDraftData = draft?.data ?? {};
+  const data: CampaignDraftData = applyCampaignDefaults(draft?.data ?? {}, { teams, clubs, athletes, products });
   const stepIndex =
     searchParams.etape !== undefined
       ? clampStepQueryParam(searchParams.etape)
@@ -130,6 +132,7 @@ export default async function NouvelleCampagnePage({
           maintenant sur la page publique du bénéficiaire.
         </Alert>
       ) : null}
+      {searchParams.info ? <Alert variant="info">{searchParams.info}</Alert> : null}
 
       <WizardProgress currentStepId={stepId} />
 
@@ -345,6 +348,30 @@ function ParticipantsStep({ data, athletes, backHref }: ParticipantsStepProps): 
     <form action={saveParticipantsStepAction} className="form form--wide stack">
       <section className="stack stack--sm">
         <h2>{CAMPAIGN_DRAFT_STEP_LABELS.participants}</h2>
+
+        {data.teamId ? (
+          <form action={addAthletesBulkAction} className="stack stack--sm form__subsection">
+            <input type="hidden" name="teamId" value={data.teamId} />
+            <Field label="Ajouter des athlètes en lot (un par ligne : Prénom Nom, ou Prénom, Nom, Catégorie)">
+              <textarea
+                name="pastedList"
+                rows={4}
+                placeholder={'Jean Tremblay\nMarie, Gagnon, Natation'}
+              />
+            </Field>
+            <div className="form__actions">
+              <Button type="submit" variant="outline">
+                Ajouter la liste collée
+              </Button>
+            </div>
+          </form>
+        ) : (
+          <Alert variant="info">
+            Choisissez d&apos;abord une équipe à l&apos;étape « Bénéficiaire » pour ajouter des
+            athlètes en lot.
+          </Alert>
+        )}
+
         {athletes.length === 0 ? (
           <Alert variant="info">Aucun athlète disponible dans votre périmètre.</Alert>
         ) : (

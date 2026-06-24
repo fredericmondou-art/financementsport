@@ -411,6 +411,28 @@
       (`tests/unit/campaign-draft.test.ts`), aucune régression,
       `tsc --noEmit` propre.
 
+- [x] Phase 1.6, Tâche 1.6.B2 — Défauts intelligents et saisie des athlètes
+      sans douleur — `lib/campaigns/defaults.ts#applyCampaignDefaults`
+      préremplit type/nom, bénéficiaire (équipe prioritaire sur club), dates
+      (60 jours par défaut), participants et packs (tout sélectionné) sans
+      jamais écraser un choix déjà fait ; aucune règle de crédit/taux exposée
+      au responsable. `lib/athletes/bulk-add.ts` ajoute la saisie en lot par
+      liste collée (`parsePastedAthleteList`, `detectDuplicates`,
+      `bulkCreateAthletesFromPastedList`) : un par ligne, séparateurs
+      tabulation/virgule/espace, doublons signalés (contre l'équipe ET dans
+      la liste) sans être créés. Assouplissement décidé avec l'utilisateur
+      (question bloquante, voir docs/DECISIONS.md) : `athleteInputSchema`
+      (`lib/entities/athletes.ts`) accepte désormais un mineur sans
+      `guardianId` — création jamais bloquée, mais profil définitivement non
+      publiable tant qu'un tuteur/consentement n'est pas lié. 13e à 16e
+      manifestations du bug de cache mount/git rencontrées et réparées (voir
+      docs/DECISIONS.md). 38 nouveaux tests unitaires
+      (`campaign-defaults.test.ts`, `athletes-bulk-add.test.ts`, 4 cas
+      ajoutés à `entities-validation.test.ts`) + `tests/e2e/
+      campagne-defauts-bulk.spec.ts` (création tout-par-défaut + collage de
+      15 noms, non exécutable dans ce bac à sable). 395 tests verts au
+      total, `tsc --noEmit`/`eslint .` propres.
+
 ## À venir
 - [ ] Phase 1.6 — UX de tous les usagers (voir `docs/prompts/phase-1-6.md`) —
       **à faire AVANT la Phase 1.5** (demande de Frédéric, 2026-06-23 ; cohérent
@@ -422,7 +444,7 @@
     - [x] 1.6.A4 Répartition entre plusieurs enfants, version simple
   - [ ] Bloc B — Responsable de campagne
     - [x] 1.6.B1 Assistant de campagne pas-à-pas avec sauvegarde automatique
-    - [ ] 1.6.B2 Défauts intelligents et saisie des athlètes sans douleur
+    - [x] 1.6.B2 Défauts intelligents et saisie des athlètes sans douleur
     - [ ] 1.6.B3 Aperçu, activation et écran « prochaines actions »
   - [ ] Bloc C — Athlète
     - [ ] 1.6.C1 Profil athlète et page publique soignée

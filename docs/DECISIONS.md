@@ -1927,3 +1927,100 @@ chacun des 4 fichiers avant de refaire confiance à `tsc`.
 **Vérification finale.** `tsc --noEmit` propre, `vitest run tests/unit`
 complet sans régression (217 tests, dont les 15 nouveaux de cette tâche).
 `npm run lint` à confirmer avant clôture définitive de la tâche.
+
+## 2026-06-23 — Phase 1.6, Tâche 1.6.B2 : défauts intelligents + saisie d'athlètes en lot
+
+**Assouplissement de `athleteInputSchema` (`lib/entities/athletes.ts`) :
+`guardianId` devient optionnel pour un mineur, au lieu d'être obligatoire.**
+Question bloquante posée à l'utilisateur (choix engageant les données de
+mineurs, CLAUDE.md section 9c) : fallait-il bloquer la création d'un mineur
+sans tuteur connu (cohérent avec l'ancien schéma) ou l'assouplir pour
+permettre le collage en lot de noms sans information de tuteur ? Réponse
+retenue : **assouplir** — `guardian_id` peut être `NULL`. Un mineur ainsi créé
+reste *définitivement non publiable* (`isAthletePubliclyVisible` exige
+`!is_minor || parental_consent_at !== null`, et seul un tuteur ou un
+`platform_admin` peut un jour enregistrer ce consentement) tant qu'aucun
+tuteur n'est lié — aucun mécanisme de « revendication de profil » n'est
+construit dans cette tâche (explicitement hors scope, à reconsidérer si le
+besoin se confirme en usage réel). La création n'est **jamais bloquée**,
+conformément à l'exigence explicite du prompt 1.6.B2.
+
+**Défauts intelligents (`lib/campaigns/defaults.ts`, fonction pure
+`applyCampaignDefaults`) : ne complètent QUE les champs absents.** Chaque
+sous-fonction (`defaultTypeNom`, `defaultBeneficiaire`, `defaultObjectifDates`,
+`defaultParticipants`, `defaultPacks`) préserve `data.x` s'il est déjà défini
+— propriété indispensable pour que le « retour arrière sans perte » de la
+Tâche 1.6.B1 continue de s'appliquer même avec des défauts actifs. Décision
+autonome : quand un gestionnaire gère à la fois une équipe ET un club, le
+défaut préfère l'équipe (périmètre plus étroit, plus simple à raisonner) —
+accepter tous les défauts reste une campagne activable dans les deux cas.
+Durée par défaut sans dates choisies : 60 jours (`DEFAULT_CAMPAIGN_DURATION_DAYS`),
+choix arbitraire raisonnable (ni trop court pour forcer un retour précipité,
+ni une permanence). Comme pour B1, aucune règle de crédit ici — ce module ne
+touche jamais `creditRule`.
+
+**Saisie en lot (`lib/athletes/bulk-add.ts`) : parsing volontairement
+permissif, doublons signalés mais jamais bloqués.** Une ligne = un athlète ;
+séparateurs tabulation, virgule OU simple espace tous acceptés ("Prénom Nom",
+"Prénom, Nom", "Prénom, Nom, Catégorie"). Limite assumée de l'heuristique :
+avec un simple espace, rien ne distingue un nom de famille composé d'un 3e
+champ catégorie — le dernier mot devient toujours `sport` dès qu'il y a plus
+de 2 parties, quel que soit le séparateur. Un nom de famille composé doit
+donc être saisi avec une virgule ou une tabulation pour rester groupé (documenté
+dans `tests/unit/athletes-bulk-add.test.ts`). « Catégorie » du cahier des
+charges est mappée sur la colonne `sport` existante (décision autonome :
+aucune colonne `category` au schéma, inutile d'en ajouter une pour un simple
+renommage d'affichage). Réutilise `createAthlete` ligne par ligne plutôt que
+de dupliquer ses règles de permission/visibilité : un collage de 15 noms
+obtient exactement les mêmes garanties qu'une saisie une à une.
+
+**13e à 16e manifestations du bug de cache mount/git (voir entrées
+précédentes et la mémoire persistante dédiée `mount-staleness-ecommerce.md`),
+cette fois sur `lib/entities/athletes.ts`, `tests/unit/
+entities-validation.test.ts` et `tests/unit/athletes-bulk-add.test.ts` (ce
+dernier touché deux fois dans la même tâche).** Particularité observée cette
+fois sur `athletes-bulk-add.test.ts` : après application de 7 assertions `!`
+(`noUncheckedIndexedAccess`) via l'outil Edit, le nombre d'octets du fichier
+restait identique à l'avant-édition ET `tsc` rapportait une nouvelle erreur de
+syntaxe en fin de fichier — `grep` confirmait pourtant la présence des `!`
+ajoutés. Preuve que le bug peut laisser un fichier dans un état incohérent où
+certaines éditions sont visibles mais le contenu final est indépendamment
+tronqué, et que la stabilité du nombre d'octets n'est PAS un signal fiable de
+correction. Réparé, comme toujours, par réécriture heredoc bash complète
+directement sur le mount, suivie d'un scan Python (longueur, absence d'octets
+nuls, contenu de fin) avant de refaire confiance à `tsc`/`vitest`.
+
+**Erreur de test (pas du bug de cache) : un cas attendait `{ lastName:
+'Tremblay Dubois', sport: null }` pour `'Jean Tremblay Dubois'`, alors que
+l'implémentation produit `{ lastName: 'Tremblay', sport: 'Dubois' }`** —
+conforme à l'heuristique documentée ci-dessus (3 parties séparées par espace
+→ le dernier mot devient `sport`). Corrigé en renommant et réécrivant le test
+pour refléter le comportement réel et intentionnel, avec commentaire
+explicatif, plutôt que de changer l'implémentation pour satisfaire une
+attente erronée.
+
+**Test e2e (`tests/e2e/campagne-defauts-bulk.spec.ts`) : provisionnement du
+rôle `team_manager` via le client Supabase service-role, pas via `/signup`.**
+`memberships` n'est inscriptible que par `platform_admin` (RLS
+`memberships_write_admin`) — le parcours public d'inscription assigne
+toujours `role: 'client'` et ne peut donc jamais produire un compte
+gestionnaire de test. Décision autonome (choix technique de test, pas une
+question engageant l'argent/la sécurité/les mineurs) : le test crée son
+propre compte via `/signup` comme les autres specs e2e, puis lui accorde
+lui-même la ligne `memberships` nécessaire via le service-role — même usage
+déjà établi dans `compte-dashboard.spec.ts` pour les vérifications backend
+que l'API publique ne permet pas. Couvre les deux critères d'acceptation e2e
+du prompt : assistant accepté « tout par défaut » sans modifier aucun champ
+pré-rempli, et collage de 15 noms (dont un doublon contre un athlète seed
+existant et un doublon répété dans la liste elle-même) créant exactement 13
+athlètes et signalant 2 doublons. Comme les autres specs e2e du projet, ce
+test n'a pas pu être exécuté dans le bac à sable (Chromium/Supabase bloqués
+par l'allowlist réseau) — à exécuter en CI/local avant production.
+
+**Vérification finale.** `tsc --noEmit` propre, `eslint .` propre, `vitest
+run` complet sans régression : 395 tests verts sur 44 fichiers (38 nouveaux
+pour cette tâche : `tests/unit/campaign-defaults.test.ts` (9),
+`tests/unit/athletes-bulk-add.test.ts` (17), 4 nouveaux cas dans
+`tests/unit/entities-validation.test.ts`). `tests/e2e/
+campagne-defauts-bulk.spec.ts` ajouté (non exécutable dans ce bac à sable,
+voir ci-dessus).
