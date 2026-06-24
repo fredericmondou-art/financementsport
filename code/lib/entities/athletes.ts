@@ -48,6 +48,10 @@ export const athleteInputSchema = z
     sport: z.string().trim().max(80).nullable().optional(),
     city: z.string().trim().max(120).nullable().optional(),
     personalMessage: z.string().trim().max(2000).nullable().optional(),
+    // Même convention que `logoUrl` (lib/entities/teams.ts) : une simple URL,
+    // pas d'infrastructure de téléversement (aucune n'existe encore dans le
+    // projet — voir docs/DECISIONS.md, Tâche 1.6.C1).
+    photoUrl: z.string().trim().url("L'URL de la photo n'est pas valide.").nullable().optional(),
     hideLastName: z.boolean().optional().default(false),
     hidePhoto: z.boolean().optional().default(false),
     hideCity: z.boolean().optional().default(false),
@@ -71,6 +75,7 @@ export const athleteUpdateSchema = z.object({
   sport: z.string().trim().max(80).nullable().optional(),
   city: z.string().trim().max(120).nullable().optional(),
   personalMessage: z.string().trim().max(2000).nullable().optional(),
+  photoUrl: z.string().trim().url("L'URL de la photo n'est pas valide.").nullable().optional(),
   isActive: z.boolean().optional(),
   hideLastName: z.boolean().optional(),
   hidePhoto: z.boolean().optional(),
@@ -113,6 +118,7 @@ export interface AthleteRepo {
     sport: string | null;
     city: string | null;
     personalMessage: string | null;
+    photoUrl: string | null;
     hideLastName: boolean;
     hidePhoto: boolean;
     hideCity: boolean;
@@ -158,6 +164,7 @@ export function createSupabaseAthleteRepo(supabase: SupabaseClient): AthleteRepo
           sport: input.sport,
           city: input.city,
           personal_message: input.personalMessage,
+          photo_url: input.photoUrl,
           hide_last_name: input.hideLastName,
           hide_photo: input.hidePhoto,
           hide_city: input.hideCity,
@@ -189,6 +196,7 @@ export function createSupabaseAthleteRepo(supabase: SupabaseClient): AthleteRepo
       if (patch.sport !== undefined) row.sport = patch.sport;
       if (patch.city !== undefined) row.city = patch.city;
       if (patch.personalMessage !== undefined) row.personal_message = patch.personalMessage;
+      if (patch.photoUrl !== undefined) row.photo_url = patch.photoUrl;
       if (patch.isActive !== undefined) row.is_active = patch.isActive;
       if (patch.hideLastName !== undefined) row.hide_last_name = patch.hideLastName;
       if (patch.hidePhoto !== undefined) row.hide_photo = patch.hidePhoto;
@@ -253,6 +261,7 @@ export async function createAthlete(
     sport: input.sport ?? null,
     city: input.city ?? null,
     personalMessage: input.personalMessage ?? null,
+    photoUrl: input.photoUrl ?? null,
     hideLastName: requesterIsGuardianOrSelf ? input.hideLastName : false,
     hidePhoto: requesterIsGuardianOrSelf ? input.hidePhoto : false,
     hideCity: requesterIsGuardianOrSelf ? input.hideCity : false,

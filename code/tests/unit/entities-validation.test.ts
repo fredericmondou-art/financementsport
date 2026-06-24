@@ -84,6 +84,41 @@ describe('athleteInputSchema — mineur sans tuteur connu (Tâche 1.6.B2)', () =
   });
 });
 
+describe('athleteInputSchema/athleteUpdateSchema — photoUrl (Tâche 1.6.C1)', () => {
+  // Même convention que `logoUrl` (lib/entities/teams.ts) : une simple URL,
+  // pas d'infrastructure de téléversement (voir docs/DECISIONS.md).
+  it('accepte une photoUrl valide à la création', () => {
+    const result = athleteInputSchema.safeParse({
+      firstName: 'Thomas',
+      lastName: 'Tremblay',
+      photoUrl: 'https://exemple.com/photo.jpg',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('refuse une photoUrl invalide à la création', () => {
+    const result = athleteInputSchema.safeParse({
+      firstName: 'Thomas',
+      lastName: 'Tremblay',
+      photoUrl: 'pas-une-url',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('accepte photoUrl: null (effacer la photo) à la mise à jour', () => {
+    const result = athleteUpdateSchema.safeParse({ photoUrl: null });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.photoUrl).toBeNull();
+    }
+  });
+
+  it('refuse une photoUrl invalide à la mise à jour', () => {
+    const result = athleteUpdateSchema.safeParse({ photoUrl: 'pas-une-url' });
+    expect(result.success).toBe(false);
+  });
+});
+
 describe('athleteUpdateSchema — exclut volontairement guardianId/userId/isMinor', () => {
   it('ignore un champ guardianId fourni en trop (strip silencieux, pas une erreur)', () => {
     const result = athleteUpdateSchema.safeParse({

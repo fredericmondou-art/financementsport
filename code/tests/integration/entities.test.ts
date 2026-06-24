@@ -124,6 +124,7 @@ function createFakeAthleteRepo(teamRepo: TeamRepo): AthleteRepo {
         sport: input.sport,
         city: input.city,
         personal_message: input.personalMessage,
+        photo_url: input.photoUrl,
         hide_last_name: input.hideLastName,
         hide_photo: input.hidePhoto,
         hide_city: input.hideCity,
@@ -153,6 +154,7 @@ function createFakeAthleteRepo(teamRepo: TeamRepo): AthleteRepo {
       if (patch.sport !== undefined) row.sport = patch.sport;
       if (patch.city !== undefined) row.city = patch.city;
       if (patch.personalMessage !== undefined) row.personal_message = patch.personalMessage;
+      if (patch.photoUrl !== undefined) row.photo_url = patch.photoUrl;
       if (patch.isActive !== undefined) row.is_active = patch.isActive;
       if (patch.hideLastName !== undefined) row.hide_last_name = patch.hideLastName;
       if (patch.hidePhoto !== undefined) row.hide_photo = patch.hidePhoto;
@@ -264,6 +266,34 @@ describe('Chaîne club -> équipe -> athlète (critère d’acceptation Tâche 1
       athleteRepo,
     );
     expect(isAthletePubliclyVisible(consented)).toBe(true);
+  });
+
+  it('photoUrl traverse création puis mise à jour (Tâche 1.6.C1)', async () => {
+    const teamRepo = createFakeTeamRepo();
+    const athleteRepo = createFakeAthleteRepo(teamRepo);
+
+    const athlete = await createAthlete(
+      guardian,
+      {
+        firstName: 'Thomas',
+        lastName: 'Tremblay',
+        guardianId: guardian.id,
+        photoUrl: 'https://exemple.com/thomas.jpg',
+      },
+      athleteRepo,
+    );
+    expect(athlete.photo_url).toBe('https://exemple.com/thomas.jpg');
+
+    const updated = await updateAthlete(
+      guardian,
+      athlete.id,
+      { photoUrl: 'https://exemple.com/thomas-2.jpg' },
+      athleteRepo,
+    );
+    expect(updated.photo_url).toBe('https://exemple.com/thomas-2.jpg');
+
+    const cleared = await updateAthlete(guardian, athlete.id, { photoUrl: null }, athleteRepo);
+    expect(cleared.photo_url).toBeNull();
   });
 
   it('refuse à un tiers (ni tuteur, ni athlète, ni admin) de définir le consentement parental à la création', async () => {

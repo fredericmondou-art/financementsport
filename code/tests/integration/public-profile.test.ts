@@ -17,6 +17,7 @@ import {
   type PublicProfileRepo,
   type PublicTeamRow,
 } from '@/lib/public/profile';
+import { loadOwnerCampaignSection } from '@/lib/athletes/profile';
 import type { PublicCampaignRow } from '@/lib/public/campaign-progress';
 import type { ProductRepo, ProductRow } from '@/lib/catalog/products';
 import type { BeneficiaryType, VCampaignProgressView } from '@/lib/db/types';
@@ -352,5 +353,78 @@ describe('loadPublicClubProfile', () => {
       createFakeProductRepo([product]),
     );
     expect(result?.recommendedProducts.map((p) => p.id)).toEqual(['p1']);
+  });
+});
+
+describe('loadOwnerCampaignSection (Tâche 1.6.C1 — vue privée du tuteur)', () => {
+  it('retourne null si aucune campagne active ne cible l’athlète', async () => {
+    const repo = createFakeProfileRepo();
+    const result = await loadOwnerCampaignSection(unusedSupabaseClient, 'athlete-1', repo);
+    expect(result).toBeNull();
+  });
+
+  it('calcule la progression à partir de la campagne active ciblant directement l’athlète', async () => {
+    const campaign = makeCampaign({
+      id: 'c1',
+      beneficiary_type: 'athlete',
+      beneficiary_id: 'athlete-1',
+      goal_cents: 10000,
+    });
+    const repo = createFakeProfileRepo({
+      campaigns: [campaign],
+      progressByCampaignId: new Map([['c1', 2500]]),
+    });
+    const result = await loadOwnerCampaignSection(unusedSupabaseClient, 'athlete-1', repo);
+    expect(result?.progress).toEqual({
+      raisedCents: 2500,
+      goalCents: 10000,
+      percent: 25,
+      isGoalExceeded: false,
+    });
+  });
+
+  it(
+    'retourne quand même l’objectif de campagne pour un athlète mineur SANS consentement parental ' +
+      '— contrairement à loadPublicAthleteProfile (v_public_athlete exclut ces mineurs), ce loader ' +
+      'ne lit jamais la table/vue `athletes` : le tuteur doit voir l’objectif de son enfant avant ' +
+      'même de donner ce consentement, sinon il ne pourrait jamais comprendre pourquoi la page ' +
+      'publique reste invisible',
+    async () => {
+      // Aucun `athletes` fourni au repo — ce loader ne dépend d'aucune ligne
+      // athlète (ni de `v_public_athlete`, qui filtrerait ce mineur), donc
+      // l'absence de fixture athlète ne doit pas l'empêcher de fonctionner.
+      const campaign = makeCampaign({
+        id: 'c1',
+        beneficiary_type: 'athlete',
+        beneficiary_id: 'mineur-sans-consentement',
+        goal_cents: 5000,
+      });
+      const repo = createFakeProfileRepo({
+        campaigns: [campaign],
+        progressByCampaignId: new Map([['c1', 1000]]),
+      });
+      const result = await loadOwnerCampaignSection(unusedSupabaseClient, 'mineur-sans-consentement', repo);
+      expect(result?.campaign.id).toBe('c1');
+      expect(result?.progress.raisedCents).toBe(1000);
+    },
+  );
+
+  it('n’applique jamais de masquage des montants (hide_amounts ne s’applique qu’au public)', async () => {
+    // Même si l'athlète réel a `hide_amounts: true`, ce loader ne lit pas ce
+    // champ du tout (il n'a même pas accès à la ligne athlète) : le montant
+    // réel est toujours retourné au tuteur.
+    const campaign = makeCampaign({
+      id: 'c1',
+      beneficiary_type: 'athlete',
+      beneficiary_id: 'athlete-masque',
+      goal_cents: 5000,
+    });
+    const repo = createFakeProfileRepo({
+      campaigns: [campaign],
+      progressByCampaignId: new Map([['c1', 4999]]),
+    });
+    const result = await loadOwnerCampaignSection(unusedSupabaseClient, 'athlete-masque', repo);
+    expect(result?.progress.raisedCents).toBe(4999);
+    expect(result?.progress.goalCents).toBe(5000);
   });
 });

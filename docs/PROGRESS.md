@@ -461,6 +461,26 @@
       (`campagne-apercu-correction.spec.ts`, non exécutable en sandbox comme
       les précédents), `tsc --noEmit` et `eslint .` propres.
 
+- [x] Phase 1.6, Tâche 1.6.C1 — Profil athlète éditable + page publique soignée
+      — `lib/athletes/profile.ts` (`loadOwnerCampaignSection` : objectif de la
+      campagne active affiché au tuteur, sans jamais lire `v_public_athlete`
+      ni appliquer `applyAmountsMask` -- voir docs/DECISIONS.md ; `MyAthletesRepo`
+      pour « Mes athlètes »), `lib/entities/athletes.ts` étendu (`photoUrl`,
+      même convention que `logoUrl`), page `app/(portails)/compte/athletes`
+      (liste scopée `guardian_id`/`user_id` strictement) et
+      `app/(portails)/compte/athletes/[athleteId]` (édition message/photo/
+      sport/ville + section « Confidentialité » rendue seulement si
+      `canEditHiddenAthleteFields`, objectif de campagne en lecture seule),
+      page publique athlète enrichie. Décisions autonomes (pas de nouveau
+      champ « objectif personnel », loader privé séparé du loader public,
+      scindage des permissions d'édition, périmètre strict de « Mes
+      athlètes ») — voir docs/DECISIONS.md. 12 nouveaux tests (8
+      intégration + 4 unitaires zod), aucune régression, `tsc --noEmit` et
+      `eslint .` propres. Nouveau e2e `tests/e2e/athlete-profile-edit.spec.ts`
+      (édition → page publique reflète les changements → respect de
+      `hide_photo`/`hide_city`), non exécutable en sandbox comme les
+      précédents -- suppose un jeu `supabase/seed-e2e.sql` toujours à créer.
+
 ## À venir
 - [ ] Phase 1.6 — UX de tous les usagers (voir `docs/prompts/phase-1-6.md`) —
       **à faire AVANT la Phase 1.5** (demande de Frédéric, 2026-06-23 ; cohérent
@@ -475,7 +495,7 @@
     - [x] 1.6.B2 Défauts intelligents et saisie des athlètes sans douleur
     - [x] 1.6.B3 Aperçu, activation et écran « prochaines actions »
   - [ ] Bloc C — Athlète
-    - [ ] 1.6.C1 Profil athlète et page publique soignée
+    - [x] 1.6.C1 Profil athlète et page publique soignée
     - [ ] 1.6.C2 Suivi de progression et partage pour l'athlète
 - [ ] Phase 1.5 — Campagne pleinement opérationnelle (voir
       `docs/prompts/phase-1-5.md`) — à faire APRÈS la Phase 1.6

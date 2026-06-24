@@ -2147,3 +2147,89 @@ fichiers `tests/integration`, vrai Postgres embarque). `tests/e2e/
 campagne-apercu-correction.spec.ts` ajoute (apercu fidele, correction en un
 clic, activation, ecran de demarrage) -- non executable dans ce bac a sable
 comme tous les e2e precedents, a executer en CI/local avant production.
+
+## 2026-06-24 — Phase 1.6, Tâche 1.6.C1 : profil athlète éditable + page publique soignée
+
+**Pas de nouveau champ « objectif personnel ».** Le cahier des charges
+demande qu'un parent/athlète règle un objectif personnel sur le profil. Au
+lieu d'ajouter une colonne dupliquée sur `athletes`, la page d'édition et la
+page publique affichent toutes deux l'objectif de la **campagne active** de
+l'athlète (déjà la source de vérité affichée publiquement) via une nouvelle
+fonction `loadOwnerCampaignSection` (`lib/athletes/profile.ts`). Raison :
+CLAUDE.md section 4 (« les soldes ne se stockent pas en dur »), appliqué par
+analogie -- éviter deux sources de vérité pour le même nombre. Conséquence :
+le tuteur ne RÈGLE jamais l'objectif depuis cette page, seulement le gérant
+d'équipe/club via l'assistant (Tâche 1.6.B1).
+
+**`loadOwnerCampaignSection` est volontairement un loader séparé, pas un appel
+à `loadPublicAthleteProfile`** (`lib/public/profile.ts`) malgré le chevauchement
+apparent. Deux différences nécessaires : (1) il ne lit jamais `v_public_athlete`
+(cette vue exclut les mineurs sans consentement parental -- le tuteur doit
+voir l'objectif de son enfant même AVANT de donner ce consentement, sinon il
+ne comprendrait jamais pourquoi la page publique reste invisible) ; (2) il
+n'applique jamais `applyAmountsMask` (`hide_amounts` ne masque les montants
+qu'au public, jamais au tuteur qui décide lui-même de l'activer). Prouvé par
+test (`tests/integration/public-profile.test.ts`) avec une fixture de
+campagne ciblant un `beneficiary_id` SANS fixture `athletes` correspondante.
+
+**`photoUrl` suit exactement la convention `logoUrl`** (`lib/entities/teams.ts`,
+`clubs.ts`) : une simple URL validée par zod, aucune infrastructure de
+téléversement/Storage ajoutée pour la V1. Cohérent avec l'absence
+d'utilisation de Supabase Storage ailleurs dans le projet à ce stade.
+
+**Permissions d'édition scindées en deux groupes de champs sur la même page**
+(`app/(portails)/compte/athletes/[athleteId]/page.tsx` +
+`canEditHiddenAthleteFields`, `lib/auth/permissions.ts`, déjà existante depuis
+la Tâche 1.1) : les champs de profil (message, photo, sport, ville) sont
+modifiables par quiconque a un accès lecture/écriture à l'athlète (y compris
+un gérant d'équipe/club dans son périmètre), mais la section « Confidentialité »
+(`hide_*` + consentement parental) n'est rendue QUE pour le tuteur, l'athlète
+majeur lui-même, ou `platform_admin` -- même règle déjà appliquée côté serveur
+dans `updateAthlete`, donc défense en profondeur, pas une nouvelle politique.
+
+**« Mes athlètes » (`app/(portails)/compte/athletes/page.tsx`) scopé
+strictement à `guardian_id`/`user_id`**, jamais au périmètre plus large
+`can(user, 'update', ...)` d'un gérant d'équipe/club. Raison : ce tableau de
+bord est un espace personnel « parent », pas un outil de gestion d'équipe (qui
+n'existe pas encore comme tel -- hors scope de cette tâche) ; un gérant qui
+reçoit un lien d'édition direct (ex. depuis l'assistant de campagne) reste
+capable d'éditer les champs non sensibles via la page d'édition elle-même,
+sans passer par cette liste.
+
+**Cinquième à neuvième manifestations du bug de cache mount/git rencontrées et
+réparées dans cette tâche** (troncature en plein mot, pas de remplissage nul
+cette fois -- octets totaux directement inférieurs au contenu réel), touchant
+cette fois `tests/unit/entities-validation.test.ts`,
+`tests/integration/entities.test.ts`, `tests/integration/public-profile.test.ts`,
+puis fait notable : **`lib/entities/athletes.ts` lui-même** (fichier de logique
+métier sensible -- mineurs, permissions -- pas seulement des tests) et
+`app/(portails)/compte/page.tsx` (troncature JSX, balises non fermées). Même
+procédure de réparation que les fois précédentes (réécriture heredoc complète
+à partir du contenu confirmé par l'outil Read, puis revérification
+`wc -l`/`wc -c`/`tr -d '\0' | wc -c`). Mémoire persistante du projet déjà à
+jour avec ce pattern (`mount-staleness-ecommerce.md`) ; ce journal sert
+seulement à en tracer la fréquence réelle au fil des tâches. **Dixième
+manifestation, sur ces docs eux-mêmes** : l'édition de DECISIONS.md/
+PROGRESS.md via l'outil Edit a réussi (vérifiée par l'outil Read), mais la
+vue bash du mount est restée figée sur le contenu D'AVANT l'édition (octets
+et `wc -l` identiques à la version précédente, horodatage de modification
+pourtant à jour) -- réparée par ajout direct via `cat >>` (PROGRESS.md
+nécessitant en plus une réécriture complète, le contenu mount étant tronqué
+en plein mot, pas seulement en retard).
+
+**`tests/e2e/athlete-profile-edit.spec.ts` ajouté**, même statut que tous les
+e2e précédents (non exécutable dans ce bac à sable -- Chromium et réseau
+Supabase bloqués -- à exécuter en CI/local avant production). Suppose un jeu
+de données `supabase/seed-e2e.sql` toujours pas créé à ce jour (même lacune
+documentée depuis `tests/e2e/public-profile.spec.ts`, Tâche 1.6) : un compte
+tuteur `parent-edition-e2e@example.com` + un athlète `athlete-edition-e2e`
+déjà consenti. Ce fichier de seed e2e reste à créer avant la première
+exécution réelle de la suite e2e complète (pas seulement cette tâche).
+
+**Vérification finale.** `tsc --noEmit` propre, `eslint .` propre. `vitest
+run` (unitaires + intégration, découpé en appels bloquants pour rester sous
+la fenêtre de l'outil bash) : tous les tests existants restent verts, plus 8
+nouveaux tests d'intégration ciblant `loadOwnerCampaignSection` et le
+traitement de `photoUrl` à la création/mise à jour, plus 4 nouveaux tests
+unitaires de validation zod (`photoUrl` valide/invalide, création/mise à
+jour). Aucune régression.

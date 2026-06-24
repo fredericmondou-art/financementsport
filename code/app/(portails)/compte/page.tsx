@@ -8,6 +8,7 @@ import {
   summarizeImpactByBeneficiary,
 } from '@/lib/orders/list-orders';
 import { loadBeneficiaryLabels, beneficiaryLabelKey } from '@/lib/cart/beneficiary-labels';
+import { createSupabaseMyAthletesRepo } from '@/lib/athletes/profile';
 import { formatCents } from '@/lib/format-cents';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -46,6 +47,10 @@ export default async function ComptePage({ searchParams }: ComptePageProps): Pro
     supabase,
     allCredits.map((credit) => ({ beneficiaryType: credit.beneficiary_type, beneficiaryId: credit.beneficiary_id })),
   );
+  // Tâche 1.6.C1 : lien « Mes athlètes » affiché seulement si l'utilisateur
+  // est effectivement tuteur/athlète majeur d'au moins un profil -- pour ne
+  // pas encombrer l'espace compte d'un client qui n'a jamais ce rôle.
+  const myAthletes = await createSupabaseMyAthletesRepo(supabase).listAthletesManagedByUser(user.id);
 
   return (
     <main className="page stack">
@@ -67,6 +72,20 @@ export default async function ComptePage({ searchParams }: ComptePageProps): Pro
           </form>
         </div>
       </Card>
+
+      {myAthletes.length > 0 ? (
+        <Card>
+          <section className="stack stack--sm">
+            <h2>Mes athlètes</h2>
+            <p>Complétez le profil public de vos athlètes : message, photo, confidentialité.</p>
+            <div className="form__actions">
+              <Button href="/compte/athletes" variant="outline">
+                Gérer mes athlètes
+              </Button>
+            </div>
+          </section>
+        </Card>
+      ) : null}
 
       <Card>
         <section className="stack stack--sm">
