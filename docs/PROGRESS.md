@@ -639,6 +639,30 @@
       total), aucune régression. `tsc --noEmit`/`eslint .` propres. Voir
       docs/rapports/RAPPORT-1.5.6.md et docs/DECISIONS.md.
 
+- [x] **1.5.7 — Dashboard admin plateforme.** Aucune nouvelle migration RLS
+      requise (policies existantes depuis la migration 0005 accordaient déjà
+      à `platform_admin` un accès SELECT total sur `orders`/`order_items`/
+      `order_credits`/`payouts`/`campaigns` — vérifié par relecture directe
+      avant codage, confirmé par un test d'intégration de régression).
+      `lib/dashboards/admin.ts` (agrégations pures : revenus totaux/commandes
+      totales/panier moyen, marge brute -- toujours indisponible en V1, aucune
+      colonne de coût --, crédits dus/payés -- crédits `active` uniquement
+      croisés avec les versements `paid` --, campagnes actives, campagnes à
+      risque -- seuils autonomes 14 jours/50 % --, produits populaires,
+      paiements échoués, remboursements ; `canViewAdminDashboard` extrait en
+      fonction pure testable). Page `app/(admin)/dashboard` (réservée
+      `platform_admin`, `notFound()` sinon -- pas de message « accès refusé »
+      qui révélerait l'existence de la route). 35 nouveaux tests unitaires
+      (`dashboards-admin.test.ts`, incluant le critère d'acceptation explicite
+      « crédits dus diminue quand un versement passe à `paid` ») + 5 tests
+      d'intégration RLS (`admin-dashboard-rls.test.ts`, Postgres embarqué :
+      `platform_admin` lit tout sans lien personnel, `team_manager`/`client`
+      non liés ne voient rien, `anon` ne voit rien, régression -- le
+      propriétaire réel de la commande la voit toujours). Suite complète
+      relancée par lots (51 fichiers, 586 tests), aucune régression.
+      `tsc --noEmit`/`eslint .` propres. Voir docs/rapports/RAPPORT-1.5.7.md
+      et docs/DECISIONS.md.
+
 ## À venir
 - [x] Phase 1.6 — UX de tous les usagers (voir `docs/prompts/phase-1-6.md`) —
       **demandée AVANT la Phase 1.5** (demande de Frédéric, 2026-06-23 ; cohérent
@@ -664,8 +688,8 @@
   - [x] 1.5.4 Liste de distribution par équipe
   - [x] 1.5.5 Confirmation réception et livraison groupée
   - [x] 1.5.6 Dashboard équipe
-  - [ ] 1.5.7 Dashboard admin plateforme **(prochaine tâche)**
-  - [ ] 1.5.8 Clôture de campagne
+  - [x] 1.5.7 Dashboard admin plateforme
+  - [ ] 1.5.8 Clôture de campagne **(prochaine tâche)**
   - [ ] 1.5.9 Rapport de campagne
   - [ ] 1.5.10 Calcul des versements (manuel)
   - [ ] 1.5.11 Export des commandes (admin)

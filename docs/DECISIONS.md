@@ -54,6 +54,66 @@ convention d'un autre projet) — remplacées par la convention `.table-wrap`/
 boutons d'action en bas de page utilisent `.form__actions` (existante,
 Tâche 1.4.4), pas une nouvelle classe.
 
+## 2026-06-24 — Tâche 1.5.7 : Dashboard admin plateforme
+Six décisions autonomes pour cette tâche.
+
+**Aucune nouvelle migration RLS.** Avant d'écrire du code, relecture directe
+de `0003_rls_policies.sql`/`0005_move_rls_helpers_to_private_schema.sql` :
+`orders_select_scoped`, `order_items_select_scoped`,
+`order_credits_select_staff`, `payouts_staff_read` et `campaigns_select_scoped`
+accordent déjà TOUTES un accès SELECT total et inconditionnel à
+`private.is_platform_admin()`. Contrairement à la Tâche 1.5.6 (trou trouvé sur
+`payouts` pour `team_manager`), aucun trou équivalent n'existe ici pour
+`platform_admin` — confirmé par un test d'intégration de régression
+(`tests/integration/admin-dashboard-rls.test.ts`) plutôt que supposé.
+
+**Seuils de « campagne à risque » définis sans précédent dans le projet :
+14 jours restants ET progression < 50 %.** Le cahier (section 35) demande un
+seuil « à définir et noter dans DECISIONS.md » sans en proposer un. Choix :
+`AT_RISK_DAYS_THRESHOLD = 14` (deux semaines, fenêtre d'action réaliste pour
+qu'un admin relance une campagne) et `AT_RISK_PROGRESS_RATIO_THRESHOLD = 0.5`
+(`lib/dashboards/admin.ts`), bornes inclusives testées explicitement
+(exactement 14 jours = à risque, exactement 50 % = PAS à risque). À ajuster si
+l'usage réel montre un seuil trop large/étroit — aucune donnée de production
+pour calibrer autrement à ce stade.
+
+**« Crédits dus » = crédits `active` UNIQUEMENT, pas `active`+`pending` comme
+le dashboard équipe (Tâche 1.5.6).** Divergence délibérée : le cahier de cette
+tâche dit explicitement « crédits actifs non encore versés », au singulier
+sans mention de `pending`. `summarizeCreditsDue` croise les crédits `active`
+par bénéficiaire avec les versements `paid` du même bénéficiaire
+(`dueCents = max(0, activeCents - paidCents)`), jamais négatif même en cas de
+sur-paiement défensif. Testé explicitement comme critère d'acceptation :
+`dueCents` passe de 10000 à 0 quand le même versement passe de `calculated` à
+`paid`.
+
+**Marge brute : toujours `null` avec motif explicite, jamais calculée.**
+Confirmé qu'aucune colonne `cost_cents` (ou équivalent) n'existe sur
+`products`/`order_items`/`orders` — `computeGrossMargin()` retourne
+systématiquement `{ availableCents: null, reason: '...' }`, conforme à la
+formulation du cahier (« si coûts disponibles »). La page affiche ce motif
+plutôt qu'un zéro trompeur.
+
+**« Commandes totales » compte TOUTES les commandes, « revenus totaux » ne
+compte que les commandes payées.** Distinction délibérée entre une métrique
+opérationnelle (volume brut de commandes, utile pour détecter des paniers
+abandonnés/échecs) et une métrique financière (argent réellement encaissé,
+`isOrderPaid()`, même fonction que `lib/distribution/build-list.ts`) — les
+deux apparaissent côte à côte dans la section "En un coup d'œil" pour éviter
+toute confusion.
+
+**Produits populaires : harmonisé sur `isOrderPaid()` (statuts larges), pas
+sur le filtre plus strict `status = 'paid'` de
+`lib/catalog/products.ts#getUnitsSoldByProductId`.** Incohérence pré-existante
+relevée mais non corrigée hors du périmètre de cette tâche — choix de
+cohérence interne au dashboard admin (même définition de "vente" que
+`summarizeRevenue`), documentée ici pour une harmonisation future si jugée
+nécessaire. `canViewAdminDashboard(role)` extrait en fonction pure testable
+(plutôt qu'une comparaison inline comme `campagnes/nouvelle/page.tsx`) en
+raison de la sensibilité financière de cette page ; la page retourne `notFound()`
+(404) pour un non-admin, jamais un message "accès refusé" qui confirmerait
+l'existence de la route.
+
 ## 2026-06-24 — Tâche 1.6.C2 : nombre de supporters via une vue agrégée, pas une nouvelle policy RLS
 `order_credits` n'a que deux policies SELECT : `_select_staff` (admin/gérant) et
 `_select_own_order` (l'acheteur de la commande, migration 0009). Aucune ne
@@ -2578,64 +2638,4 @@ ajouter une policy plutôt que toucher l'existante évite tout risque de
 régresser un accès déjà couvert par des tests verts (`rls-policies.test.ts`,
 `order-credits-own-order-rls.test.ts`). Le test dédié
 `tests/integration/distribution-rls.test.ts` prouve à la fois le nouvel
-accès et la non-régression de l'ancien (cas `CLIENT_A` lit toujours sa
-propre commande).
-
-**Une commande partagée entre deux bénéficiaires apparaît dans LES DEUX
-groupes de distribution, pas selon la proportion du crédit.** `lib/
-distribution/build-list.ts` groupe par bénéficiaire à partir de
-`order_credits` (chaque ligne de crédit = une apparition dans le groupe de
-ce bénéficiaire), même si une commande est split 50/50 entre deux athlètes.
-Raison : la liste de distribution sert à savoir QUI doit recevoir QUEL colis
-physique -- une commande de chocolat partagée entre deux familles doit être
-listée pour les deux, indépendamment de la répartition de l'argent. C'est
-une sémantique de livraison, pas de finance ; ne pas confondre avec
-`order_credits` qui reste la seule source de vérité pour les montants.
-
-**Repli du nom d'acheteur sur l'e-mail invité même si `user_id` est posé
-mais qu'aucun profil n'a pu être chargé.** `resolveBuyerIdentity` retourne
-toujours un libellé affichable (`"<email> (invité)"` en dernier recours)
-plutôt que de lancer une erreur ou d'afficher une valeur vide. Raison :
-défensif -- la page de distribution ne doit jamais planter à cause d'une
-incohérence de données (profil supprimé, jointure manquante), elle doit
-rester utilisable par le responsable même en cas de donnée partielle.
-
-**CSV et PDF partagent la même fonction d'aplatissement
-(`flattenDistributionGroups`) en amont de `buildDistributionCsv` et
-`buildDistributionPdf`.** Garantit le critère d'acceptation « Export PDF et
-CSV produisent les mêmes données » par construction (une seule structure de
-données alimente les deux exports) plutôt que par discipline de
-synchronisation entre deux implémentations parallèles qui pourraient
-diverger avec le temps.
-
-**Vérification finale.** `tsc --noEmit` propre, `eslint .` propre. 24
-nouveaux tests (`tests/unit/distribution-build-list.test.ts` -- 11,
-`tests/unit/distribution-export.test.ts` -- 7,
-`tests/integration/distribution-rls.test.ts` -- 6), tous verts. Suite
-complète relancée par lots (contrainte de sandbox, voir
-`mount-staleness-ecommerce.md`) : 46 fichiers de tests unitaires + 13
-fichiers de tests d'intégration, tous verts, aucune régression. Bug rencontré
-et corrigé pendant l'écriture du test d'intégration : `order_items.product_id`
-a une contrainte `FOREIGN KEY ... REFERENCES products(id)` -- le fixture
-insérait `gen_random_uuid()` au lieu de l'id réel d'un produit inséré au
-préalable, violation de contrainte corrigée en insérant une vraie ligne
-`products` et en réutilisant son id retourné.
-
-## 2026-06-24 — Tâche 1.5.5 : Confirmation de réception et livraison groupée
-
-**Aucune nouvelle policy RLS `UPDATE` sur `orders` pour team_manager/
-club_admin.** Une policy RLS ne peut pas restreindre les colonnes
-modifiables (seulement les lignes) : donner un `UPDATE` même scoped à la
-campagne du responsable lui permettrait de changer n'importe quelle colonne
-(montants, bénéficiaire, adresse), pas seulement `status`. Décision : même
-patron que `create_paid_order` (migration 0006) -- une fonction Postgres
-unique `advance_order_status` (migration 0015), `SECURITY DEFINER`, qui
-s'auto-vérifie (autorisation interne via `private.manages_campaign`), valide
-la transition contre une table figée, et est le SEUL chemin d'écriture pour
-ces rôles. `orders_admin_update` (platform_admin, migration 0003) reste
-l'échappatoire pour corrections/litiges, hors de cette machine.
-
-**Table des transitions valides dupliquée volontairement en deux endroits**
-(`VALID_ORDER_STATUS_TRANSITIONS` dans `lib/orders/status.ts`, et un miroir
-manuel en `IF` plpgsql dans `advance_order_status`). plpgsql ne peut pas
-i
+accès et 
