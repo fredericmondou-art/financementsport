@@ -3108,3 +3108,19 @@ change le comportement de l'application ; revues avant application) :
    `apply_migration` lors d'une session antérieure). Aucun impact fonctionnel
    — le schéma réel est correct — mais l'historique de suivi est incomplet.
    Signalé pour information ; pas corrigé ici (hors périmètre de la demande).
+
+## 2026-06-25 — Nouvelle récurrence du bug de désync mount/git
+
+En committant la mise à jour de `docs/AUDIT-2.0.md` (section 7), `git commit`
+a répondu « nothing to commit, working tree clean » alors que le fichier sur
+disque contenait bel et bien la nouvelle version (vérifié par `md5sum` :
+contenu différent de `git show HEAD:...`). L'index avait mis en cache un état
+périmé du fichier sans le détecter comme modifié — même famille de bug que
+les troncatures déjà documentées (mémoire persistante
+`mount-staleness-ecommerce.md`), mais ici sur la détection de changement
+plutôt que sur l'écriture elle-même. Réparé par la procédure standard :
+vérifié qu'aucun processus git n'était actif, puis `rm -f .git/index &&
+git reset` (reconstruction non destructive depuis HEAD). Après ça, `git diff`
+détectait correctement les 27 insertions/25 suppressions réelles. Committé
+normalement ensuite. `git fsck` ne montre que des objets dangereux (blobs/
+commits orphelins, sans gravité).
