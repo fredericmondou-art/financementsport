@@ -3057,3 +3057,54 @@ pendant cet audit (aucune ne touche l'argent, la sécurité ou les mineurs) :
 Vérifications effectuées avant de committer : `tsc --noEmit` propre,
 `git fsck` propre, aucune régression de test attendue (changements limités à
 de la documentation + 2 fichiers déjà corrigés et vérifiés).
+
+## 2026-06-25 — Application des recommandations du point 7 (AUDIT-2.0.md)
+
+Frédéric a demandé d'appliquer les recommandations non urgentes listées dans
+le rapport d'audit. Décisions prises en autonomie (aucune n'est ambiguë ni ne
+change le comportement de l'application ; revues avant application) :
+
+1. **Migration `0021_add_missing_fk_indexes.sql`** — ajoute un index sur
+   chacune des 26 colonnes de clé étrangère sans index couvrant (trouvées par
+   requête directe sur `pg_constraint`/`pg_index`, plus précise que le relevé
+   advisor initial qui en comptait ~20). Purement additif, appliquée en
+   production via le connecteur Supabase. Vérifié après coup : 0 FK sans
+   index restante.
+2. **Migration `0022_optimize_rls_and_harden_grants.sql`** :
+   - Réécrit les 9 policies RLS qui appelaient `auth.uid()` par ligne pour
+     utiliser `(select auth.uid())`, évalué une seule fois par requête.
+     Logique strictement identique (vérifié policy par policy avant
+     application) — seulement la fréquence d'évaluation change. Confirmé en
+     production : Postgres stocke maintenant chaque clause sous la forme
+     normalisée `( SELECT auth.uid() AS uid)`.
+   - Fusionné `credit_rules_read_active` et `credit_rules_staff_read` (deux
+     policies SELECT permissives sur la même table, combinées par OR de
+     toute façon) en une seule policy `credit_rules_select`. Vérifié avant
+     fusion qu'aucun test ne dépend du nom de la policy (seul un titre de
+     test la mentionne en commentaire, le test lui-même vérifie un
+     comportement, pas un nom de policy).
+   - `REVOKE EXECUTE ON FUNCTION public.handle_new_auth_user() FROM PUBLIC` —
+     retire le grant implicite (`PUBLIC`) qui rendait la fonction techniquement
+     exécutable par `anon`/`authenticated` (confirmé avant correction via
+     `has_function_privilege`, et confirmé absent après correction). Elle
+     reste appelable par le trigger (contexte `SECURITY DEFINER`), qui n'a
+     pas besoin de ce grant pour fonctionner.
+3. **Non appliqué, laissé tel quel** : les 11 index jamais utilisés (trop tôt
+   pour juger, trafic réel encore faible — les supprimer maintenant serait
+   prématuré) et la poussée des commits vers `origin/main` (peut déclencher
+   un déploiement Vercel — laissé à la décision de Frédéric).
+4. **Vérification post-migration** : suite à l'analyse fraîche de
+   `pg_constraint`/`pg_policies`/`pg_proc.proacl`, tous les 19 fichiers de
+   tests d'intégration (lots de 9+2+9, contrainte de bac à sable) relancés et
+   verts, aucune régression. `tsc --noEmit` déjà confirmé propre avant ces
+   migrations (elles ne touchent que la base de données, pas le code
+   TypeScript).
+5. **Constat en passant, non corrigé** : `list_migrations` (table de suivi
+   Supabase) ne contient que les migrations 0001-0008 et un seed `9000`, alors
+   que `code/supabase/migrations/` contient des fichiers jusqu'à 0020 déjà
+   appliqués en production (confirmé par requête directe sur le schéma réel).
+   Les migrations 0009-0020 ont donc été appliquées sans être enregistrées
+   dans la table de suivi (probablement via `execute_sql` plutôt que
+   `apply_migration` lors d'une session antérieure). Aucun impact fonctionnel
+   — le schéma réel est correct — mais l'historique de suivi est incomplet.
+   Signalé pour information ; pas corrigé ici (hors périmètre de la demande).
