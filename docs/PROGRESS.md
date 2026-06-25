@@ -639,6 +639,35 @@
       total), aucune régression. `tsc --noEmit`/`eslint .` propres. Voir
       docs/rapports/RAPPORT-1.5.6.md et docs/DECISIONS.md.
 
+- [x] **1.5.8 — Clôture de campagne.** Migration `0017_campaign_closure.sql`
+      (table `campaign_status_log`, fonctions gardées `close_campaign`/
+      `reopen_campaign` en `SECURITY DEFINER` -- même patron que
+      `advance_order_status`, migration 0015 ; `close_campaign` vérifie aussi
+      l'absence de commande `payment_pending` rattachée -- actuellement
+      inatteignable par le code applicatif, conservée en défense en
+      profondeur, voir docs/DECISIONS.md). `lib/campaigns/close.ts` (machine de
+      transitions pure : seule `active` peut être clôturée, seule `closed`
+      peut être rouverte, raison obligatoire à la réouverture). Page
+      `app/(portails)/campagnes/[campaignId]/cloturer` + Server Actions
+      (réouverture réservée `platform_admin`, défense en profondeur côté UI en
+      plus de la policy SQL). Le blocage des nouveaux achats après clôture vit
+      dans `lib/checkout/create-checkout-session.ts` (relecture du statut de
+      campagne juste avant la création de la session Stripe), PAS dans
+      `create_paid_order` -- un paiement déjà confirmé par Stripe avant la
+      clôture produit toujours sa commande/son crédit normalement. 30 nouveaux
+      tests unitaires (`campaigns-close.test.ts`) + 9 nouveaux tests
+      d'intégration RLS (`campaign-closure-rls.test.ts`, Postgres embarqué :
+      REVOKE anon, autorisation manager/admin, double-clôture rejetée,
+      réouverture sans raison rejetée, scoping de lecture du journal). Une
+      nouvelle manifestation du bug de cache mount/git rencontrée sur
+      `lib/checkout/create-checkout-session.ts` (fichier vu tronqué à 146
+      lignes par bash/`tsc` alors que l'outil Read montrait les 193/194 lignes
+      correctes) et réparée par réécriture directe sur le mount (voir mémoire
+      persistante `mount-staleness-ecommerce.md`). Suite complète relancée par
+      lots (53 fichiers, 625 tests), aucune régression. `tsc --noEmit`/
+      `eslint .` propres. Voir docs/rapports/RAPPORT-1.5.8.md et
+      docs/DECISIONS.md.
+
 - [x] **1.5.7 — Dashboard admin plateforme.** Aucune nouvelle migration RLS
       requise (policies existantes depuis la migration 0005 accordaient déjà
       à `platform_admin` un accès SELECT total sur `orders`/`order_items`/
@@ -655,41 +684,4 @@
       qui révélerait l'existence de la route). 35 nouveaux tests unitaires
       (`dashboards-admin.test.ts`, incluant le critère d'acceptation explicite
       « crédits dus diminue quand un versement passe à `paid` ») + 5 tests
-      d'intégration RLS (`admin-dashboard-rls.test.ts`, Postgres embarqué :
-      `platform_admin` lit tout sans lien personnel, `team_manager`/`client`
-      non liés ne voient rien, `anon` ne voit rien, régression -- le
-      propriétaire réel de la commande la voit toujours). Suite complète
-      relancée par lots (51 fichiers, 586 tests), aucune régression.
-      `tsc --noEmit`/`eslint .` propres. Voir docs/rapports/RAPPORT-1.5.7.md
-      et docs/DECISIONS.md.
-
-## À venir
-- [x] Phase 1.6 — UX de tous les usagers (voir `docs/prompts/phase-1-6.md`) —
-      **demandée AVANT la Phase 1.5** (demande de Frédéric, 2026-06-23 ; cohérent
-      avec l'ordre déjà prévu dans `ORCHESTRATION.md`) — Blocs A, B et C tous
-      complétés.
-  - [x] Bloc A — Client / parent acheteur
-    - [x] 1.6.A1 Achat invité fluide (page athlète → paiement)
-    - [x] 1.6.A2 Création de compte encouragée après l'achat
-    - [x] 1.6.A3 Espace parent : suivi, reçus et rachat en un clic
-    - [x] 1.6.A4 Répartition entre plusieurs enfants, version simple
-  - [x] Bloc B — Responsable de campagne
-    - [x] 1.6.B1 Assistant de campagne pas-à-pas avec sauvegarde automatique
-    - [x] 1.6.B2 Défauts intelligents et saisie des athlètes sans douleur
-    - [x] 1.6.B3 Aperçu, activation et écran « prochaines actions »
-  - [x] Bloc C — Athlète
-    - [x] 1.6.C1 Profil athlète et page publique soignée
-    - [x] 1.6.C2 Suivi de progression et partage pour l'athlète
-- [ ] Phase 1.5 — Campagne pleinement opérationnelle (voir
-      `docs/prompts/phase-1-5.md`)
-  - [x] 1.5.1 QR codes téléchargeables (PNG/PDF)
-  - [x] 1.5.2 Génération automatique d'affiches
-  - [x] 1.5.3 Saved splits (répartitions favorites)
-  - [x] 1.5.4 Liste de distribution par équipe
-  - [x] 1.5.5 Confirmation réception et livraison groupée
-  - [x] 1.5.6 Dashboard équipe
-  - [x] 1.5.7 Dashboard admin plateforme
-  - [ ] 1.5.8 Clôture de campagne **(prochaine tâche)**
-  - [ ] 1.5.9 Rapport de campagne
-  - [ ] 1.5.10 Calcul des versements (manuel)
-  - [ ] 1.5.11 Export des commandes (admin)
+      d'intégration RLS (`admin-dashboa

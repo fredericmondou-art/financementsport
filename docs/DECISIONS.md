@@ -3,6 +3,51 @@
 Ce fichier consigne les choix mineurs pris sans validation, conformément à la
 section 9 de CLAUDE.md. Format : date — contexte — décision — raison.
 
+## 2026-06-24 — Tâche 1.5.8 : Clôture de campagne
+Trois décisions autonomes pour cette tâche.
+
+**Le blocage des nouveaux achats vit dans `createCheckoutSession()` (création
+de la session Stripe), pas dans `create_paid_order` (migration 0006).** Sous
+l'architecture actuelle, une commande/un crédit n'est créé qu'au webhook
+`checkout.session.completed` CONFIRMÉ (CLAUDE.md section 4) — un paiement déjà
+encaissé par Stripe avant la clôture doit toujours produire sa commande
+normalement, jamais perdre un paiement confirmé. Bloquer dans
+`create_paid_order` aurait donc rejeté un paiement légitimement déjà payé si la
+campagne se clôturait entre l'ouverture de la session Stripe et la
+confirmation du webhook (fenêtre de quelques minutes). La seule chose à
+bloquer est le DÉMARRAGE d'un nouveau paiement pour une campagne qui n'est
+plus active : vérification ajoutée dans `createCheckoutSession()`, qui relit
+le statut de la campagne en direct avant d'appeler `stripe.checkout.sessions.create()`.
+
+**Vérification défensive « commande `payment_pending` rattachée » dans
+`close_campaign` (migration 0017) : actuellement inatteignable par le code
+applicatif, mais conservée.** Le cahier (section Tâche 1.5.8) exige
+explicitement de « vérifier qu'il n'y a pas de commande en cours de paiement
+non résolue avant de clôturer ». Or sous l'architecture actuelle, AUCUNE ligne
+`orders` n'est jamais créée au statut `payment_pending` : la commande n'existe
+en base qu'une fois le webhook Stripe confirmé (donc déjà `paid`) —
+`payment_pending` semble être un statut prévu par le schéma pour une
+architecture future (paiement asynchrone, ex. virement) plutôt qu'utilisé
+aujourd'hui. Décision : implémenter quand même la vérification dans la
+fonction Postgres gardée (et la tester explicitement par une commande
+`payment_pending` insérée directement en `service_role` dans le test
+d'intégration) — défense en profondeur peu coûteuse, conforme à l'exigence
+littérale du cahier, et qui protégera automatiquement la clôture si ce statut
+devient un jour atteignable sans qu'il faille se souvenir de revenir modifier
+`close_campaign`.
+
+**Traçabilité de la réouverture : nouvelle table `campaign_status_log`
+(migration 0017), pas `credit_audit_log`.** `credit_audit_log` (CLAUDE.md
+section 4) trace la modification d'une LIGNE DE CRÉDIT précise après coup ;
+clôturer/rouvrir une campagne ne modifie aucune ligne de `order_credits` — il
+n'y a donc rien à y inscrire. `campaign_status_log` suit exactement le même
+patron que `order_status_log` (migration 0015, Tâche 1.5.5) : une ligne par
+transition (`previous_status`/`new_status`/`reason`/`changed_by`/`changed_at`),
+lecture scoping identique (`platform_admin` OU le responsable de la
+campagne). La réouverture exige une raison non vide (`reopen_campaign`,
+validée à la fois côté TypeScript et côté SQL, défense en profondeur) — la
+clôture n'en exige aucune (le cahier ne le demande pas pour cette transition).
+
 ## 2026-06-24 — Tâche 1.5.6 : Dashboard équipe
 Cinq décisions autonomes pour cette tâche.
 
@@ -2592,50 +2637,4 @@ RLS (calqué sur `tests/integration/order-credits-own-order-rls.test.ts`)
 lançait jusqu'ici ce GRANT une seule fois, juste après la migration
 `0001_initial_schema.sql`, à l'intérieur de la boucle de migrations. Les
 tables `saved_splits`/`saved_split_items` n'existant qu'à la migration
-`0013_saved_splits.sql` (bien plus tardive), elles n'avaient jamais reçu ce
-GRANT : tout `INSERT` en tant que rôle `authenticated` échouait avec
-`permission denied for table saved_splits`. Aucun autre test RLS existant
-n'avait jamais exposé ce trou, car aucun n'exerçait d'`INSERT` en tant
-qu'`authenticated` sur une table créée après la migration 0001 -- le bug
-était donc latent depuis l'introduction de ce harnais. **Corrigé** en
-déplaçant les trois instructions `GRANT` pour qu'elles s'exécutent une
-seule fois, APRÈS la boucle complète de migrations (donc après la toute
-dernière migration présente, peu importe son numéro) plutôt que juste après
-une migration nommée explicitement. C'est désormais le patron à suivre pour
-tout futur test RLS de ce projet qui exerce une table créée après la
-migration 0001 -- voir le commentaire laissé directement dans
-`saved-splits-rls.test.ts`.
-
-**Vérification finale.** `tsc --noEmit` propre, `eslint .` propre. 11
-nouveaux tests unitaires (`tests/unit/saved-splits.test.ts`) + 5 nouveaux
-tests d'intégration RLS (`tests/integration/saved-splits-rls.test.ts`) + 11
-tests mis à jour/ajoutés sur `tests/unit/beneficiary-split.test.tsx`
-(intégration UI du sélecteur de répartitions favorites), tous verts, aucune
-régression sur le reste de la suite (`tests/unit` au complet, et
-`tests/integration/db-migration.test.ts` re-vérifié pour confirmer que la
-chaîne de migrations jusqu'à 0013 s'applique toujours proprement). Plusieurs
-nouvelles manifestations du bug de cache mount/git (voir
-`mount-staleness-ecommerce.md`) rencontrées sur `saved-splits-rls.test.ts`
-lui-même, y compris une troncature survenue sur une modification pourtant
-appliquée via l'outil `Edit` (pas seulement `Write`/heredoc) -- réparées par
-la procédure habituelle (réécriture heredoc + scan d'octets nuls).
-
-## 2026-06-24 — Tâche 1.5.4 : Liste de distribution par équipe
-
-**Écart RLS comblé par des policies ADDITIVES plutôt que par modification
-des policies existantes.** Pour qu'un `team_manager`/`club_admin` puisse lire
-les commandes/articles/profils nécessaires à la liste de distribution de sa
-campagne, il fallait étendre l'accès en lecture sur `orders`, `order_items`
-et `profiles`. Plutôt que de modifier les policies déjà testées
-`orders_select_scoped` / `order_items_select_scoped` /
-`profiles_select_own_or_admin` (migration 0003), la migration
-`0014_distribution_list_access.sql` ajoute trois policies SELECT
-supplémentaires (`orders_select_campaign_managers`,
-`order_items_select_campaign_managers`, `profiles_select_campaign_buyers`),
-toutes basées sur `private.manages_campaign(p_campaign_id)`. Raison :
-Postgres combine plusieurs policies permissives par OR sur une même table --
-ajouter une policy plutôt que toucher l'existante évite tout risque de
-régresser un accès déjà couvert par des tests verts (`rls-policies.test.ts`,
-`order-credits-own-order-rls.test.ts`). Le test dédié
-`tests/integration/distribution-rls.test.ts` prouve à la fois le nouvel
-accès et 
+`0013_saved_splits.sql` (bien plus

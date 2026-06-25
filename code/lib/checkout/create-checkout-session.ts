@@ -33,6 +33,16 @@
  *     navigateur du client ("auto"), ce qui aurait laissé la page de
  *     paiement en anglais pour une majorité de clients. Gap découvert en
  *     testant le parcours d'achat de bout en bout.
+ *   - Campagne clôturée (Tâche 1.5.8) : c'est ICI, à la création de la
+ *     session Stripe -- pas dans `create_paid_order` (migration 0006) --
+ *     que le « refus de tout nouvel achat après clôture » exigé par le
+ *     cahier est appliqué. Sous l'architecture actuelle, une commande n'est
+ *     créée qu'au webhook de paiement CONFIRMÉ (CLAUDE.md section 4) ; un
+ *     paiement déjà encaissé par Stripe avant la clôture doit toujours
+ *     produire sa commande/son crédit normalement (jamais perdre un
+ *     paiement confirmé) -- la seule chose à bloquer est le DÉMARRAGE d'un
+ *     nouveau paiement pour une campagne qui n'est plus active. Voir
+ *     docs/DECISIONS.md, Tâche 1.5.8.
  */
 import { createSupabaseServerClient } from '@/lib/auth/supabase-server';
 import { getCurrentUser } from '@/lib/auth/session';
@@ -122,6 +132,21 @@ export async function createCheckoutSession(): Promise<CheckoutSessionResult> {
     beneficiaries.length === 1 && beneficiaries[0]!.beneficiary_type === 'team'
       ? beneficiaries[0]!.beneficiary_id
       : null;
+
+  if (campaignId !== null) {
+    // Tâche 1.5.8 : refuser tout nouvel achat pour une campagne clôturée
+    // (ou non encore/plus active sous quelque autre forme). Voir le
+    // commentaire de tête de ce fichier.
+    const { data: campaign, error: campaignError } = await supabase
+      .from('campaigns')
+      .select('status')
+      .eq('id', campaignId)
+      .maybeSingle();
+    if (campaignError) throw campaignError;
+    if (campaign && campaign.status !== 'active') {
+      throw new BusinessRuleError('Cette campagne n’accepte plus de nouveaux achats.');
+    }
+  }
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
   const stripe = getStripeClient();
