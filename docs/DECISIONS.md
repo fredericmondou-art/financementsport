@@ -2944,4 +2944,116 @@ préalable, violation de contrainte corrigée en insérant une vraie ligne
 
 **Aucune nouvelle policy RLS `UPDATE` sur `orders` pour team_manager/
 club_admin.** Une policy RLS ne peut pas restreindre les colonnes
-modifiables (seulement les lignes) : donner un `UPDATE` même scoped 
+modifiables (seulement les lignes) : donner un `UPDATE` même scoped à la
+campagne du responsable lui permettrait de changer n'importe quelle colonne
+(montants, bénéficiaire, adresse), pas seulement `status`. Décision : même
+patron que `create_paid_order` (migration 0006) -- une fonction Postgres
+unique `advance_order_status` (migration 0015), `SECURITY DEFINER`, qui
+s'auto-vérifie (autorisation interne via `private.manages_campaign`), valide
+la transition contre une table figée, et est le SEUL chemin d'écriture pour
+ces rôles. `orders_admin_update` (platform_admin, migration 0003) reste
+l'échappatoire pour corrections/litiges, hors de cette machine.
+
+**Table des transitions valides dupliquée volontairement en deux endroits**
+(`VALID_ORDER_STATUS_TRANSITIONS` dans `lib/orders/status.ts`, et un miroir
+manuel en `IF` plpgsql dans `advance_order_status`). plpgsql ne peut pas
+importer du TypeScript ; la validation côté TypeScript existe pour un
+message d'erreur clair sans aller-retour réseau, celle côté SQL est la
+garde réelle (un client pourrait appeler la fonction Postgres directement).
+Un commentaire est laissé aux deux endroits pour rappeler que toute
+évolution de l'une doit être répercutée dans l'autre.
+
+**Notification (`email_log`) seulement à `distributed`/`completed`, jamais à
+`delivered_to_team`.** Conforme au cahier (Tâche 1.5.5) : la réception par
+l'équipe est une étape interne, le client n'a pas besoin d'être notifié
+avant que ses articles soient effectivement distribués. L'insertion
+`email_log` échoue silencieusement (sans annuler la transition) si aucune
+adresse n'est trouvable -- même philosophie défensive que le reste de
+`lib/email/email-log.ts`, une notification manquante ne doit jamais bloquer
+une opération métier déjà valide.
+
+**Bug trouvé et corrigé dans la migration 0015 : `public.is_platform_admin()`
+et `public.current_user_role()` n'existent plus.** La migration 0005 avait
+déplacé toutes les fonctions d'aide RLS vers le schéma `private` et
+explicitement supprimé (`DROP FUNCTION IF EXISTS`) les versions `public.*`
+— décision déjà actée (PostgREST n'expose pas `private`, donc l'EXECUTE peut
+y être large sans risque d'appel RPC direct). En écrivant la policy de
+lecture de `order_status_log` et le corps de `advance_order_status`, j'ai
+référencé par erreur les noms `public.*`, qui n'existent plus silencieusement
+(`DROP FUNCTION IF EXISTS` ne lève pas d'erreur). Le test d'intégration
+(`tests/integration/order-status-transitions-rls.test.ts`), qui rejoue les
+migrations contre un vrai Postgres embarqué, a immédiatement échoué à
+`function public.is_platform_admin() does not exist` -- exactement le genre
+de bug qu'un test unitaire avec repo simulé n'aurait jamais pu détecter.
+Corrigé en remplaçant les deux occurrences par `private.is_platform_admin()`
+/ `private.current_user_role()`, avec un commentaire ajouté dans l'en-tête
+de la migration pour éviter la récidive sur une future migration.
+
+**Vérification finale.** `tsc --noEmit` propre, `eslint .` propre. 37
+nouveaux tests unitaires (`tests/unit/orders-status.test.ts`) + 6 nouveaux
+tests d'intégration RLS (`tests/integration/order-status-transitions-rls.test.ts`),
+tous verts. Suite complète relancée par lots (contrainte de sandbox, voir
+`mount-staleness-ecommerce.md`) : 46 fichiers de tests unitaires (175+
+tests) + 14 fichiers de tests d'intégration (127 tests), tous verts, aucune
+régression. Bug de cache mount rencontré une nouvelle fois sur
+`0015_order_status_transitions.sql` après deux modifications consécutives
+via l'outil `Edit` (troncature mi-mot dans la vue bash), réparé par la
+procédure habituelle (heredoc + `cat` par-dessus le fichier cible) -- et une
+nouvelle manifestation rencontrée cette fois sur une simple lecture de
+`docs/DECISIONS.md` lui-même (`wc -l` bash resté bloqué à une ancienne
+longueur de fichier alors que l'outil `Read` montrait du contenu plus loin),
+confirmant que le bug n'est pas strictement limité aux modifications via
+`Edit` -- voir mise à jour de `mount-staleness-ecommerce.md`.
+
+
+## 2026-06-25 — Audit de cohérence documentaire (livraison "grande firme")
+
+Frédéric a demandé une vérification complète du projet (structure, clarté,
+précision, absence d'erreur) avant livraison. Décisions prises en autonomie
+pendant cet audit (aucune ne touche l'argent, la sécurité ou les mineurs) :
+
+1. **Corruption d'index git réparée.** `git status` affichait faussement ~80
+   fichiers suivis comme supprimés ET non suivis à la fois, causée par des
+   fichiers `.lock` laissés par un processus git interrompu
+   (`.git/index.lock`, `.git/HEAD.lock`, `.git/index.new.lock`,
+   `.git/refs/heads/main.lock`). Vérifié qu'aucun processus git n'était actif
+   (`ps aux`), supprimé les locks, puis `rm -f .git/index && git reset`
+   (reconstruction non destructive de l'index depuis HEAD). `git log` et
+   `git fsck` confirment qu'aucune donnée n'a été perdue.
+2. **`ORCHESTRATION.md` corrigé.** Le fichier était tronqué (coupé en plein
+   milieu de la section 9, point (b), juste avant le point (c) — symptôme du
+   bug de désynchronisation mount/cache déjà documenté dans la mémoire
+   persistante `mount-staleness-ecommerce.md`, hors de ce dépôt). Reconstruit
+   le point (c) et la phrase de clôture à partir du texte de la section 9 du
+   `CLAUDE.md` (source de vérité). Au passage, corrigé toutes les références
+   à des noms de fichiers obsolètes datant d'avant la restructuration
+   `docs/` (ex: `03-prompts-phase-0-et-1.md` → `docs/prompts/phase-0-et-1.md`,
+   `01-schema-base-de-donnees.sql` → `docs/schema-reference.sql`,
+   `RAPPORTS.md` → `docs/gabarit-rapport.md`, `ecommerce.docx` →
+   `docs/cahier-des-charges.docx`, `PROGRESS.md`/`DECISIONS.md`/
+   `QUESTIONS.md` → `docs/PROGRESS.md`/`docs/DECISIONS.md`/
+   `docs/QUESTIONS.md`), qui avaient été oubliées lors de la restructuration
+   précédente (tâches #4-6 de l'audit).
+3. **`docs/PROGRESS.md` restructuré.** Les Phases 1.6 et 1.5, toutes deux
+   entièrement cochées `[x]`, se trouvaient sous l'en-tête `## À venir` au
+   lieu de `## Terminé` — contradiction directe avec leur propre statut et
+   avec la convention établie du document. Renommé cette section
+   `## Terminé (suite)` et ajouté un nouvel `## À venir` reflétant la
+   réalité actuelle (rien de planifié pour l'instant ; prochaine étape à
+   convenir avec Frédéric, voir section 10 du `CLAUDE.md`).
+4. **Fichier de débogage vide supprimé.**
+   `code/tests/unit/copy-button-debug.disabled.txt` (0 octet, jamais suivi
+   par git, manifestement un résidu de débogage) supprimé.
+5. **Référence historique dans `docs/rapports/RAPPORT-0.2.md` laissée
+   intacte.** Ce rapport daté du 2026-06-19 mentionne l'ancien nom
+   `01-schema-base-de-donnees.sql` — c'est une description fidèle de ce qui
+   s'est passé ce jour-là, pas une référence active à corriger : les
+   rapports sont des constats datés, pas une documentation vivante.
+6. **Deux fichiers tronqués par le même bug mount/cache, déjà réparés sur
+   disque avant cet audit** (`code/app/api/commandes/export/csv/route.ts`,
+   `code/tests/unit/export-orders.test.ts`), sont inclus dans le commit de
+   cet audit faute d'avoir été commités plus tôt.
+
+Vérifications effectuées avant de committer : `tsc --noEmit` propre,
+`git fsck` propre, aucune régression de test attendue (changements limités à
+de la documentation + 2 fichiers déjà corrigés et vérifiés).

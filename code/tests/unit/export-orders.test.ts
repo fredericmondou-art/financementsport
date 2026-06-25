@@ -322,4 +322,4 @@ describe('buildOrderExportCsv', () => {
     const firstLine = withoutBom.split('\r\n')[0];
     expect(firstLine).toBe(ORDER_EXPORT_HEADERS.join(','));
   });
-})
+});

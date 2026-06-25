@@ -776,4 +776,48 @@
       `accounting`/`platform_admin`, preuve que `support`/`logistics` lisent
       `orders` via RLS mais sont quand même refusés par `canExportOrders`,
       refus `team_manager` non lié/`anon` ; plus une réconciliation
-      mathématique pure prouvant que les colo
+      mathématique pure prouvant que les colonnes Total/TPS/TVQ/Livraison/
+      Sous-total de l'export, sommées pour les commandes payées d'une
+      campagne, égalent exactement `summarizeSales`/`summarizeTaxBreakdown`
+      du rapport de campagne, Tâche 1.5.9). Suite complète relancée par lots
+      (60 fichiers, 788 tests), aucune régression. `tsc --noEmit`/`eslint .`
+      propres. Voir docs/rapports/RAPPORT-1.5.11.md et docs/DECISIONS.md.
+      **Phase 1.5 entièrement complétée.**
+
+## Terminé (suite)
+- [x] Phase 1.6 — UX de tous les usagers (voir `docs/prompts/phase-1-6.md`) —
+      **demandée AVANT la Phase 1.5** (demande de Frédéric, 2026-06-23 ; cohérent
+      avec l'ordre déjà prévu dans `ORCHESTRATION.md`) — Blocs A, B et C tous
+      complétés.
+  - [x] Bloc A — Client / parent acheteur
+    - [x] 1.6.A1 Achat invité fluide (page athlète → paiement)
+    - [x] 1.6.A2 Création de compte encouragée après l'achat
+    - [x] 1.6.A3 Espace parent : suivi, reçus et rachat en un clic
+    - [x] 1.6.A4 Répartition entre plusieurs enfants, version simple
+  - [x] Bloc B — Responsable de campagne
+    - [x] 1.6.B1 Assistant de campagne pas-à-pas avec sauvegarde automatique
+    - [x] 1.6.B2 Défauts intelligents et saisie des athlètes sans douleur
+    - [x] 1.6.B3 Aperçu, activation et écran « prochaines actions »
+  - [x] Bloc C — Athlète
+    - [x] 1.6.C1 Profil athlète et page publique soignée
+    - [x] 1.6.C2 Suivi de progression et partage pour l'athlète
+- [x] Phase 1.5 — Campagne pleinement opérationnelle (voir
+      `docs/prompts/phase-1-5.md`) — **entièrement complétée.**
+  - [x] 1.5.1 QR codes téléchargeables (PNG/PDF)
+  - [x] 1.5.2 Génération automatique d'affiches
+  - [x] 1.5.3 Saved splits (répartitions favorites)
+  - [x] 1.5.4 Liste de distribution par équipe
+  - [x] 1.5.5 Confirmation réception et livraison groupée
+  - [x] 1.5.6 Dashboard équipe
+  - [x] 1.5.7 Dashboard admin plateforme
+  - [x] 1.5.8 Clôture de campagne
+  - [x] 1.5.9 Rapport de campagne
+  - [x] 1.5.10 Calcul des versements (manuel)
+  - [x] 1.5.11 Export des commandes (admin)
+
+## À venir
+Aucune tâche en attente pour le moment : les phases 0, 1.1-1.4, 1.6 et 1.5
+sont toutes complétées (voir ci-dessus). Prochaine étape : convenir avec
+Frédéric du prochain chantier (au-delà de la V1 — voir section 10 du
+`CLAUDE.md` pour ce qui n'est pas construit pour l'instant) avant de
+rédiger de nouveaux prompts dans `docs/prompts/`.

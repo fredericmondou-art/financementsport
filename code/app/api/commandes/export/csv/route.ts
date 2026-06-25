@@ -41,4 +41,8 @@ export async function GET(request: Request): Promise<Response> {
     status: 200,
     headers: {
       'Content-Type': 'text/csv; charset=utf-8',
-      'Content-Disposition': `attachment; filen
+      'Content-Disposition': `attachment; filename="export-commandes.csv"`,
+      'Cache-Control': 'private, max-age=0, no-store',
+    },
+  });
+}
