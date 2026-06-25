@@ -720,6 +720,40 @@
       immuabilité UPDATE). Suite complète relancée, aucune régression.
       `tsc --noEmit`/`eslint .` propres. Voir docs/rapports/RAPPORT-1.5.9.md
       et docs/DECISIONS.md.
+- [x] **1.5.10 — Calcul des versements (paiement manuel).** Tâche financière
+      sensible. Migration `0019_payout_status_transitions.sql` (table
+      `payout_status_log` -- journal d'audit INSERT-only --, fonction
+      `SECURITY DEFINER` `advance_payout_status` -- verrouille la ligne,
+      revalide autorisation/transition/preuve/raison côté serveur, écrit le
+      statut + le journal en une transaction --, trigger
+      `payouts_guard_amount_lock` -- verrouille le montant hors
+      `calculated`/`in_validation`). `lib/payouts/calculate.ts`
+      (`computeActiveCreditsDueByBeneficiary` -- somme des crédits `active`
+      uniquement --, `planPayoutRecalculation` -- idempotent, union des clés
+      bénéficiaire, ignore les versements déjà validés --,
+      `recalculatePayoutsForCampaign` -- réservé aux campagnes
+      `closed`/`paid` --). `lib/payouts/workflow.ts` (graphe complet à 7
+      statuts conçu en autonomie -- le cahier ne décrit que `calculated →
+      approved → paid` --, `paid` atteignable QUE depuis `approved`/`adjusted`,
+      preuve obligatoire pour `paid`, montant+raison obligatoires pour
+      `adjusted`). `amount_cents` reste la somme BRUTE des crédits actifs
+      (cohérence avec `summarizeCreditsDue`, Tâche 1.5.7) ; `fee_held_cents`
+      est une retenue séparée, posée uniquement via `adjusted`, jamais
+      calculée automatiquement (aucun taux de frais en V1). Pages
+      `app/(admin)/versements` (liste des campagnes éligibles) et
+      `app/(admin)/versements/[campaignId]` (calcul + cycle de validation).
+      Décision notable confirmée empiriquement par test d'intégration :
+      `accounting` peut écrire directement sur `payouts`/appeler le RPC
+      malgré un accès lecture seule dans l'interface admin -- asymétrie
+      intentionnelle, pas un bug (voir docs/DECISIONS.md). 83 nouveaux tests
+      unitaires (`payouts-calculate.test.ts` : 34, `payouts-workflow.test.ts` :
+      49) + 18 nouveaux tests d'intégration RLS
+      (`payout-status-transitions-rls.test.ts`, Postgres embarqué : RPC
+      gardé, RLS de `payout_status_log`, trigger de verrouillage du montant,
+      écriture directe sur `payouts`). Suite unitaire complète (471 tests) et
+      suite d'intégration complète relancées par lots, aucune régression.
+      `tsc --noEmit`/`eslint .` propres. Voir docs/rapports/RAPPORT-1.5.10.md
+      et docs/DECISIONS.md.
 
 ## À venir
 - [x] Phase 1.6 — UX de tous les usagers (voir `docs/prompts/phase-1-6.md`) —
@@ -749,5 +783,5 @@
   - [x] 1.5.7 Dashboard admin plateforme
   - [x] 1.5.8 Clôture de campagne
   - [x] 1.5.9 Rapport de campagne
-  - [ ] 1.5.10 Calcul des versements (manuel) **(prochaine tâche)**
-  - [ ] 1.5.11 Export des commandes (admin)
+  - [x] 1.5.10 Calcul des versements (manuel)
+  - [ ] 1.5.11 Export des commandes (admin) **(prochaine tâche)**

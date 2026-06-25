@@ -718,6 +718,27 @@ export interface OrderStatusLogTable {
   Update: never;
 }
 
+/**
+ * Ajoutée par la migration 0019 (Tâche 1.5.10) : traçabilité horodatée des
+ * changements de statut de versement. Écrite UNIQUEMENT par la fonction
+ * Postgres `advance_payout_status` -- aucun `Insert`/`Update` direct depuis
+ * ce module (pas de policy RLS d'écriture pour anon/authenticated), même
+ * convention que `OrderStatusLogTable`.
+ */
+export interface PayoutStatusLogTable {
+  Row: {
+    id: string;
+    payout_id: string;
+    from_status: PayoutStatus;
+    to_status: PayoutStatus;
+    changed_by: string | null;
+    note: string | null;
+    changed_at: string;
+  };
+  Insert: never;
+  Update: never;
+}
+
 export interface EmailLogTable {
   Row: {
     id: string;
@@ -996,4 +1017,63 @@ export interface VPublicCampaignProductsView {
 }
 
 // =============================================================================
-// DATABAS
+// DATABASE
+// =============================================================================
+
+export interface Database {
+  public: {
+    Tables: {
+      profiles: ProfilesTable;
+      addresses: AddressesTable;
+      clubs: ClubsTable;
+      teams: TeamsTable;
+      athletes: AthletesTable;
+      memberships: MembershipsTable;
+      product_categories: ProductCategoriesTable;
+      products: ProductsTable;
+      credit_rules: CreditRulesTable;
+      campaigns: CampaignsTable;
+      campaign_participants: CampaignParticipantsTable;
+      campaign_products: CampaignProductsTable;
+      qr_codes: QrCodesTable;
+      carts: CartsTable;
+      cart_items: CartItemsTable;
+      cart_beneficiaries: CartBeneficiariesTable;
+      orders: OrdersTable;
+      order_items: OrderItemsTable;
+      order_credits: OrderCreditsTable;
+      credit_audit_log: CreditAuditLogTable;
+      tax_rates: TaxRatesTable;
+      distribution_lists: DistributionListsTable;
+      payouts: PayoutsTable;
+      email_log: EmailLogTable;
+      stripe_events: StripeEventsTable;
+      campaign_drafts: CampaignDraftsTable;
+      saved_splits: SavedSplitsTable;
+      saved_split_items: SavedSplitItemsTable;
+      order_status_log: OrderStatusLogTable;
+      campaign_reports: CampaignReportsTable;
+      payout_status_log: PayoutStatusLogTable;
+    };
+    Views: {
+      v_beneficiary_credit_totals: VBeneficiaryCreditTotalsView;
+      v_campaign_progress: VCampaignProgressView;
+      v_campaign_supporter_count: VCampaignSupporterCountView;
+      v_public_athlete: VPublicAthleteView;
+      v_public_team: VPublicTeamView;
+      v_public_club: VPublicClubView;
+      v_public_campaign: VPublicCampaignView;
+      v_public_campaign_products: VPublicCampaignProductsView;
+    };
+    Enums: {
+      user_role: UserRole;
+      beneficiary_type: BeneficiaryType;
+      campaign_type: CampaignType;
+      campaign_status: CampaignStatus;
+      order_status: OrderStatus;
+      credit_status: CreditStatus;
+      payout_status: PayoutStatus;
+      product_kind: ProductKind;
+    };
+  };
+}

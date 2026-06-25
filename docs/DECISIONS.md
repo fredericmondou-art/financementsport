@@ -3,6 +3,104 @@
 Ce fichier consigne les choix mineurs pris sans validation, conformément à la
 section 9 de CLAUDE.md. Format : date — contexte — décision — raison.
 
+## 2026-06-25 — Tâche 1.5.10 : Calcul des versements (paiement manuel)
+Tâche financière sensible (cahier) — sept décisions autonomes.
+
+**Graphe complet à 7 statuts conçu en autonomie ; le cahier ne décrit que
+`calculated → approved → paid`.** Le schéma (migration 0001) définissait déjà
+les 7 valeurs de l'enum `payout_status` (`calculated`, `in_validation`,
+`approved`, `paid`, `adjusted`, `disputed`, `closed`) sans qu'aucune tâche
+antérieure n'en précise le graphe de transitions. Conçu par analogie avec
+`lib/orders/status.ts` (Tâche 1.5.5) et `lib/campaigns/close.ts` (Tâche
+1.5.8) : `calculated→[in_validation,approved,disputed]`,
+`in_validation→[approved,calculated,disputed]`,
+`approved→[paid,disputed,adjusted]`, `paid→[closed,disputed,adjusted]`,
+`adjusted→[approved,paid,closed]`, `disputed→[approved,adjusted,closed]`,
+`closed→[]` (terminal). Règle non négociable du cahier respectée strictement :
+`paid` n'est atteignable QUE depuis `approved` ou `adjusted`, jamais
+directement depuis `calculated`/`in_validation`. Le graphe est dupliqué à
+l'identique en TypeScript (`lib/payouts/workflow.ts`,
+`VALID_PAYOUT_STATUS_TRANSITIONS`) et en plpgsql (`advance_payout_status`,
+migration 0019) — un commentaire est laissé aux deux endroits rappelant que
+toute évolution de l'un doit être répercutée dans l'autre.
+
+**`amount_cents` reste la somme BRUTE des crédits actifs ; `fee_held_cents`
+est une retenue séparée, jamais soustraite à la source.** Le commentaire
+d'origine de la colonne (migration 0001 : « somme des crédits actifs ») et
+`summarizeCreditsDue` (`lib/dashboards/admin.ts`, Tâche 1.5.7, qui soustrait
+les versements `paid` de ce même montant brut pour afficher les « crédits
+dus ») imposaient déjà ce sens — le changer aurait cassé le critère
+d'acceptation explicite de CETTE tâche (« le montant de crédits dus du
+dashboard admin baisse quand un versement passe à `paid` »). Le montant NET
+réellement à verser (`amount_cents - fee_held_cents`, jamais négatif) est
+calculé à l'affichage par `computeNetPayableCents`, jamais stocké comme un
+troisième nombre. Aucune table de taux de frais n'existe en V1 : la retenue
+calculée automatiquement est donc toujours 0 ; une retenue non nulle ne peut
+être posée que par un admin via la transition `adjusted` (montant ET raison
+obligatoires, tracés dans `payout_status_log`).
+
+**Défense en profondeur à deux niveaux : RPC `SECURITY DEFINER` pour les
+transitions de statut + trigger pour verrouiller le montant.** Même
+architecture que `advance_order_status`/`close_campaign` (Tâches 1.5.5/1.5.8) :
+`advance_payout_status` (migration 0019) verrouille la ligne `FOR UPDATE`,
+revérifie l'autorisation, la transition, la preuve de paiement et la
+raison/montant d'ajustement côté serveur, puis écrit le statut ET une ligne
+`payout_status_log` dans une seule transaction atomique. En complément, le
+trigger `payouts_guard_amount_lock` (BEFORE UPDATE) bloque toute modification
+silencieuse de `amount_cents`/`fee_held_cents` une fois le versement sorti de
+`calculated`/`in_validation` (sauf via une transition de statut, donc via le
+RPC `adjusted`) — utile parce que `lib/payouts/calculate.ts` écrit
+`amount_cents` par un appel Supabase ORDINAIRE (pas le RPC, voir plus bas),
+donc rien d'autre n'empêcherait un recalcul tardif d'écraser un montant déjà
+validé.
+
+**Calcul des montants dus via des appels Supabase ordinaires, pas un RPC.**
+Contrairement aux transitions de statut, le calcul (`lib/payouts/
+calculate.ts`) ne fait qu'un INSERT/UPDATE simple par bénéficiaire — la RLS
+ordinaire `payouts_staff_write` (migration 0005, déjà en place, restreint
+l'écriture à `platform_admin`/`accounting`) suffit, pas besoin de dupliquer
+une fonction `SECURITY DEFINER` pour une opération sans logique
+transactionnelle multi-tables. Vérifié explicitement par le test
+d'intégration : `team_manager` bloqué par cette policy, `accounting` autorisé.
+
+**Calcul des versements réservé aux campagnes `closed`/`paid`, pas `active`.**
+Le cahier dit explicitement « calculer le montant dû à chaque bénéficiaire à
+LA CLÔTURE » : verser avant la clôture risquerait de sous-verser (crédits
+encore mouvants) puis nécessiter des `adjusted` en cascade. `paid` (étape
+suivante du cycle de vie de la campagne) reste autorisé pour permettre un
+recalcul de contrôle après coup.
+
+**Recalcul idempotent par union des clés bénéficiaire, pas juste les crédits
+actifs.** `planPayoutRecalculation` calcule l'union des bénéficiaires ayant
+des crédits actifs ET de ceux ayant déjà un versement existant — nécessaire
+pour pouvoir ramener un versement encore ouvert (`calculated`/`in_validation`)
+à 0 si ses crédits actifs ont été annulés/remboursés depuis le dernier calcul,
+sans pour autant jamais toucher un versement déjà validé (`skip_locked`,
+journalisé via `logger.warn`, jamais une erreur bloquante — un recalcul de
+campagne ne doit pas échouer juste parce qu'un bénéficiaire est déjà payé).
+
+**Confirmé empiriquement (test d'intégration) : `accounting` peut écrire
+directement sur `payouts` et appeler `advance_payout_status`, malgré un accès
+LECTURE SEULE dans l'interface admin (`lib/auth/permissions.ts`).** C'est un
+choix intentionnel de défense en profondeur, PAS un bug à corriger dans une
+future tâche : la RLS/RPC autorise `platform_admin` OU `accounting` au niveau
+base (un comptable doit pouvoir agir en l'absence de l'admin, ou via un futur
+script/outil interne), tandis que l'interface utilisateur actuelle ne propose
+aucune action d'écriture au rôle `accounting` par choix de produit V1 (réduire
+le risque d'erreur humaine sur les versements). Les deux couches sont
+volontairement asymétriques ; ne pas aligner l'une sur l'autre sans décision
+produit explicite. Vérifié par `tests/integration/
+payout-status-transitions-rls.test.ts` (groupes « Direct INSERT sur payouts »
+et le cycle complet via le RPC).
+
+**Page d'entrée `app/(admin)/versements` (liste des campagnes éligibles), pas
+directement `[campaignId]`.** Le cahier ne nomme que `app/(admin)/versements`
+sans préciser de sous-route, et aucune page admin existante ne liste les
+campagnes par statut. Cette page liste les campagnes `closed`/`paid` (RLS :
+`platform_admin`/`accounting` voient tout, pas de scope `manages_X`), chacune
+pointant vers `/versements/[campaignId]` qui porte le calcul + le cycle de
+validation — même patron de routage liste/détail que `app/(admin)/dashboard`.
+
 ## 2026-06-24 — Tâche 1.5.9 : Rapport de campagne
 Cinq décisions autonomes pour cette tâche.
 
