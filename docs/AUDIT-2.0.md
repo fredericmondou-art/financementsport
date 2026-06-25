@@ -101,28 +101,30 @@ Trois défauts trouvés et corrigés (voir le détail et la justification dans
 3. **Fichier de débogage résiduel** (`copy-button-debug.disabled.txt`,
    vide, jamais suivi) supprimé.
 
-## 7. Recommandations restantes (non urgentes, non appliquées)
+## 7. Recommandations — appliquées le 2026-06-25
 
-Ce sont des optimisations de performance signalées par les advisors
-Supabase — aucune n'est une question de correction ou de sécurité, donc
-aucune n'a été appliquée sans votre accord :
+Sur votre demande, appliquées en production via migrations (voir
+`docs/DECISIONS.md`) :
 
-- ~20 clés étrangères sans index (peut ralentir certaines jointures à
-  volume élevé).
-- 9 politiques RLS qui ré-évaluent `auth.uid()`/`auth.role()` par ligne au
-  lieu d'une fois par requête (`(select auth.uid())`).
-- Quelques politiques RLS permissives en double sur les mêmes
-  rôle/action/table (fonctionnellement correct, juste redondant).
-- 11 index jamais utilisés à ce jour (normal tant qu'il y a peu de trafic
-  réel).
-- Le retrait du grant `EXECUTE` mentionné à la section 5.
-- Les 24 commits non poussés vers `origin/main`.
+- **26 index ajoutés** sur les clés étrangères qui n'en avaient pas
+  (migration `0021`). Vérifié après coup : 0 restante.
+- **9 politiques RLS réécrites** pour évaluer `auth.uid()` une fois par
+  requête au lieu d'une fois par ligne (migration `0022`). Même logique,
+  juste plus rapide à volume élevé.
+- **2 politiques RLS en double fusionnées** sur `credit_rules` (migration
+  `0022`).
+- **Grant `EXECUTE` inutile retiré** sur `handle_new_auth_user()` (migration
+  `0022`). Confirmé : ni `anon` ni `authenticated` ne peuvent plus l'exécuter
+  directement.
 
-## 8. Conclusion
+Les 19 fichiers de tests d'intégration ont été relancés après ces
+migrations : tous verts, aucune régression.
 
-Le projet est livrable en l'état pour ce qui concerne la logique métier, la
-sécurité et l'argent — rien n'a dû être corrigé dans ces domaines, tout
-était déjà conforme. Les seuls problèmes réels trouvés étaient
-opérationnels (git, fichiers tronqués) et documentaires, et sont réglés.
-Les points de la section 7 sont des améliorations futures, pas des
-bloquants.
+**Laissé tel quel, à votre décision :**
+
+- 11 index jamais utilisés à ce jour — les supprimer maintenant serait
+  prématuré tant qu'il y a peu de trafic réel.
+- Les 24 commits non poussés vers `origin/main` (peut déclencher un
+  déploiement Vercel).
+- Un écart constaté en passant : la table de suivi des migrations Supabase
+  ne référence que les migration
