@@ -28,9 +28,9 @@ interrompu. Aucune perte de donnée : le contenu réel sur disque et dans
 `HEAD` était intact, confirmé avant toute correction (`git ls-tree`,
 `git fsck`). Réparé par reconstruction non destructive de l'index.
 
-Le dépôt est maintenant à jour, propre, **24 commits en avance sur
-`origin/main`** (jamais poussés). Aucune action de poussée n'a été faite —
-à confirmer avec vous, puisque cela peut déclencher un déploiement Vercel.
+Le dépôt était alors à jour, propre, 24 commits en avance sur
+`origin/main` (jamais poussés à ce moment). **Mise à jour du 2026-06-25 :**
+poussés sur votre instruction — voir section 7 et `docs/DECISIONS.md`.
 
 ## 3. Code — tests, types, lint
 
@@ -120,11 +120,10 @@ Sur votre demande, appliquées en production via migrations (voir
 Les 19 fichiers de tests d'intégration ont été relancés après ces
 migrations : tous verts, aucune régression.
 
-**Laissé tel quel, à votre décision :**
+**Résolu le 2026-06-25, sur votre instruction (voir `docs/DECISIONS.md`) :**
 
-- 11 index jamais utilisés à ce jour — les supprimer maintenant serait
-  prématuré tant qu'il y a peu de trafic réel.
-- Les 24 commits non poussés vers `origin/main` (peut déclencher un
-  déploiement Vercel).
-- Un écart constaté en passant : la table de suivi des migrations Supabase
-  ne référence que les migration
+- Les commits non poussés vers `origin/main` (28 au moment de la poussée,
+  pas 24 — quelques-uns accumulés depuis la rédaction de cet audit) ont été
+  poussés. Dépôt local et `origin/main` confirmés synchronisés (0 commit
+  d'écart dans les deux sens).
+- L'écart de suivi des migrations Su

@@ -3,6 +3,41 @@
 Ce fichier consigne les choix mineurs pris sans validation, conformément à la
 section 9 de CLAUDE.md. Format : date — contexte — décision — raison.
 
+## 2026-06-25 — Comblement de l'écart de suivi des migrations + poussée vers origin/main
+
+Sur demande explicite de Frédéric (« pousser les commits et ajuster l'écart
+des tables »), deux actions, toutes deux préalablement laissées « à votre
+décision » dans `docs/AUDIT-2.0.md` section 7 :
+
+**1. Enregistrement rétroactif des migrations 0009 à 0020 dans
+`supabase_migrations.schema_migrations`.** L'écart documenté (« la table de
+suivi ne référence que 0001-0008, alors que 0009-0020 sont bel et bien
+appliquées en production ») a été comblé par 12 `INSERT ... ON CONFLICT
+(version) DO NOTHING` directs dans cette table, PAS par `apply_migration` (qui
+aurait ré-exécuté le DDL déjà en place — la plupart des `CREATE TABLE`/
+`CREATE POLICY` auraient échoué en doublon). Versions choisies entre
+`20260622181859` (0008) et `20260622181934` (9000, le seed) pour préserver
+l'ordre chronologique réel sans empiéter sur une version existante. Le
+contenu de la colonne `statements` reprend le SQL des fichiers
+`code/supabase/migrations/0009_*.sql` à `0020_*.sql` (légèrement abrégé pour
+0017/0019, dont les longs blocs de commentaires de contexte n'ont pas été
+reproduits intégralement — la copie sur disque de chaque migration reste
+l'unique source de vérité du SQL réellement exécuté ; cette table ne sert
+qu'au suivi/historique, jamais à une ré-exécution). Vérifié après coup :
+`schema_migrations` contient maintenant 0001 à 0022 sans aucun trou, en plus
+de 9000 (seed).
+
+**2. Poussée des commits locaux vers `origin/main`.** 28 commits (le compte
+était de 24 au moment de la rédaction de `AUDIT-2.0.md` ; quelques commits
+supplémentaires se sont accumulés depuis, dont l'application des
+recommandations du point 7 elles-mêmes). Vérifié avant la poussée : aucun
+processus git actif, aucun fichier `.lock` résiduel, `git status` propre —
+pas de risque de répéter la corruption d'index déjà rencontrée cette session.
+`git push origin main` → `bbd7745..00a7dc2`, confirmé par `git rev-list
+--count` (0 commit d'écart dans les deux sens après coup). Ceci peut
+déclencher un déploiement Vercel automatique si le projet y est lié — pas
+vérifié ici (hors du périmètre de cette demande), à surveiller par Frédéric.
+
 ## 2026-06-25 — Tâche 1.5.11 : Export des commandes (admin)
 Six décisions autonomes pour cette tâche.
 
@@ -3090,37 +3125,4 @@ change le comportement de l'application ; revues avant application) :
      reste appelable par le trigger (contexte `SECURITY DEFINER`), qui n'a
      pas besoin de ce grant pour fonctionner.
 3. **Non appliqué, laissé tel quel** : les 11 index jamais utilisés (trop tôt
-   pour juger, trafic réel encore faible — les supprimer maintenant serait
-   prématuré) et la poussée des commits vers `origin/main` (peut déclencher
-   un déploiement Vercel — laissé à la décision de Frédéric).
-4. **Vérification post-migration** : suite à l'analyse fraîche de
-   `pg_constraint`/`pg_policies`/`pg_proc.proacl`, tous les 19 fichiers de
-   tests d'intégration (lots de 9+2+9, contrainte de bac à sable) relancés et
-   verts, aucune régression. `tsc --noEmit` déjà confirmé propre avant ces
-   migrations (elles ne touchent que la base de données, pas le code
-   TypeScript).
-5. **Constat en passant, non corrigé** : `list_migrations` (table de suivi
-   Supabase) ne contient que les migrations 0001-0008 et un seed `9000`, alors
-   que `code/supabase/migrations/` contient des fichiers jusqu'à 0020 déjà
-   appliqués en production (confirmé par requête directe sur le schéma réel).
-   Les migrations 0009-0020 ont donc été appliquées sans être enregistrées
-   dans la table de suivi (probablement via `execute_sql` plutôt que
-   `apply_migration` lors d'une session antérieure). Aucun impact fonctionnel
-   — le schéma réel est correct — mais l'historique de suivi est incomplet.
-   Signalé pour information ; pas corrigé ici (hors périmètre de la demande).
-
-## 2026-06-25 — Nouvelle récurrence du bug de désync mount/git
-
-En committant la mise à jour de `docs/AUDIT-2.0.md` (section 7), `git commit`
-a répondu « nothing to commit, working tree clean » alors que le fichier sur
-disque contenait bel et bien la nouvelle version (vérifié par `md5sum` :
-contenu différent de `git show HEAD:...`). L'index avait mis en cache un état
-périmé du fichier sans le détecter comme modifié — même famille de bug que
-les troncatures déjà documentées (mémoire persistante
-`mount-staleness-ecommerce.md`), mais ici sur la détection de changement
-plutôt que sur l'écriture elle-même. Réparé par la procédure standard :
-vérifié qu'aucun processus git n'était actif, puis `rm -f .git/index &&
-git reset` (reconstruction non destructive depuis HEAD). Après ça, `git diff`
-détectait correctement les 27 insertions/25 suppressions réelles. Committé
-normalement ensuite. `git fsck` ne montre que des objets dangereux (blobs/
-commits orphelins, sans gravité).
+   pour juger, trafic réel encore faible — les
