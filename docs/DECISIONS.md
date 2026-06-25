@@ -3,6 +3,69 @@
 Ce fichier consigne les choix mineurs pris sans validation, conformément à la
 section 9 de CLAUDE.md. Format : date — contexte — décision — raison.
 
+## 2026-06-25 — Tâche 1.5.11 : Export des commandes (admin)
+Six décisions autonomes pour cette tâche.
+
+**Garde `canExportOrders()` dédiée, plutôt qu'étendre `lib/auth/permissions.ts#can()`.**
+`orders`/`order_credits` restent lisibles par d'autres rôles via leurs propres
+policies RLS (un client lit ses propres commandes ; `support`/`logistics`
+lisent `orders` via `orders_select_scoped`, migration 0005) — la RLS seule ne
+bloque donc PAS cette fonctionnalité d'export EN MASSE pour ces rôles. Plutôt
+que de surcharger `can()` (pensé pour une ressource/action CRUD, pas pour un
+export transverse à plusieurs tables), `canExportOrders(role)` est une
+fonction pure dédiée dans `lib/export/orders.ts`, vérifiée explicitement à la
+fois par la page (`app/(admin)/commandes/export/page.tsx`) et par la route de
+téléchargement (`app/api/commandes/export/csv/route.ts`), toutes deux
+retournant `notFound()` (404) plutôt qu'un message « accès refusé » qui
+révélerait l'existence de la fonctionnalité — même convention que
+`canViewAdminDashboard` (Tâche 1.5.7). Prouvé par un test d'intégration dédié
+qui montre que `support`/`logistics` PEUVENT lire `orders` via RLS mais que
+`canExportOrders` les refuse quand même.
+
+**Filtre de période sur `orders.created_at`, pas `paid_at`.** `paid_at` est
+nullable (une commande `payment_pending` ne l'a jamais) ; filtrer sur cette
+colonne aurait silencieusement exclu les commandes non payées de tout export
+par période, alors que la comptabilité/logistique doit pouvoir aussi repérer
+les commandes en attente de paiement sur une période donnée. `created_at`
+existe sur toute commande, sans exception.
+
+**Double application du filtre (requête Supabase + refiltre en mémoire via
+`applyOrderExportFilters`), en défense en profondeur.** Le filtre est déjà
+appliqué côté requête pour ne pas charger des lignes inutiles, mais
+`buildOrderExportRows`/la page/la route refiltrent systématiquement le
+résultat en mémoire avec la même fonction pure — garantit qu'une divergence
+future entre la requête Supabase et la logique de filtrage ne pourrait
+jamais faire fuiter une commande hors du périmètre demandé (l'export doit
+« refléter exactement les filtres appliqués », critère d'acceptation
+explicite du cahier).
+
+**Colonne « Crédit total » = `orders.credit_total_cents` (figé à la commande),
+pas un re-calcul depuis les `order_credits` actifs.** Divergence délibérée
+par rapport à `creditTotalCents` du rapport de campagne (Tâche 1.5.9, qui ne
+somme que les crédits `active`) pour la même raison déjà actée à cette
+tâche : `credit_total_cents` est l'instantané historique au moment du
+paiement, utile pour un export comptable qui doit pouvoir être rejoué
+identiquement même si un crédit a depuis été annulé/remboursé. La
+réconciliation avec le rapport de campagne (critère d'acceptation explicite)
+porte donc sur les colonnes Total/TPS/TVQ/Livraison/Sous-total — pas sur
+cette colonne, qui répond à un besoin différent (traçabilité de la commande
+elle-même, pas de l'état courant du crédit).
+
+**Colonne « Bénéficiaires » liste TOUS les `order_credits` de la commande, quel
+que soit leur statut (pas seulement `active`).** But explicite : traçabilité
+comptable complète (voir un crédit annulé/remboursé après coup, avec son
+statut entre parenthèses), à la différence d'un solde dû qui ne doit
+montrer que ce qui reste actif. Testé explicitement
+(`tests/unit/export-orders.test.ts`, cas « crédit non actif »).
+
+**Migration `0020_orders_export_staff_access.sql` : policies SELECT
+additives `accounting`-only sur `campaigns`/`teams`, suivant le précédent non
+destructif de la migration 0014.** `platform_admin` lisait déjà tout
+(policies existantes) ; seul `accounting` n'avait aucun accès à
+`campaigns`/`teams` (utiles pour peupler les filtres et les colonnes
+Campagne/Équipe de l'export). Policies purement additives, aucune policy
+existante modifiée — confirmé par test d'intégration de régression.
+
 ## 2026-06-25 — Tâche 1.5.10 : Calcul des versements (paiement manuel)
 Tâche financière sensible (cahier) — sept décisions autonomes.
 
@@ -2881,64 +2944,4 @@ préalable, violation de contrainte corrigée en insérant une vraie ligne
 
 **Aucune nouvelle policy RLS `UPDATE` sur `orders` pour team_manager/
 club_admin.** Une policy RLS ne peut pas restreindre les colonnes
-modifiables (seulement les lignes) : donner un `UPDATE` même scoped à la
-campagne du responsable lui permettrait de changer n'importe quelle colonne
-(montants, bénéficiaire, adresse), pas seulement `status`. Décision : même
-patron que `create_paid_order` (migration 0006) -- une fonction Postgres
-unique `advance_order_status` (migration 0015), `SECURITY DEFINER`, qui
-s'auto-vérifie (autorisation interne via `private.manages_campaign`), valide
-la transition contre une table figée, et est le SEUL chemin d'écriture pour
-ces rôles. `orders_admin_update` (platform_admin, migration 0003) reste
-l'échappatoire pour corrections/litiges, hors de cette machine.
-
-**Table des transitions valides dupliquée volontairement en deux endroits**
-(`VALID_ORDER_STATUS_TRANSITIONS` dans `lib/orders/status.ts`, et un miroir
-manuel en `IF` plpgsql dans `advance_order_status`). plpgsql ne peut pas
-importer du TypeScript ; la validation côté TypeScript existe pour un
-message d'erreur clair sans aller-retour réseau, celle côté SQL est la
-garde réelle (un client pourrait appeler la fonction Postgres directement).
-Un commentaire est laissé aux deux endroits pour rappeler que toute
-évolution de l'une doit être répercutée dans l'autre.
-
-**Notification (`email_log`) seulement à `distributed`/`completed`, jamais à
-`delivered_to_team`.** Conforme au cahier (Tâche 1.5.5) : la réception par
-l'équipe est une étape interne, le client n'a pas besoin d'être notifié
-avant que ses articles soient effectivement distribués. L'insertion
-`email_log` échoue silencieusement (sans annuler la transition) si aucune
-adresse n'est trouvable -- même philosophie défensive que le reste de
-`lib/email/email-log.ts`, une notification manquante ne doit jamais bloquer
-une opération métier déjà valide.
-
-**Bug trouvé et corrigé dans la migration 0015 : `public.is_platform_admin()`
-et `public.current_user_role()` n'existent plus.** La migration 0005 avait
-déplacé toutes les fonctions d'aide RLS vers le schéma `private` et
-explicitement supprimé (`DROP FUNCTION IF EXISTS`) les versions `public.*`
-— décision déjà actée (PostgREST n'expose pas `private`, donc l'EXECUTE peut
-y être large sans risque d'appel RPC direct). En écrivant la policy de
-lecture de `order_status_log` et le corps de `advance_order_status`, j'ai
-référencé par erreur les noms `public.*`, qui n'existent plus silencieusement
-(`DROP FUNCTION IF EXISTS` ne lève pas d'erreur). Le test d'intégration
-(`tests/integration/order-status-transitions-rls.test.ts`), qui rejoue les
-migrations contre un vrai Postgres embarqué, a immédiatement échoué à
-`function public.is_platform_admin() does not exist` -- exactement le genre
-de bug qu'un test unitaire avec repo simulé n'aurait jamais pu détecter.
-Corrigé en remplaçant les deux occurrences par `private.is_platform_admin()`
-/ `private.current_user_role()`, avec un commentaire ajouté dans l'en-tête
-de la migration pour éviter la récidive sur une future migration.
-
-**Vérification finale.** `tsc --noEmit` propre, `eslint .` propre. 37
-nouveaux tests unitaires (`tests/unit/orders-status.test.ts`) + 6 nouveaux
-tests d'intégration RLS (`tests/integration/order-status-transitions-rls.test.ts`),
-tous verts. Suite complète relancée par lots (contrainte de sandbox, voir
-`mount-staleness-ecommerce.md`) : 46 fichiers de tests unitaires (175+
-tests) + 14 fichiers de tests d'intégration (127 tests), tous verts, aucune
-régression. Bug de cache mount rencontré une nouvelle fois sur
-`0015_order_status_transitions.sql` après deux modifications consécutives
-via l'outil `Edit` (troncature mi-mot dans la vue bash), réparé par la
-procédure habituelle (heredoc + `cat` par-dessus le fichier cible) -- et une
-nouvelle manifestation rencontrée cette fois sur une simple lecture de
-`docs/DECISIONS.md` lui-même (`wc -l` bash resté bloqué à une ancienne
-longueur de fichier alors que l'outil `Read` montrait du contenu plus loin),
-confirmant que le bug n'est pas strictement limité aux modifications via
-`Edit` -- voir mise à jour de `mount-staleness-ecommerce.md`.
-
+modifiables (seulement les lignes) : donner un `UPDATE` même scoped 

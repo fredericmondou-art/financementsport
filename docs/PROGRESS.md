@@ -754,34 +754,26 @@
       suite d'intégration complète relancées par lots, aucune régression.
       `tsc --noEmit`/`eslint .` propres. Voir docs/rapports/RAPPORT-1.5.10.md
       et docs/DECISIONS.md.
-
-## À venir
-- [x] Phase 1.6 — UX de tous les usagers (voir `docs/prompts/phase-1-6.md`) —
-      **demandée AVANT la Phase 1.5** (demande de Frédéric, 2026-06-23 ; cohérent
-      avec l'ordre déjà prévu dans `ORCHESTRATION.md`) — Blocs A, B et C tous
-      complétés.
-  - [x] Bloc A — Client / parent acheteur
-    - [x] 1.6.A1 Achat invité fluide (page athlète → paiement)
-    - [x] 1.6.A2 Création de compte encouragée après l'achat
-    - [x] 1.6.A3 Espace parent : suivi, reçus et rachat en un clic
-    - [x] 1.6.A4 Répartition entre plusieurs enfants, version simple
-  - [x] Bloc B — Responsable de campagne
-    - [x] 1.6.B1 Assistant de campagne pas-à-pas avec sauvegarde automatique
-    - [x] 1.6.B2 Défauts intelligents et saisie des athlètes sans douleur
-    - [x] 1.6.B3 Aperçu, activation et écran « prochaines actions »
-  - [x] Bloc C — Athlète
-    - [x] 1.6.C1 Profil athlète et page publique soignée
-    - [x] 1.6.C2 Suivi de progression et partage pour l'athlète
-- [ ] Phase 1.5 — Campagne pleinement opérationnelle (voir
-      `docs/prompts/phase-1-5.md`)
-  - [x] 1.5.1 QR codes téléchargeables (PNG/PDF)
-  - [x] 1.5.2 Génération automatique d'affiches
-  - [x] 1.5.3 Saved splits (répartitions favorites)
-  - [x] 1.5.4 Liste de distribution par équipe
-  - [x] 1.5.5 Confirmation réception et livraison groupée
-  - [x] 1.5.6 Dashboard équipe
-  - [x] 1.5.7 Dashboard admin plateforme
-  - [x] 1.5.8 Clôture de campagne
-  - [x] 1.5.9 Rapport de campagne
-  - [x] 1.5.10 Calcul des versements (manuel)
-  - [ ] 1.5.11 Export des commandes (admin) **(prochaine tâche)**
+- [x] **1.5.11 — Export des commandes (admin).** `lib/export/orders.ts`
+      (`canExportOrders` -- `platform_admin`/`accounting` uniquement, garde
+      explicite distincte de la RLS puisque `support`/`logistics` lisent déjà
+      `orders` par ailleurs ; `parseOrderExportFilters`/
+      `matchesOrderExportFilters`/`applyOrderExportFilters` -- campagne,
+      équipe, statut, période sur `created_at`, combinables, double
+      application requête + en mémoire ; `buildOrderExportRows`/
+      `buildOrderExportCsv` -- montants en dollars via `formatCents`,
+      ventilation TPS/TVQ identique à `splitQcTax`/`findApplicableTaxRateBps`
+      de la Tâche 1.5.9 ; `loadOrderExportData`/`createSupabaseOrderExportRepo`).
+      Migration `0020_orders_export_staff_access.sql` (policies SELECT
+      additives `accounting`-only sur `campaigns`/`teams`, suivant le
+      précédent non destructif de la migration 0014). Page
+      `app/(admin)/commandes/export` (filtres + aperçu, lien d'export
+      transmettant la même chaîne de requête) et route
+      `app/api/commandes/export/csv` (même `parseOrderExportFilters`,
+      garantit que le CSV téléchargé reflète exactement l'aperçu). 22
+      nouveaux tests unitaires (`export-orders.test.ts`) + 7 nouveaux tests
+      d'intégration (`orders-export-rls.test.ts`, Postgres embarqué : accès
+      `accounting`/`platform_admin`, preuve que `support`/`logistics` lisent
+      `orders` via RLS mais sont quand même refusés par `canExportOrders`,
+      refus `team_manager` non lié/`anon` ; plus une réconciliation
+      mathématique pure prouvant que les colo
