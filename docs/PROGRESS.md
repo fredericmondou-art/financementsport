@@ -684,4 +684,70 @@
       qui révélerait l'existence de la route). 35 nouveaux tests unitaires
       (`dashboards-admin.test.ts`, incluant le critère d'acceptation explicite
       « crédits dus diminue quand un versement passe à `paid` ») + 5 tests
-      d'intégration RLS (`admin-dashboa
+      d'intégration RLS (`admin-dashboard-rls.test.ts`, Postgres embarqué :
+      `platform_admin` lit tout sans lien personnel, `team_manager`/`client`
+      non liés ne voient rien, `anon` ne voit rien, régression -- le
+      propriétaire réel de la commande la voit toujours). Suite complète
+      relancée par lots (51 fichiers, 586 tests), aucune régression.
+      `tsc --noEmit`/`eslint .` propres. Voir docs/rapports/RAPPORT-1.5.7.md
+      et docs/DECISIONS.md.
+
+- [x] **1.5.9 — Rapport de campagne.** Migration `0018_campaign_reports.sql`
+      (table `campaign_reports`, clé `UNIQUE (campaign_id, closed_at)` —
+      auto-invalidation naturelle à chaque cycle clôture/réouverture, NI
+      policy UPDATE NI policy DELETE -- immuabilité imposée par la base
+      elle-même ; policies SELECT/INSERT ordinaires
+      `private.is_platform_admin() OR private.manages_campaign(campaign_id)`,
+      pas de fonction `SECURITY DEFINER` -- voir docs/DECISIONS.md).
+      `lib/reports/campaign.ts` (`splitQcTax` : ventilation TPS/TVQ à partir
+      du taux combiné unique de `tax_rates` + constante fédérale fixe
+      `QC_TPS_RATE_BPS = 500`, reliquat d'arrondi toujours à la TVQ ;
+      `summarizeSales`/`summarizeTaxBreakdown`/`summarizePaymentFees`
+      -- `fee_held_cents` sommé tous statuts --/`summarizeCreditTotal`
+      -- crédits `active` uniquement -- ; `computeProductCost` toujours
+      indisponible en V1 ; `loadCampaignReport` lit le figeage existant si la
+      campagne est `closed`, sinon calcule et enregistre un nouveau figeage,
+      sinon calcule à la volée -- toujours en direct -- si la campagne est
+      encore active). `lib/reports/export.ts` (CSV/PDF construits depuis la
+      même fonction `flattenCampaignReport`, même patron que la Tâche 1.5.4).
+      Page `app/(portails)/campagnes/[campaignId]/rapport` + routes
+      `app/api/campagnes/[campaignId]/rapport/{csv,pdf}`. 25 nouveaux tests
+      unitaires (`reports-campaign.test.ts`, exactitude ligne par ligne sur
+      un jeu de données connu + ventilation TPS/TVQ) + 8 nouveaux tests
+      d'intégration RLS (`campaign-report-rls.test.ts`, Postgres embarqué :
+      autorisation manager/admin, refus manager non lié/anon, contrainte
+      UNIQUE, coexistence de deux figeages après un second cycle de clôture,
+      immuabilité UPDATE). Suite complète relancée, aucune régression.
+      `tsc --noEmit`/`eslint .` propres. Voir docs/rapports/RAPPORT-1.5.9.md
+      et docs/DECISIONS.md.
+
+## À venir
+- [x] Phase 1.6 — UX de tous les usagers (voir `docs/prompts/phase-1-6.md`) —
+      **demandée AVANT la Phase 1.5** (demande de Frédéric, 2026-06-23 ; cohérent
+      avec l'ordre déjà prévu dans `ORCHESTRATION.md`) — Blocs A, B et C tous
+      complétés.
+  - [x] Bloc A — Client / parent acheteur
+    - [x] 1.6.A1 Achat invité fluide (page athlète → paiement)
+    - [x] 1.6.A2 Création de compte encouragée après l'achat
+    - [x] 1.6.A3 Espace parent : suivi, reçus et rachat en un clic
+    - [x] 1.6.A4 Répartition entre plusieurs enfants, version simple
+  - [x] Bloc B — Responsable de campagne
+    - [x] 1.6.B1 Assistant de campagne pas-à-pas avec sauvegarde automatique
+    - [x] 1.6.B2 Défauts intelligents et saisie des athlètes sans douleur
+    - [x] 1.6.B3 Aperçu, activation et écran « prochaines actions »
+  - [x] Bloc C — Athlète
+    - [x] 1.6.C1 Profil athlète et page publique soignée
+    - [x] 1.6.C2 Suivi de progression et partage pour l'athlète
+- [ ] Phase 1.5 — Campagne pleinement opérationnelle (voir
+      `docs/prompts/phase-1-5.md`)
+  - [x] 1.5.1 QR codes téléchargeables (PNG/PDF)
+  - [x] 1.5.2 Génération automatique d'affiches
+  - [x] 1.5.3 Saved splits (répartitions favorites)
+  - [x] 1.5.4 Liste de distribution par équipe
+  - [x] 1.5.5 Confirmation réception et livraison groupée
+  - [x] 1.5.6 Dashboard équipe
+  - [x] 1.5.7 Dashboard admin plateforme
+  - [x] 1.5.8 Clôture de campagne
+  - [x] 1.5.9 Rapport de campagne
+  - [ ] 1.5.10 Calcul des versements (manuel) **(prochaine tâche)**
+  - [ ] 1.5.11 Export des commandes (admin)

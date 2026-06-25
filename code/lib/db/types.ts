@@ -834,6 +834,62 @@ export interface SavedSplitItemsTable {
   Update: Partial<SavedSplitItemsTable['Insert']>;
 }
 
+/**
+ * Ajoutée par la migration 0018 (Tâche 1.5.9) : cache/figeage du rapport
+ * financier d'une campagne. Écrite par l'application (pas une fonction
+ * SECURITY DEFINER -- voir docs/DECISIONS.md, Tâche 1.5.9, sur le choix de
+ * confiance) au PREMIER accès au rapport d'une campagne `closed`, jamais pour
+ * une campagne active (toujours recalculée en direct dans ce cas). Clé
+ * `(campaign_id, closed_at)` plutôt que `campaign_id` seul : `closed_at`
+ * change de valeur à chaque nouvelle clôture (NULL pendant qu'active) --
+ * une réouverture (migration 0017) invalide donc NATURELLEMENT l'ancien
+ * figeage sans qu'aucune ligne ne soit supprimée ni qu'aucun code de la
+ * Tâche 1.5.8 (déjà livrée) n'ait besoin d'être modifié. AUCUNE ligne n'est
+ * jamais modifiée après insertion -- seule une INSERT, pas d'UPDATE/DELETE
+ * (RLS, voir la migration).
+ */
+export interface CampaignReportsTable {
+  Row: {
+    id: string;
+    campaign_id: string;
+    closed_at: string;
+    order_count: number;
+    gross_sales_cents: number;
+    tax_total_cents: number;
+    tps_cents: number;
+    tvq_cents: number;
+    net_sales_cents: number;
+    product_cost_cents: number | null;
+    payment_fees_cents: number;
+    shipping_cents: number;
+    credit_total_cents: number;
+    profit_estimate_cents: number;
+    profit_estimate_excludes_cost: boolean;
+    generated_at: string;
+    generated_by: string | null;
+  };
+  Insert: {
+    id?: string;
+    campaign_id: string;
+    closed_at: string;
+    order_count: number;
+    gross_sales_cents: number;
+    tax_total_cents: number;
+    tps_cents: number;
+    tvq_cents: number;
+    net_sales_cents: number;
+    product_cost_cents?: number | null;
+    payment_fees_cents: number;
+    shipping_cents: number;
+    credit_total_cents: number;
+    profit_estimate_cents: number;
+    profit_estimate_excludes_cost?: boolean;
+    generated_at?: string;
+    generated_by?: string | null;
+  };
+  Update: never;
+}
+
 // =============================================================================
 // VIEWS
 // =============================================================================
@@ -940,61 +996,4 @@ export interface VPublicCampaignProductsView {
 }
 
 // =============================================================================
-// DATABASE
-// =============================================================================
-
-export interface Database {
-  public: {
-    Tables: {
-      profiles: ProfilesTable;
-      addresses: AddressesTable;
-      clubs: ClubsTable;
-      teams: TeamsTable;
-      athletes: AthletesTable;
-      memberships: MembershipsTable;
-      product_categories: ProductCategoriesTable;
-      products: ProductsTable;
-      credit_rules: CreditRulesTable;
-      campaigns: CampaignsTable;
-      campaign_participants: CampaignParticipantsTable;
-      campaign_products: CampaignProductsTable;
-      qr_codes: QrCodesTable;
-      carts: CartsTable;
-      cart_items: CartItemsTable;
-      cart_beneficiaries: CartBeneficiariesTable;
-      orders: OrdersTable;
-      order_items: OrderItemsTable;
-      order_credits: OrderCreditsTable;
-      credit_audit_log: CreditAuditLogTable;
-      tax_rates: TaxRatesTable;
-      distribution_lists: DistributionListsTable;
-      payouts: PayoutsTable;
-      email_log: EmailLogTable;
-      stripe_events: StripeEventsTable;
-      campaign_drafts: CampaignDraftsTable;
-      saved_splits: SavedSplitsTable;
-      saved_split_items: SavedSplitItemsTable;
-      order_status_log: OrderStatusLogTable;
-    };
-    Views: {
-      v_beneficiary_credit_totals: VBeneficiaryCreditTotalsView;
-      v_campaign_progress: VCampaignProgressView;
-      v_campaign_supporter_count: VCampaignSupporterCountView;
-      v_public_athlete: VPublicAthleteView;
-      v_public_team: VPublicTeamView;
-      v_public_club: VPublicClubView;
-      v_public_campaign: VPublicCampaignView;
-      v_public_campaign_products: VPublicCampaignProductsView;
-    };
-    Enums: {
-      user_role: UserRole;
-      beneficiary_type: BeneficiaryType;
-      campaign_type: CampaignType;
-      campaign_status: CampaignStatus;
-      order_status: OrderStatus;
-      credit_status: CreditStatus;
-      payout_status: PayoutStatus;
-      product_kind: ProductKind;
-    };
-  };
-}
+// DATABAS

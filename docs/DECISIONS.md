@@ -3,6 +3,59 @@
 Ce fichier consigne les choix mineurs pris sans validation, conformément à la
 section 9 de CLAUDE.md. Format : date — contexte — décision — raison.
 
+## 2026-06-24 — Tâche 1.5.9 : Rapport de campagne
+Cinq décisions autonomes pour cette tâche.
+
+**TPS/TVQ ventilées à partir du taux combiné unique de `tax_rates`, pas de
+deux colonnes séparées.** Comme noté à la Tâche 0.2/0.3, `tax_rates` ne
+stocke qu'UN taux combiné par province (1498 bps pour QC = 5 % + 9,975 %,
+contrainte `UNIQUE (province, effective_at)`). Le cahier de cette tâche exige
+explicitement une ventilation TPS/TVQ dans le rapport. Plutôt que modifier le
+schéma (interdit hors nécessité réelle, et aucune autre tâche n'en a besoin),
+`splitQcTax(taxCents, combinedRateBps)` recalcule la part TPS à partir d'une
+constante `QC_TPS_RATE_BPS = 500` (5 %, taux fédéral fixe — un fait légal, pas
+une donnée business configurable, donc ne viole pas la règle « jamais de taux
+en dur » de CLAUDE.md section 2) et attribue tout le reliquat d'arrondi à la
+TVQ — garantit `tpsCents + tvqCents = taxCents` exactement, toujours.
+
+**Figeage du rapport via une table `campaign_reports` clé `(campaign_id,
+closed_at)`, pas un simple cache invalidé par TTL.** Le cahier exige qu'un
+rapport de campagne CLÔTURÉE ne bouge plus jamais. `campaigns.closed_at`
+change de valeur à chaque cycle clôture/réouverture (déjà en place depuis la
+Tâche 1.5.8) — clé naturelle d'auto-invalidation : un nouveau cycle
+clôture/réouverture produit un nouveau figeage distinct, l'ancien reste
+intact et consultable. `campaign_reports` n'a NI policy UPDATE NI policy
+DELETE (immuabilité imposée par la base elle-même, pas seulement par
+discipline applicative) — vérifié explicitement par un test d'intégration
+(tentative d'UPDATE : 0 ligne touchée).
+
+**RLS de `campaign_reports` par policy ordinaire, pas par fonction
+`SECURITY DEFINER` comme `close_campaign`/`advance_order_status`.** Écrire le
+figeage ne nécessite aucune logique transactionnelle complexe ni bypass RLS
+intermédiaire (contrairement à clôturer une campagne, qui touche plusieurs
+tables en une transaction) — une simple policy `private.is_platform_admin()
+OR private.manages_campaign(campaign_id)` (SELECT + INSERT) suffit et évite
+de dupliquer en SQL une logique de calcul déjà testée en TypeScript
+(`lib/reports/campaign.ts`).
+
+**Frais de paiement = `payouts.fee_held_cents` sommé sur TOUS les statuts,
+pas seulement `paid`.** Confirmé via le commentaire d'origine de la migration
+0001 (« retenue pour frais ») : cette colonne représente la retenue
+calculée/attendue, pas seulement ce qui a été réellement décaissé — cohérent
+avec un rapport qui doit refléter l'économie totale de la campagne, même pour
+des versements encore `calculated`/non payés.
+
+**Province de facturation et coût produit : mêmes limitations déjà actées
+qu'au dashboard admin (Tâche 1.5.7), pas de nouvelle hypothèse.** Aucune
+colonne `province` sur `orders` (confirmé via `lib/db/types.ts`) — réutilise
+`DEFAULT_BILLING_PROVINCE = 'QC'`, déjà la même valeur en dur utilisée par
+`lib/checkout/create-checkout-session.ts`. Aucune colonne de coût produit
+nulle part en V1 — `computeProductCost()` retourne toujours
+`{ costCents: null, reason: '...' }`, même patron que
+`computeGrossMargin()` (Tâche 1.5.7) ; le profit estimé l'exclut et le signale
+explicitement (`profitEstimateExcludesCost: true`) plutôt que de produire un
+chiffre trompeur.
+
 ## 2026-06-24 — Tâche 1.5.8 : Clôture de campagne
 Trois décisions autonomes pour cette tâche.
 
@@ -2637,4 +2690,157 @@ RLS (calqué sur `tests/integration/order-credits-own-order-rls.test.ts`)
 lançait jusqu'ici ce GRANT une seule fois, juste après la migration
 `0001_initial_schema.sql`, à l'intérieur de la boucle de migrations. Les
 tables `saved_splits`/`saved_split_items` n'existant qu'à la migration
-`0013_saved_splits.sql` (bien plus
+`0013_saved_splits.sql` (bien plus tardive), elles n'avaient jamais reçu ce
+GRANT : tout `INSERT` en tant que rôle `authenticated` échouait avec
+`permission denied for table saved_splits`. Aucun autre test RLS existant
+n'avait jamais exposé ce trou, car aucun n'exerçait d'`INSERT` en tant
+qu'`authenticated` sur une table créée après la migration 0001 -- le bug
+était donc latent depuis l'introduction de ce harnais. **Corrigé** en
+déplaçant les trois instructions `GRANT` pour qu'elles s'exécutent une
+seule fois, APRÈS la boucle complète de migrations (donc après la toute
+dernière migration présente, peu importe son numéro) plutôt que juste après
+une migration nommée explicitement. C'est désormais le patron à suivre pour
+tout futur test RLS de ce projet qui exerce une table créée après la
+migration 0001 -- voir le commentaire laissé directement dans
+`saved-splits-rls.test.ts`.
+
+**Vérification finale.** `tsc --noEmit` propre, `eslint .` propre. 11
+nouveaux tests unitaires (`tests/unit/saved-splits.test.ts`) + 5 nouveaux
+tests d'intégration RLS (`tests/integration/saved-splits-rls.test.ts`) + 11
+tests mis à jour/ajoutés sur `tests/unit/beneficiary-split.test.tsx`
+(intégration UI du sélecteur de répartitions favorites), tous verts, aucune
+régression sur le reste de la suite (`tests/unit` au complet, et
+`tests/integration/db-migration.test.ts` re-vérifié pour confirmer que la
+chaîne de migrations jusqu'à 0013 s'applique toujours proprement). Plusieurs
+nouvelles manifestations du bug de cache mount/git (voir
+`mount-staleness-ecommerce.md`) rencontrées sur `saved-splits-rls.test.ts`
+lui-même, y compris une troncature survenue sur une modification pourtant
+appliquée via l'outil `Edit` (pas seulement `Write`/heredoc) -- réparées par
+la procédure habituelle (réécriture heredoc + scan d'octets nuls).
+
+## 2026-06-24 — Tâche 1.5.4 : Liste de distribution par équipe
+
+**Écart RLS comblé par des policies ADDITIVES plutôt que par modification
+des policies existantes.** Pour qu'un `team_manager`/`club_admin` puisse lire
+les commandes/articles/profils nécessaires à la liste de distribution de sa
+campagne, il fallait étendre l'accès en lecture sur `orders`, `order_items`
+et `profiles`. Plutôt que de modifier les policies déjà testées
+`orders_select_scoped` / `order_items_select_scoped` /
+`profiles_select_own_or_admin` (migration 0003), la migration
+`0014_distribution_list_access.sql` ajoute trois policies SELECT
+supplémentaires (`orders_select_campaign_managers`,
+`order_items_select_campaign_managers`, `profiles_select_campaign_buyers`),
+toutes basées sur `private.manages_campaign(p_campaign_id)`. Raison :
+Postgres combine plusieurs policies permissives par OR sur une même table --
+ajouter une policy plutôt que toucher l'existante évite tout risque de
+régresser un accès déjà couvert par des tests verts (`rls-policies.test.ts`,
+`order-credits-own-order-rls.test.ts`). Le test dédié
+`tests/integration/distribution-rls.test.ts` prouve à la fois le nouvel
+accès et la non-régression de l'ancien (cas `CLIENT_A` lit toujours sa
+propre commande).
+
+**Une commande partagée entre deux bénéficiaires apparaît dans LES DEUX
+groupes de distribution, pas selon la proportion du crédit.** `lib/
+distribution/build-list.ts` groupe par bénéficiaire à partir de
+`order_credits` (chaque ligne de crédit = une apparition dans le groupe de
+ce bénéficiaire), même si une commande est split 50/50 entre deux athlètes.
+Raison : la liste de distribution sert à savoir QUI doit recevoir QUEL colis
+physique -- une commande de chocolat partagée entre deux familles doit être
+listée pour les deux, indépendamment de la répartition de l'argent. C'est
+une sémantique de livraison, pas de finance ; ne pas confondre avec
+`order_credits` qui reste la seule source de vérité pour les montants.
+
+**Repli du nom d'acheteur sur l'e-mail invité même si `user_id` est posé
+mais qu'aucun profil n'a pu être chargé.** `resolveBuyerIdentity` retourne
+toujours un libellé affichable (`"<email> (invité)"` en dernier recours)
+plutôt que de lancer une erreur ou d'afficher une valeur vide. Raison :
+défensif -- la page de distribution ne doit jamais planter à cause d'une
+incohérence de données (profil supprimé, jointure manquante), elle doit
+rester utilisable par le responsable même en cas de donnée partielle.
+
+**CSV et PDF partagent la même fonction d'aplatissement
+(`flattenDistributionGroups`) en amont de `buildDistributionCsv` et
+`buildDistributionPdf`.** Garantit le critère d'acceptation « Export PDF et
+CSV produisent les mêmes données » par construction (une seule structure de
+données alimente les deux exports) plutôt que par discipline de
+synchronisation entre deux implémentations parallèles qui pourraient
+diverger avec le temps.
+
+**Vérification finale.** `tsc --noEmit` propre, `eslint .` propre. 24
+nouveaux tests (`tests/unit/distribution-build-list.test.ts` -- 11,
+`tests/unit/distribution-export.test.ts` -- 7,
+`tests/integration/distribution-rls.test.ts` -- 6), tous verts. Suite
+complète relancée par lots (contrainte de sandbox, voir
+`mount-staleness-ecommerce.md`) : 46 fichiers de tests unitaires + 13
+fichiers de tests d'intégration, tous verts, aucune régression. Bug rencontré
+et corrigé pendant l'écriture du test d'intégration : `order_items.product_id`
+a une contrainte `FOREIGN KEY ... REFERENCES products(id)` -- le fixture
+insérait `gen_random_uuid()` au lieu de l'id réel d'un produit inséré au
+préalable, violation de contrainte corrigée en insérant une vraie ligne
+`products` et en réutilisant son id retourné.
+
+## 2026-06-24 — Tâche 1.5.5 : Confirmation de réception et livraison groupée
+
+**Aucune nouvelle policy RLS `UPDATE` sur `orders` pour team_manager/
+club_admin.** Une policy RLS ne peut pas restreindre les colonnes
+modifiables (seulement les lignes) : donner un `UPDATE` même scoped à la
+campagne du responsable lui permettrait de changer n'importe quelle colonne
+(montants, bénéficiaire, adresse), pas seulement `status`. Décision : même
+patron que `create_paid_order` (migration 0006) -- une fonction Postgres
+unique `advance_order_status` (migration 0015), `SECURITY DEFINER`, qui
+s'auto-vérifie (autorisation interne via `private.manages_campaign`), valide
+la transition contre une table figée, et est le SEUL chemin d'écriture pour
+ces rôles. `orders_admin_update` (platform_admin, migration 0003) reste
+l'échappatoire pour corrections/litiges, hors de cette machine.
+
+**Table des transitions valides dupliquée volontairement en deux endroits**
+(`VALID_ORDER_STATUS_TRANSITIONS` dans `lib/orders/status.ts`, et un miroir
+manuel en `IF` plpgsql dans `advance_order_status`). plpgsql ne peut pas
+importer du TypeScript ; la validation côté TypeScript existe pour un
+message d'erreur clair sans aller-retour réseau, celle côté SQL est la
+garde réelle (un client pourrait appeler la fonction Postgres directement).
+Un commentaire est laissé aux deux endroits pour rappeler que toute
+évolution de l'une doit être répercutée dans l'autre.
+
+**Notification (`email_log`) seulement à `distributed`/`completed`, jamais à
+`delivered_to_team`.** Conforme au cahier (Tâche 1.5.5) : la réception par
+l'équipe est une étape interne, le client n'a pas besoin d'être notifié
+avant que ses articles soient effectivement distribués. L'insertion
+`email_log` échoue silencieusement (sans annuler la transition) si aucune
+adresse n'est trouvable -- même philosophie défensive que le reste de
+`lib/email/email-log.ts`, une notification manquante ne doit jamais bloquer
+une opération métier déjà valide.
+
+**Bug trouvé et corrigé dans la migration 0015 : `public.is_platform_admin()`
+et `public.current_user_role()` n'existent plus.** La migration 0005 avait
+déplacé toutes les fonctions d'aide RLS vers le schéma `private` et
+explicitement supprimé (`DROP FUNCTION IF EXISTS`) les versions `public.*`
+— décision déjà actée (PostgREST n'expose pas `private`, donc l'EXECUTE peut
+y être large sans risque d'appel RPC direct). En écrivant la policy de
+lecture de `order_status_log` et le corps de `advance_order_status`, j'ai
+référencé par erreur les noms `public.*`, qui n'existent plus silencieusement
+(`DROP FUNCTION IF EXISTS` ne lève pas d'erreur). Le test d'intégration
+(`tests/integration/order-status-transitions-rls.test.ts`), qui rejoue les
+migrations contre un vrai Postgres embarqué, a immédiatement échoué à
+`function public.is_platform_admin() does not exist` -- exactement le genre
+de bug qu'un test unitaire avec repo simulé n'aurait jamais pu détecter.
+Corrigé en remplaçant les deux occurrences par `private.is_platform_admin()`
+/ `private.current_user_role()`, avec un commentaire ajouté dans l'en-tête
+de la migration pour éviter la récidive sur une future migration.
+
+**Vérification finale.** `tsc --noEmit` propre, `eslint .` propre. 37
+nouveaux tests unitaires (`tests/unit/orders-status.test.ts`) + 6 nouveaux
+tests d'intégration RLS (`tests/integration/order-status-transitions-rls.test.ts`),
+tous verts. Suite complète relancée par lots (contrainte de sandbox, voir
+`mount-staleness-ecommerce.md`) : 46 fichiers de tests unitaires (175+
+tests) + 14 fichiers de tests d'intégration (127 tests), tous verts, aucune
+régression. Bug de cache mount rencontré une nouvelle fois sur
+`0015_order_status_transitions.sql` après deux modifications consécutives
+via l'outil `Edit` (troncature mi-mot dans la vue bash), réparé par la
+procédure habituelle (heredoc + `cat` par-dessus le fichier cible) -- et une
+nouvelle manifestation rencontrée cette fois sur une simple lecture de
+`docs/DECISIONS.md` lui-même (`wc -l` bash resté bloqué à une ancienne
+longueur de fichier alors que l'outil `Read` montrait du contenu plus loin),
+confirmant que le bug n'est pas strictement limité aux modifications via
+`Edit` -- voir mise à jour de `mount-staleness-ecommerce.md`.
+
