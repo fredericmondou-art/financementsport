@@ -158,6 +158,9 @@ function createFakeProfileRepo(fixtures: FakeProfileFixtures = {}): PublicProfil
     async getCampaignProductIds(campaignId) {
       return campaignProductIdsByCampaignId.get(campaignId) ?? [];
     },
+    async listAthletes() {
+      return athletes.filter((a) => !a.show_team_only);
+    },
     async getSupporterCount(campaignId) {
       return supporterCountByCampaignId.get(campaignId) ?? 0;
     },

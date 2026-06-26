@@ -3346,3 +3346,49 @@ git reset` (reconstruction non destructive depuis HEAD). Après ça, `git diff`
 détectait correctement les 27 insertions/25 suppressions réelles. Committé
 normalement ensuite. `git fsck` ne montre que des objets dangereux (blobs/
 commits orphelins, sans gravité).
+
+## 2026-06-26 — Tâche 1.4b.2 (accueil) et 1.4b.5 (pages de confiance)
+
+1. **Ordre d'exécution inversé** : 1.4b.5 (pages de confiance) construit avant
+   1.4b.2 (accueil), car le pied de page de l'accueil doit pointer vers des
+   pages de confiance fonctionnelles. Pas un choix arbitraire — évite un lien
+   mort temporaire en cours de développement.
+2. **Témoignages — aucun faux contenu** : la section « Témoignages » de
+   l'accueil n'affiche ni nom ni citation inventés. Tant qu'aucune campagne
+   réelle n'est conclue, elle montre un encart neutre expliquant que de vrais
+   témoignages apparaîtront une fois des campagnes terminées. Choix dicté par
+   l'honnêteté envers les visiteurs, pas par le cahier des charges à la
+   lettre — il demandait une section « confiance », pas du faux contenu.
+3. **Exemple chiffré sourcé sur le seed réel** : l'encart « combien va au
+   bénéficiaire » utilise le Pack Saison du seed (`supabase/seed.sql`,
+   12000 ¢ / 1800 ¢ de crédit fixe) plutôt qu'un exemple inventé, pour rester
+   vérifiable.
+4. **FAQ et recherche `/trouver` en HTML natif** : `<details>/<summary>` pour
+   la FAQ, formulaire GET natif (`?q=`) pour la recherche d'athlètes — aucun
+   JS, cohérent avec le menu mobile et les autres formulaires de recherche du
+   projet.
+5. **Nouvelle récurrence (3e fois) du bug de désync mount/git**, cette fois
+   sur `code/.env.example` : après ajout de `CONTACT_EMAIL`, `git diff`/
+   `git status` ne détectaient aucun changement malgré un hash d'objet
+   (`git hash-object`) différent de celui de `HEAD`. `git add` n'a pas non
+   plus mis à jour l'entrée d'index (`git ls-files -s` montrait toujours
+   l'ancien hash). `git rm --cached` a ensuite échoué avec « bad signature
+   0x00000000 / index file corrupt ». Réparé par la procédure déjà
+   documentée : `rm -f .git/index && git reset --mixed HEAD` (reconstruction
+   non destructive depuis HEAD), après quoi `git diff` a correctement
+   détecté les 5 lignes ajoutées. En vérifiant le fichier lui-même après
+   cette réparation, son contenu sur disque s'est aussi révélé tronqué
+   (perte de `NEXT_PUBLIC_APP_URL` et du commentaire précédent) — reconstruit
+   en entier par heredoc bash directement sur le point de montage, vérifié
+   octet par octet (longueur exacte, aucun octet NUL, fin de fichier
+   correcte). Même bug que les troncatures déjà documentées sur du code
+   TypeScript, mais ici sur un fichier de configuration `.env.example`.
+6. **4e récurrence, variante inédite** : après une édition de ce fichier
+   (`docs/DECISIONS.md` lui-même) via l'outil d'édition, `git hash-object`
+   et `wc -l` côté bash montraient un fichier identique à `HEAD` — l'ajout
+   était invisible côté bash, sans troncature ni octet NUL (contenu valide,
+   juste périmé d'une écriture). Contrairement aux cas précédents, pas de
+   corruption du contenu : un simple retard de synchronisation entre les deux
+   vues du point de montage. Réparé en ajoutant la section manquante
+   directement par `cat >>` (heredoc) côté bash plutôt qu'en réécrivant tout
+   le fichier.

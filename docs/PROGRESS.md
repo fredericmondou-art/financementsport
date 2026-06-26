@@ -837,10 +837,9 @@
         (`components/nav/site-header.tsx`), `tests/e2e/campagnes-liste.spec.ts`.
         54/54 fichiers de tests unitaires verts, `tsc`/`lint` propres. Détail :
         `docs/DECISIONS.md` (entrée du 2026-06-26).
-
-## À venir
-- [ ] 1.4b.2 Page d'accueil : sections de confiance et portes d'entrée
-- [ ] 1.4b.3 Boutique : images produits et cartes alignées
-- [ ] 1.4b.4 Panier : clarté, taxes, impact et paiement rassurant
-- [ ] 1.4b.5 Pages de confiance (À propos, Confidentialité, Conditions, Contact)
-- [ ] 1.4b.6 États vides encourageants et finitions générales
+  - [x] 1.4b.5 Pages de confiance (À propos, Confidentialité, Conditions
+        d'utilisation, Remboursement et livraison, Contact) — construites
+        avant 1.4b.2 pour que le pied de page de l'accueil ait des liens
+        fonctionnels. Nouveau : 5 pages dans `app/(public)/`, formulaire de
+        contact (`lib/contact/`, 4 tests unitaires sur
+     

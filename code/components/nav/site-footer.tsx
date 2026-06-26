@@ -1,7 +1,8 @@
 /**
- * Pied de page (Tâche 1.4.3). Volontairement minimal en V1 — pas de pages
- * légales/CGU à lier encore (hors scope Phase 1.4, voir CLAUDE.md section
- * 10 : ne pas anticiper). À enrichir quand ces pages existeront.
+ * Pied de page (Tâche 1.4.3, enrichi Tâche 1.4b.5 avec les liens vers les
+ * pages de confiance — À propos, Confidentialité, Conditions,
+ * Remboursement et livraison, Contact — désormais créées, voir
+ * docs/DECISIONS.md).
  */
 import Link from 'next/link';
 
@@ -19,6 +20,21 @@ export function SiteFooter(): JSX.Element {
             </li>
             <li>
               <Link href="/boutique">Boutique</Link>
+            </li>
+            <li>
+              <Link href="/a-propos">À propos</Link>
+            </li>
+            <li>
+              <Link href="/confidentialite">Confidentialité</Link>
+            </li>
+            <li>
+              <Link href="/conditions">Conditions d&apos;utilisation</Link>
+            </li>
+            <li>
+              <Link href="/remboursement-livraison">Remboursement et livraison</Link>
+            </li>
+            <li>
+              <Link href="/contact">Contact</Link>
             </li>
           </ul>
         </nav>

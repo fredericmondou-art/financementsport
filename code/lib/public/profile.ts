@@ -46,6 +46,12 @@ export interface PublicProfileRepo {
   ): Promise<PublicCampaignRow[]>;
   getCampaignProgress(campaignId: string): Promise<VCampaignProgressView['Row'] | null>;
   getCampaignProductIds(campaignId: string): Promise<string[]>;
+  /** Annuaire public des athlètes (Tâche 1.4b.2, bouton "Trouver un
+   * athlète" de l'accueil) — exclut les profils `show_team_only` (aucune
+   * page individuelle), même règle que la page `/[athleteSlug]` elle-même.
+   * Filtrage texte fait en mémoire par `filterAthleteDirectory` (pur,
+   * testable), pas ici : cette méthode ne fait que lire la vue publique. */
+  listAthletes(): Promise<PublicAthleteRow[]>;
   /** Nombre de commandes DISTINCTES ayant généré un crédit actif/en attente
    * pour cette campagne (Tâche 1.6.C2, page de suivi de l'athlète) --
    * PAS le nombre de personnes uniques (pas d'identité unifiée invité/
@@ -100,6 +106,16 @@ export function createSupabasePublicProfileRepo(supabase: SupabaseClient): Publi
         .eq('campaign_id', campaignId);
       if (error) throw error;
       return ((data as Array<{ product_id: string }>) ?? []).map((row) => row.product_id);
+    },
+    async listAthletes() {
+      const { data, error } = await supabase
+        .from('v_public_athlete')
+        .select('*')
+        .eq('show_team_only', false)
+        .order('display_name', { ascending: true })
+        .limit(60);
+      if (error) throw error;
+      return (data as PublicAthleteRow[]) ?? [];
     },
     async getSupporterCount(campaignId) {
       const { data, error } = await supabase
