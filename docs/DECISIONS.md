@@ -3,6 +3,59 @@
 Ce fichier consigne les choix mineurs pris sans validation, conformément à la
 section 9 de CLAUDE.md. Format : date — contexte — décision — raison.
 
+## 2026-06-26 — Ajout de la liste « Mes campagnes » (`/campagnes`)
+
+**Contexte.** Bug signalé directement par l'utilisateur (capture d'écran de
+`/campagnes/nouvelle`) : « Lorsque je vais dans campagne et que j'ai déjà créé
+une campagne, je ne vois rien en lien avec ma campagne. » Diagnostic : le lien
+de nav « Campagnes » (`components/nav/site-header.tsx`) pointait directement
+vers `/campagnes/nouvelle` (l'assistant de création) ; aucune route ne listait
+les campagnes déjà créées. Pas un bug de logique — une page manquante.
+
+**Décision — portée de la correction.** Traité comme la Tâche 1.4b.1 : un
+trou de confiance/navigation, pas une fonctionnalité hors-scope de la Phase
+1.4b. Construit :
+- `lib/campaigns/list-for-manager.ts` : logique pure (`buildCampaignListItems`)
+  + repo injecté (même patron que `lib/dashboards/team.ts`), testée sans base
+  réelle (8 tests, `tests/unit/campaigns-list-for-manager.test.ts`).
+- `app/(portails)/campagnes/page.tsx` : liste les campagnes visibles, état vide
+  encourageant si aucune, badge de statut, montant amassé/objectif (réutilise
+  `computeCampaignProgress`), lien « Voir le rapport » (toujours) et « Partager
+  la campagne » (si `active` seulement).
+- `components/nav/site-header.tsx` : le lien « Campagnes » pointe maintenant
+  vers `/campagnes` plutôt que `/campagnes/nouvelle`.
+- `tests/e2e/campagnes-liste.spec.ts` : parcours complet (créer une campagne
+  par défaut, vérifier qu'elle apparaît via le lien de nav corrigé).
+
+**Décision — scope géré entièrement par RLS, aucune duplication applicative.**
+Même convention que `app/(portails)/equipe/[teamId]/page.tsx` et `[campaignId]/
+rapport` : la requête `.from('campaigns').select(...)` est filtrée uniquement
+par la policy `campaigns_select_scoped` (migration 0003) — pas de
+`.eq('created_by', ...)` ou logique de périmètre dupliquée dans `lib/`. Un
+`platform_admin` verra donc toutes les campagnes, cohérent avec son accès
+ailleurs dans le projet.
+
+**Décision — variante de badge par statut.** Aucune règle métier n'associe un
+statut de campagne à une couleur de badge ; introduit
+`campaignStatusBadgeVariant` (présentation pure, ne touche ni l'argent ni la
+sécurité) : `active`→success, `cancelled`→error, `draft`/`archived`→neutral,
+`pending_approval`/`scheduled`→warning, `ended`/`closed`/`paid`→info.
+
+**Vérification.** 54/54 fichiers de tests unitaires verts (lancés par lots,
+contrainte de bac à sable réseau — voir entrées précédentes), `tsc --noEmit`
+propre, `eslint` propre. `tests/e2e/campagnes-liste.spec.ts` ne peut pas être
+exécuté dans ce bac à sable (même limitation réseau que les autres specs e2e)
+— à exécuter en CI ou en local avant production.
+
+**Pourquoi traité en autonomie (CLAUDE.md section 9).** Trou de navigation
+clair signalé par l'utilisateur, aucune ambiguïté d'interprétation, aucune
+décision touchant l'argent/la sécurité/les données de mineurs au-delà de ce
+qui est déjà couvert par les conventions existantes (RLS, montants en
+centimes via les vues `v_*`).
+
+---
+
+
 ## 2026-06-26 — Tâche 1.4b.1 : vérification de la correction + bug trouvé dans les specs e2e existantes
 
 **Contexte.** Avant de clore la Tâche 1.4b.1, vérification que la correction

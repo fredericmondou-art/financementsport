@@ -828,6 +828,15 @@
         existantes (`profiles.role` jamais provisionné). Nouveau test e2e
         dédié : `tests/e2e/campagne-creation-acces.spec.ts`. Détail :
         `docs/rapports/RAPPORT-1.4b.1.md`.
+  - [x] Ajout de la liste « Mes campagnes » (`/campagnes`) — bug de
+        navigation signalé directement par l'utilisateur (le lien « Campagnes »
+        menait droit à l'assistant de création, jamais aux campagnes
+        existantes). Nouveau : `lib/campaigns/list-for-manager.ts` (logique
+        pure testée, 8 tests), `app/(portails)/campagnes/page.tsx` (liste,
+        scope géré par RLS seul), lien de nav corrigé
+        (`components/nav/site-header.tsx`), `tests/e2e/campagnes-liste.spec.ts`.
+        54/54 fichiers de tests unitaires verts, `tsc`/`lint` propres. Détail :
+        `docs/DECISIONS.md` (entrée du 2026-06-26).
 
 ## À venir
 - [ ] 1.4b.2 Page d'accueil : sections de confiance et portes d'entrée

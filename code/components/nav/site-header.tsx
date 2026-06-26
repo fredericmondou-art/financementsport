@@ -47,7 +47,7 @@ export async function SiteHeader(): Promise<JSX.Element> {
     { href: '/boutique', label: 'Boutique' },
   ];
   if (isManager) {
-    primaryItems.push({ href: '/campagnes/nouvelle', label: 'Campagnes' });
+    primaryItems.push({ href: '/campagnes', label: 'Campagnes' });
   }
 
   return (
