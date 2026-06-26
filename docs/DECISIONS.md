@@ -3392,3 +3392,68 @@ commits orphelins, sans gravité).
    vues du point de montage. Réparé en ajoutant la section manquante
    directement par `cat >>` (heredoc) côté bash plutôt qu'en réécrivant tout
    le fichier.
+
+## 2026-06-26 — Tâche 1.4b.3 : images produits et cartes alignées
+
+**Contexte.** Cahier `docs/prompts/phase-1-4b.md`, Tâche 1.4b.3 : la grille de
+la boutique doit afficher une image (ou un remplacement neutre) par carte, des
+cartes de hauteur égale, et le bouton « Ajouter au panier » aligné sur toute la
+grille — aucun produit du seed n'a de `image_url` aujourd'hui.
+
+**Décision — remplacement visuel par SVG inline plutôt que `next/image`.**
+`ProductImagePlaceholder` (`components/product-card.tsx`) : un simple SVG
+inline (`role="img"`, `aria-label="Aucune image pour ce produit"`) quand
+`product.image_url` est absent, plutôt qu'une image statique servie depuis
+`public/` (vide aujourd'hui) ou un appel `next/image` sur un asset par défaut.
+Évite toute dépendance à un fichier qui n'existe pas et toute extension de
+`images.remotePatterns`/`dangerouslyAllowSVG` dans `next.config.js`.
+
+**Décision — hauteur égale par CSS Grid stretch, pas par JS.** `app/
+globals.css` : `.product-grid > li { height: 100% }` (le comportement par
+défaut `align-items: stretch` de CSS Grid étire déjà chaque `<li>` d'une même
+rangée à la même hauteur), puis `.product-grid > li > .card { flex: 1; display:
+flex }` et `.product-grid > li > .card > .product-card { flex: 1 }`
+propagent cette hauteur du `<li>` jusqu'à l'`<article>` interne, ce qui pousse
+le formulaire « Ajouter au panier » (rendu après la carte, sibling dans le même
+`<li>`, voir `app/(shop)/boutique/page.tsx`) systématiquement au même point en
+bas — aucun changement de structure HTML, aucune mesure JS.
+
+**Tests.** `tests/e2e/boutique-images.spec.ts` (nouveau) : vérifie présence
+image/remplacement par carte, bouton aligné, hauteurs convergentes (≤ 2
+hauteurs distinctes pour tolérer un changement de rangée), plus une variante
+viewport mobile (375px). Non exécutable dans ce bac à sable — même limitation
+réseau que `tests/e2e/checkout.spec.ts`, avec une cause additionnelle
+découverte cette fois : le serveur de développement Next.js lui-même échoue à
+démarrer ici car il ne peut pas récupérer la police Google Fonts « Inter »
+(`https://fonts.googleapis.com/...`), avant même d'atteindre Playwright/
+Chromium (non installés non plus). Tests unitaires ciblés relancés
+(`catalog-products`, `format-cents`, `ui-card`, `ui-badge` — 21/21 verts),
+`tsc --noEmit` et `npm run lint` propres, aucune régression.
+
+**5e et 6e récurrences du bug de désync mount/git, deux nouvelles variantes.**
+(a) `tests/e2e/boutique-images.spec.ts` : une petite édition (ajout d'un seul
+paragraphe au docblock) a immédiatement produit, côté bash, un fichier dont la
+longueur en octets était IDENTIQUE à l'ancienne version (3189 octets,
+inchangée malgré l'ajout réel de contenu), coupé en plein milieu d'une
+instruction — donc une longueur de fichier inchangée n'est pas non plus une
+preuve de non-troncature après un Edit qui AJOUTE du contenu. Réparé par
+réécriture heredoc complète sur le mount, revérifié par scan Python (71
+lignes, 3616 octets, aucun octet NUL, fin de fichier correcte). (b) `docs/
+PROGRESS.md` : après un Edit réussi (confirmé par une relecture fraîche via
+l'outil Read, qui montrait le fichier complet et correct à 879 lignes), bash
+montrait un fichier tronqué à 844 lignes, coupé en plein milieu d'une phrase
+bien AVANT même d'atteindre la zone éditée. Plus troublant : `git
+hash-object`/`git rev-parse HEAD:`/`git ls-files -s` concordaient tous les
+trois entre eux — ce qui, selon la procédure de vérification déjà établie,
+aurait dû signifier « pas de changement réel, juste un retard de sync » — alors
+que la troncature visible contredisait directement cette conclusion. Un essai
+de recherche/remplacement Python avec la chaîne exacte donnée à l'outil Edit a
+échoué (« old string occurrences: 0 ») car cette chaîne n'existait pas du tout
+dans la vue tronquée côté bash. Résolu en relisant le fichier en entier via
+l'outil Read (source de vérité), puis en réécrivant l'intégralité du contenu
+confirmé via heredoc directement sur le mount ; revérifié par scan Python
+(878 lignes, 60822 octets, aucun octet NUL, fin de fichier correcte).
+**Conclusion mise à jour dans la mémoire persistante** : la concordance des
+trois vérifications git (`hash-object`/`rev-parse HEAD:`/`ls-files -s`) n'est
+PAS une preuve suffisante de l'absence de troncature sur ce mount — seule une
+relecture fraîche via l'outil Read fait foi en cas de doute.

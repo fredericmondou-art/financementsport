@@ -842,4 +842,37 @@
         avant 1.4b.2 pour que le pied de page de l'accueil ait des liens
         fonctionnels. Nouveau : 5 pages dans `app/(public)/`, formulaire de
         contact (`lib/contact/`, 4 tests unitaires sur
-     
+        `buildContactMessageContent`), pied de page mis à jour
+        (`components/nav/site-footer.tsx`), e2e
+        `tests/e2e/pages-confiance.spec.ts`.
+  - [x] 1.4b.2 Page d'accueil : sections de confiance et portes d'entrée —
+        3 portes d'entrée (Trouver un athlète / Lancer une campagne / Voir
+        la boutique), exemple chiffré sourcé sur le seed réel, section
+        « Comment ça fonctionne », témoignages neutres (aucun faux
+        contenu — voir `docs/DECISIONS.md`), FAQ en HTML natif. Nouveau :
+        `app/(public)/page.tsx` réécrite, annuaire `/trouver`
+        (`lib/public/athlete-directory.ts`, 5 tests unitaires,
+        `loadAthleteDirectory`/`listAthletes` ajoutés à
+        `lib/public/profile.ts`), e2e
+        `tests/e2e/accueil-confiance.spec.ts`. h1/bouton « Voir la
+        boutique » préservés (aucune régression sur `tests/e2e/home.spec.ts`
+        existant). `tsc`/`lint` propres ; tests unitaires/intégration
+        touchés (27) verts. Bug de désync mount/git rencontré une 3e fois
+        sur `code/.env.example`, réparé (voir `docs/DECISIONS.md`).
+  - [x] 1.4b.3 Boutique : images produits et cartes alignées — chaque carte
+        affiche désormais soit l'image du produit (`next/image`, inchangé)
+        soit un remplacement visuel neutre (SVG inline,
+        `ProductImagePlaceholder` dans `components/product-card.tsx` —
+        aucun produit du seed n'a d'image aujourd'hui). Cartes de hauteur
+        égale et bouton « Ajouter au panier » alignés sur toute la grille
+        via `app/globals.css` (`.product-grid > li > .card { flex: 1 }`,
+        la grille CSS étire déjà les `<li>` d'une rangée à la même hauteur).
+        Nouveau : `tests/e2e/boutique-images.spec.ts` (non exécutable en
+        sandbox, mêmes raisons réseau que `checkout.spec.ts`). `tsc`/`lint`
+        propres ; tests unitaires ciblés (`catalog-products`, `format-cents`,
+        `ui-card`, `ui-badge`) verts. Bug de désync mount/git rencontré deux
+        fois de plus sur ces deux fichiers (voir `docs/DECISIONS.md`).
+
+## À venir
+- [ ] 1.4b.4 Panier : clarté, taxes, impact et paiement rassurant
+- [ ] 1.4b.6 États vides encourageants et finitions générales

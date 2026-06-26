@@ -828,6 +828,20 @@ textarea {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
+  height: 100%;
+}
+/* Tâche 1.4b.3 : la grille étire déjà chaque <li> d'une rangée à la même
+   hauteur (comportement par défaut de CSS Grid) ; faire grandir la carte
+   pour occuper cette hauteur pousse le formulaire "Ajouter au panier"
+   (rendu après la carte dans le <li>, voir app/(shop)/boutique/page.tsx)
+   systématiquement au même point en bas, peu importe la longueur de la
+   description ou la présence de badges sur chaque produit. */
+.product-grid > li > .card {
+  flex: 1;
+  display: flex;
+}
+.product-grid > li > .card > .product-card {
+  flex: 1;
 }
 
 .product-card {
@@ -845,6 +859,20 @@ textarea {
 }
 .product-card__image-img {
   object-fit: cover;
+}
+.product-card__image-placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-bg-alt);
+  color: var(--color-text-secondary);
+}
+.product-card__image-placeholder svg {
+  width: 40%;
+  height: 40%;
+  fill: currentColor;
 }
 .product-card__title {
   margin: 0;
@@ -962,4 +990,98 @@ textarea {
   background: var(--color-bg);
   padding: var(--space-4) 0;
   border-top: 1px solid var(--color-border);
+}
+
+/* ==========================================================================
+   Accueil et pages de confiance (Tâche 1.4b.2 / 1.4b.5) — primitives
+   purement présentationnelles, aucune logique. Réutilisent les tokens et
+   classes existantes (.card, .alert, .btn) là où c'est possible.
+   ========================================================================== */
+
+/* Portes d'entrée de l'accueil : 3 boutons d'action principaux. */
+.entry-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+/* Grille de cartes "Comment ça fonctionne" / témoignages — même motif que
+   .product-grid, sans dépendre du contenu produit. */
+.feature-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--space-5);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.feature-grid > li {
+  height: 100%;
+}
+.feature-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  height: 100%;
+}
+.feature-card__step {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.feature-card h3 {
+  margin: 0;
+}
+
+/* Exemple chiffré honnête (accueil). */
+.costed-example {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-5);
+  align-items: baseline;
+}
+.costed-example dt {
+  color: var(--color-text-secondary);
+}
+.costed-example dd {
+  margin: 0 0 0 var(--space-1);
+  font-weight: 700;
+}
+
+/* FAQ : <details>/<summary> natifs, pas de JS (même choix que le menu
+   mobile du site-header, voir docs/DECISIONS.md). */
+.faq {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.faq__item {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4);
+}
+.faq__item summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.faq__item p {
+  margin: var(--space-2) 0 0;
+  color: var(--color-text-secondary);
+}
+
+/* Pages de confiance (À propos, Confidentialité, Conditions, etc.) :
+   contenu long, lisible, largeur de lecture confortable. */
+.legal-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  max-width: 70ch;
+}
+.legal-content h2 {
+  margin-top: var(--space-3);
+}
+.legal-content dl.recap-list {
+  max-width: none;
 }
