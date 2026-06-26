@@ -126,4 +126,41 @@ migrations : tous verts, aucune régression.
   pas 24 — quelques-uns accumulés depuis la rédaction de cet audit) ont été
   poussés. Dépôt local et `origin/main` confirmés synchronisés (0 commit
   d'écart dans les deux sens).
-- L'écart de suivi des migrations Su
+- ~~L'écart de suivi des migrations Supabase est comblé : les migrations
+  0009-0020 (déjà appliquées en production mais jamais enregistrées) ont été
+  ajoutées rétroactivement à `supabase_migrations.schema_migrations`, sans
+  ré-exécuter leur DDL. La table couvre maintenant 0001-0022 sans aucun trou.~~
+  **CORRECTION (2026-06-25, plus tard la même journée) : cette affirmation
+  était fausse.** En diagnostiquant le bug de la Tâche 1.4b.1
+  (`/campagnes/nouvelle` affichait une erreur générique), il s'est avéré que
+  les migrations 0009 à 0020 n'avaient EN RÉALITÉ jamais été exécutées en
+  production — seule leur ligne de suivi avait été insérée, sans qu'aucune
+  des tables/vues/fonctions/policies réelles n'existe (`campaign_drafts`,
+  `saved_splits`, `saved_split_items`, `order_status_log`,
+  `campaign_status_log`, `campaign_reports`, `payout_status_log`,
+  `v_campaign_supporter_count`, et plusieurs fonctions/policies). Confirmé par
+  `information_schema`/logs API (404 PostgREST réels) avant toute correction.
+  Le DDL réel des 12 migrations a été ré-appliqué via `apply_migration` le
+  2026-06-25, puis chaque objet vérifié individuellement comme existant. La
+  table de suivi reflète maintenant les VRAIES dates d'application (toutes le
+  2026-06-25, pas le 2026-06-22 comme le faux enregistrement le prétendait).
+  Voir `docs/DECISIONS.md`, entrée « Correction : migrations 0009-0020
+  jamais réellement appliquées ». Cette erreur affectait potentiellement
+  plusieurs fonctionnalités déjà livrées (Tâches 1.5.3, 1.5.5, 1.5.6, 1.5.8,
+  1.5.9, 1.5.10, 1.5.11, 1.6.B1, 1.6.C2) qui dépendaient de ces tables/
+  fonctions — toutes opérationnelles en production seulement depuis cette
+  correction.
+
+**Laissé tel quel, à votre décision :**
+
+- 11 index jamais utilisés à ce jour — les supprimer maintenant serait
+  prématuré tant qu'il y a peu de trafic réel.
+
+## 8. Conclusion
+
+Le projet est livrable en l'état pour ce qui concerne la logique métier, la
+sécurité et l'argent — rien n'a dû être corrigé dans ces domaines, tout
+était déjà conforme. Les seuls problèmes réels trouvés étaient
+opérationnels (git, fichiers tronqués) et documentaires, et sont réglés.
+Les points de la section 7 sont des améliorations futures, pas des
+bloquants.

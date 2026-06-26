@@ -815,9 +815,23 @@
   - [x] 1.5.10 Calcul des versements (manuel)
   - [x] 1.5.11 Export des commandes (admin)
 
+## Terminé (suite 2)
+- [x] Correction critique : migrations 0009-0020 jamais réellement
+      appliquées en production (découvert et corrigé le 2026-06-25, voir
+      `docs/DECISIONS.md` et `docs/AUDIT-2.0.md` §7).
+- [x] Phase 1.4b — Confiance et finitions visuelles (voir
+      `docs/prompts/phase-1-4b.md`) — **en cours.**
+  - [x] 1.4b.1 Corriger le bug de création de campagne (PRIORITÉ) —
+        cause réelle : tables manquantes en production (voir ci-dessus),
+        pas un problème de permissions ni d'interface (l'état guidé existait
+        déjà). Bug additionnel trouvé et corrigé dans deux specs e2e
+        existantes (`profiles.role` jamais provisionné). Nouveau test e2e
+        dédié : `tests/e2e/campagne-creation-acces.spec.ts`. Détail :
+        `docs/rapports/RAPPORT-1.4b.1.md`.
+
 ## À venir
-Aucune tâche en attente pour le moment : les phases 0, 1.1-1.4, 1.6 et 1.5
-sont toutes complétées (voir ci-dessus). Prochaine étape : convenir avec
-Frédéric du prochain chantier (au-delà de la V1 — voir section 10 du
-`CLAUDE.md` pour ce qui n'est pas construit pour l'instant) avant de
-rédiger de nouveaux prompts dans `docs/prompts/`.
+- [ ] 1.4b.2 Page d'accueil : sections de confiance et portes d'entrée
+- [ ] 1.4b.3 Boutique : images produits et cartes alignées
+- [ ] 1.4b.4 Panier : clarté, taxes, impact et paiement rassurant
+- [ ] 1.4b.5 Pages de confiance (À propos, Confidentialité, Conditions, Contact)
+- [ ] 1.4b.6 États vides encourageants et finitions générales

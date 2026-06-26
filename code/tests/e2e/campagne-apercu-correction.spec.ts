@@ -66,6 +66,17 @@ test('aperçu fidèle → correction en un clic → activation → écran de dé
     throw profileError ?? new Error('Profil introuvable après inscription.');
   }
   const userId = (profileRow as { id: string }).id;
+  // Voir le commentaire équivalent dans campagne-defauts-bulk.spec.ts
+  // (bug trouvé et corrigé à la Tâche 1.4b.1, docs/DECISIONS.md) :
+  // `profiles.role` (porte d'accès page.tsx) doit être mis à jour
+  // explicitement, distinct de `memberships.role` (périmètre géré).
+  const { error: profileRoleError } = await supabase
+    .from('profiles')
+    .update({ role: 'team_manager' })
+    .eq('id', userId);
+  if (profileRoleError) {
+    throw profileRoleError;
+  }
   const { error: membershipError } = await supabase
     .from('memberships')
     .insert({ user_id: userId, role: 'team_manager', team_id: TEAM_ID });

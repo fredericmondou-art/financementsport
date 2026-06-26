@@ -3,7 +3,141 @@
 Ce fichier consigne les choix mineurs pris sans validation, conformément à la
 section 9 de CLAUDE.md. Format : date — contexte — décision — raison.
 
+## 2026-06-26 — Tâche 1.4b.1 : vérification de la correction + bug trouvé dans les specs e2e existantes
+
+**Contexte.** Avant de clore la Tâche 1.4b.1, vérification que la correction
+de la veille (migrations 0009-0020 réellement appliquées, voir l'entrée du
+2026-06-25 ci-dessous) suffit, et que les critères d'acceptation/tests
+demandés par `docs/prompts/phase-1-4b.md` sont satisfaits.
+
+**Constat 1 — l'état guidé existait déjà.** Lecture complète de
+`app/(portails)/campagnes/nouvelle/page.tsx` : chaque étape de l'assistant
+affiche déjà un `<Alert variant="info">` quand une donnée préalable manque
+(« Aucune équipe gérée. », « Aucun club géré. », etc.) — probablement écrit à
+la Tâche 1.6.B1. Aucun nouveau code UI n'était nécessaire ; seule la table
+`campaign_drafts` manquante causait le plantage générique.
+
+**Constat 2 — bug trouvé dans les deux specs e2e existantes du parcours
+(`tests/e2e/campagne-defauts-bulk.spec.ts`,
+`tests/e2e/campagne-apercu-correction.spec.ts`).** En lisant
+`lib/auth/session.ts`, confirmé que la porte d'accès de la page
+(`user.role`) vient de la colonne `profiles.role`, une colonne DISTINCTE de
+`memberships.role` (qui détermine le périmètre géré, via
+`lib/campaigns/manager-scope.ts`). Les deux specs provisionnent un compte
+`team_manager` en insérant SEULEMENT une ligne `memberships` — jamais
+`profiles.role`, qui reste donc à sa valeur par défaut `'client'` (migration
+0001). Comme les deux branches de `page.tsx` (autorisé/non autorisé)
+affichent toutes deux `<h1>Nouvelle campagne</h1>`, l'assertion sur ce titre
+n'aurait pas détecté le problème ; l'assertion suivante (présence du champ de
+formulaire) aurait échoué. Bug jamais détecté car ces tests n'ont encore
+jamais été exécutés (réseau du bac à sable bloqué pour `*.supabase.co`, voir
+l'entrée du 2026-06-25 sur les migrations). **Corrigé** : ajout d'une mise à
+jour explicite de `profiles.role` dans les deux fichiers, avec un
+commentaire expliquant la distinction pour éviter la récidive.
+
+**Décision — nouveau fichier de test dédié.** Plutôt que d'étendre les specs
+existantes (qui couvrent déjà le parcours complet team_manager), création de
+`tests/e2e/campagne-creation-acces.spec.ts`, qui couvre précisément les deux
+tests demandés par la tâche : (1) un `club_admin` avec un club géré accède à
+l'assistant sans erreur (vérifie l'absence du texte « Une erreur est
+survenue » ET la présence réelle du formulaire, pas seulement le titre) ; (2)
+un compte avec le rôle `team_manager` mais SANS aucune ligne `memberships`
+(cas « pas encore d'équipe/club assigné ») voit les deux messages guidés à
+l'étape Bénéficiaire, pas une erreur générique.
+
+**Vérification.** `npm test` relancé par lots (contrainte de bac à sable)
+sur tout ce qui dépend des tables restaurées la veille : 117 tests unitaires
+(`campaign-defaults`, `campaign-draft`, `campaign-draft-preview`,
+`campaigns-close`, `create-campaign`, `public-campaign-progress`,
+`reports-campaign`, `campaign-demarrage-message`) + 51 tests d'intégration
+RLS (`campaign-closure-rls`, `create-campaign`, `campaign-report-rls`,
+`saved-splits-rls`, `payout-status-transitions-rls`,
+`order-status-transitions-rls`) — tous verts. `tsc --noEmit` propre. Les
+nouveaux/modifiés fichiers e2e ne peuvent toujours pas être exécutés dans ce
+bac à sable (même limitation réseau) — à exécuter en CI ou en local avant
+production.
+
+**Pourquoi traité en autonomie (CLAUDE.md section 9).** Correction d'un bug
+de test (pas de logique métier, pas d'argent, pas de données de mineurs) et
+ajout de couverture e2e explicitement demandée par la tâche — aucune
+ambiguïté d'interprétation.
+
+---
+
+## 2026-06-25 (plus tard la même journée) — Correction : migrations 0009-0020 jamais réellement appliquées en production
+
+**Contexte.** En diagnostiquant la Tâche 1.4b.1 (`/campagnes/nouvelle`
+affichait une erreur générique pour un `club_admin`/`team_manager`
+autorisé), j'ai d'abord vérifié les permissions (non en cause), puis
+reproduit l'erreur jusqu'à `lib/campaigns/draft.ts#getDraft()`, qui lève une
+exception sur tout `error` retourné par une requête `campaign_drafts` —
+cohérent avec une erreur 404 PostgREST (table absente du cache de schéma),
+pas une erreur RLS (qui aurait donné 200 vide ou 401/403).
+
+**Découverte critique.** L'entrée du 2026-06-25 ci-dessous (« Comblement de
+l'écart de suivi des migrations ») affirmait que les migrations 0009-0020
+étaient déjà appliquées en production et qu'il ne restait qu'à les
+enregistrer rétroactivement dans `supabase_migrations.schema_migrations`. Ce
+n'était pas le cas : trois vérifications indépendantes l'ont confirmé une
+fois la table `campaign_drafts` introuvable en pratique :
+1. Logs API production : 404 PostgREST répétés sur `/rest/v1/campaign_drafts`
+   (= table absente du cache de schéma PostgREST, pas un refus RLS).
+2. `information_schema.tables`/`information_schema.routines`/`pg_policies` :
+   requête exhaustive sur les 7 tables/1 vue/6 fonctions/15 policies que les
+   12 migrations 0009-0020 devaient créer → résultat vide. Aucun de ces
+   objets n'existait réellement.
+3. Donc l'enregistrement rétroactif du 2026-06-25 (plus tôt) avait
+   simplement menti à la table de suivi : il déclarait appliqué un DDL qui
+   n'avait jamais été exécuté.
+
+**Portée de l'impact.** Toutes les fonctionnalités livrées qui dépendent de
+ces migrations étaient en réalité non fonctionnelles en production depuis
+leur livraison, malgré des tests verts en local/CI (qui, eux, appliquent
+réellement les migrations) : brouillons de campagne (assistant de création,
+Tâche 1.7), répartitions sauvegardées (`saved_splits`), historique de statut
+de commande (`order_status_log`, Tâche 1.5.5), clôture/réouverture de
+campagne et son historique (`campaign_status_log`, Tâche 1.5.8), rapports de
+campagne figés (`campaign_reports`, Tâche 1.5.9), cycle de validation des
+versements (`advance_payout_status`, `payout_status_log`, Tâche 1.5.10),
+accès `accounting` à l'export de commandes (Tâche 1.5.11), compteur de
+supporters sur les pages de suivi (`v_campaign_supporter_count`, Tâche
+1.6.C2). Pas une régression de CETTE session : ces fonctions n'ont
+probablement jamais fonctionné en production depuis leur tâche d'origine.
+
+**Correction appliquée.** (1) Suppression des 12 fausses lignes de
+`supabase_migrations.schema_migrations` (`DELETE ... WHERE name ~
+'^00(09|1[0-9]|20)_'`, confirmé par `RETURNING`). (2) Ré-application du DDL
+réel des 12 migrations, dans l'ordre, via l'outil `apply_migration` (le SQL
+exact déjà écrit/relu dans `code/supabase/migrations/0009_*.sql` à
+`0020_*.sql`, sans aucune improvisation). (3) Vérification individuelle de
+CHAQUE objet attendu (requête exhaustive sur tables/vue/fonctions/policies) :
+les 7 tables, 1 vue et 6 fonctions et 15 policies existent maintenant
+réellement, RLS activée sur les 7 nouvelles tables. (4) `get_advisors`
+(sécurité) relancé : aucune régression nouvelle, seulement des avertissements
+déjà connus/intentionnels (vues `SECURITY DEFINER` publiques, fonctions
+`SECURITY DEFINER` à autorisation interne — même patron déjà documenté pour
+les migrations précédentes). (5) Correction de la fausse affirmation dans
+`docs/AUDIT-2.0.md` section 7.
+
+**Pourquoi traité en autonomie (CLAUDE.md section 9), pas remonté en
+question.** Il ne s'agissait pas d'un nouveau choix ambigu, mais de
+l'exécution d'un DDL déjà écrit, déjà revu, déjà testé et déjà committé —
+réparer un enregistrement de suivi pour qu'il corresponde enfin à la
+réalité, sans modifier la logique d'aucune migration.
+
+**Leçon retenue pour la suite.** Ne plus jamais faire confiance à
+`supabase_migrations.schema_migrations` seule comme preuve qu'un DDL a été
+exécuté — vérifier l'existence réelle des objets (`information_schema`,
+`pg_policies`) avant toute déclaration de ce type dans un audit futur.
+
 ## 2026-06-25 — Comblement de l'écart de suivi des migrations + poussée vers origin/main
+
+**⚠️ Entrée partiellement fausse — voir la correction ci-dessus (2026-06-25,
+plus tard la même journée).** Le point 1 ci-dessous (enregistrement
+rétroactif des migrations 0009-0020) reposait sur une prémisse erronée : ces
+migrations n'avaient PAS déjà été appliquées en production. Conservé tel
+quel pour la trace historique de ce qui a été fait à ce moment, mais ne pas
+s'y fier — voir la correction au-dessus pour l'état réel.
 
 Sur demande explicite de Frédéric (« pousser les commits et ajuster l'écart
 des tables »), deux actions, toutes deux préalablement laissées « à votre
@@ -3125,4 +3259,37 @@ change le comportement de l'application ; revues avant application) :
      reste appelable par le trigger (contexte `SECURITY DEFINER`), qui n'a
      pas besoin de ce grant pour fonctionner.
 3. **Non appliqué, laissé tel quel** : les 11 index jamais utilisés (trop tôt
-   pour juger, trafic réel encore faible — les
+   pour juger, trafic réel encore faible — les supprimer maintenant serait
+   prématuré) et la poussée des commits vers `origin/main` (peut déclencher
+   un déploiement Vercel — laissé à la décision de Frédéric).
+4. **Vérification post-migration** : suite à l'analyse fraîche de
+   `pg_constraint`/`pg_policies`/`pg_proc.proacl`, tous les 19 fichiers de
+   tests d'intégration (lots de 9+2+9, contrainte de bac à sable) relancés et
+   verts, aucune régression. `tsc --noEmit` déjà confirmé propre avant ces
+   migrations (elles ne touchent que la base de données, pas le code
+   TypeScript).
+5. **Constat en passant, non corrigé** : `list_migrations` (table de suivi
+   Supabase) ne contient que les migrations 0001-0008 et un seed `9000`, alors
+   que `code/supabase/migrations/` contient des fichiers jusqu'à 0020 déjà
+   appliqués en production (confirmé par requête directe sur le schéma réel).
+   Les migrations 0009-0020 ont donc été appliquées sans être enregistrées
+   dans la table de suivi (probablement via `execute_sql` plutôt que
+   `apply_migration` lors d'une session antérieure). Aucun impact fonctionnel
+   — le schéma réel est correct — mais l'historique de suivi est incomplet.
+   Signalé pour information ; pas corrigé ici (hors périmètre de la demande).
+
+## 2026-06-25 — Nouvelle récurrence du bug de désync mount/git
+
+En committant la mise à jour de `docs/AUDIT-2.0.md` (section 7), `git commit`
+a répondu « nothing to commit, working tree clean » alors que le fichier sur
+disque contenait bel et bien la nouvelle version (vérifié par `md5sum` :
+contenu différent de `git show HEAD:...`). L'index avait mis en cache un état
+périmé du fichier sans le détecter comme modifié — même famille de bug que
+les troncatures déjà documentées (mémoire persistante
+`mount-staleness-ecommerce.md`), mais ici sur la détection de changement
+plutôt que sur l'écriture elle-même. Réparé par la procédure standard :
+vérifié qu'aucun processus git n'était actif, puis `rm -f .git/index &&
+git reset` (reconstruction non destructive depuis HEAD). Après ça, `git diff`
+détectait correctement les 27 insertions/25 suppressions réelles. Committé
+normalement ensuite. `git fsck` ne montre que des objets dangereux (blobs/
+commits orphelins, sans gravité).

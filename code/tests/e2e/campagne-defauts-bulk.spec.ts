@@ -100,6 +100,23 @@ test('création "tout par défaut" + ajout de 15 athlètes en lot (doublons sign
     throw profileError ?? new Error('Profil introuvable après inscription.');
   }
   const userId = (profileRow as { id: string }).id;
+  // `profiles.role` (la porte d'accès vérifiée par page.tsx, lib/auth/
+  // session.ts) et `memberships.role` (le périmètre géré, lib/campaigns/
+  // manager-scope.ts) sont DEUX colonnes distinctes — un signup frais a
+  // toujours `profiles.role = 'client'` (défaut, migration 0001). Bug
+  // trouvé en vérifiant ce test pendant la Tâche 1.4b.1 (docs/DECISIONS.md) :
+  // sans cette mise à jour explicite, ce test échouait silencieusement à la
+  // toute première assertion de formulaire (la page affiche bien un <h1>
+  // dans les deux branches, mais seule la branche autorisée affiche le
+  // formulaire) — jamais détecté parce que ce test n'avait encore jamais été
+  // exécuté (réseau du bac à sable bloqué, voir l'en-tête de ce fichier).
+  const { error: profileRoleError } = await supabase
+    .from('profiles')
+    .update({ role: 'team_manager' })
+    .eq('id', userId);
+  if (profileRoleError) {
+    throw profileRoleError;
+  }
   const { error: membershipError } = await supabase
     .from('memberships')
     .insert({ user_id: userId, role: 'team_manager', team_id: TEAM_ID });
