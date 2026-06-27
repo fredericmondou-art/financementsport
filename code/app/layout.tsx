@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
-import { Inter, Outfit } from 'next/font/google';
+import { Inter, Bricolage_Grotesque } from 'next/font/google';
 import { SiteHeader } from '@/components/nav/site-header';
 import { SiteFooter } from '@/components/nav/site-footer';
 import { getPublicAppUrl } from '@/lib/env';
@@ -14,10 +14,10 @@ import './globals.css';
  * référencées en dur ailleurs.
  */
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' });
-const outfit = Outfit({
+const bricolage = Bricolage_Grotesque({
   subsets: ['latin'],
   weight: ['600', '700'],
-  variable: '--font-outfit',
+  variable: '--font-bricolage',
   display: 'swap',
 });
 
@@ -64,7 +64,7 @@ export default async function RootLayout({
   children: ReactNode;
 }): Promise<JSX.Element> {
   return (
-    <html lang="fr" className={`${inter.variable} ${outfit.variable}`}>
+    <html lang="fr" className={`${inter.variable} ${bricolage.variable}`}>
       <body>
         <SiteHeader />
         {/*

@@ -9,6 +9,7 @@ import { Alert } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { EmptyState } from '@/components/ui/empty-state';
 import { ErrorState } from '@/components/ui/error-state';
 import { Field } from '@/components/ui/field';
 import { ModalDemo } from '@/components/ui/modal-demo';
@@ -110,6 +111,16 @@ export default function StyleguidePage(): JSX.Element {
         <ErrorState title="Campagne introuvable" retryHref="/" retryLabel="Retourner à l'accueil">
           Cette campagne est peut-être terminée ou le lien est incorrect.
         </ErrorState>
+      </Section>
+
+      <Section title="État vide">
+        <EmptyState
+          title="Aucune campagne pour l'instant"
+          actionHref="/campagnes/nouvelle"
+          actionLabel="Lancer une campagne"
+        >
+          Crée ta première campagne pour commencer à recevoir des encouragements.
+        </EmptyState>
       </Section>
 
       <Section title="Modale">

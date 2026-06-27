@@ -3,6 +3,76 @@
 Ce fichier consigne les choix mineurs pris sans validation, conformément à la
 section 9 de CLAUDE.md. Format : date — contexte — décision — raison.
 
+## 2026-06-27 — Refonte visuelle : Tâche V2 (système de design)
+
+**Contexte.** La Tâche V1 est validée (voir l'entrée précédente). La Tâche V2
+(`docs/prompts/07-prompts-refonte-visuelle.md`) demande d'implémenter les
+tokens CSS définitifs et la bibliothèque `components/ui/*` conforme à
+`docs/DESIGN.md`. Aucune question bloquante au sens de la section 9 de
+CLAUDE.md ne se posait, mais un choix de mapping sémantique restait ouvert et
+a été tranché ici.
+
+**Décision 1 — mapping de rôle primary/accent.** L'ancienne direction utilisait
+`--color-primary` (bleu) comme couleur d'identité/confiance et `--color-accent`
+(terracotta) comme couleur d'action secondaire — c'est `--color-accent` qui
+habillait le CTA de don le plus important (« Encourager {name} » sur le profil
+public d'un athlète, `components/public-profile-view.tsx`) et « Voir la
+boutique » (`app/(public)/page.tsx`). La nouvelle direction inverse ce rôle :
+l'orange devient LA couleur d'action, le teal devient la couleur de confiance/
+réassurance (`docs/DESIGN.md` section 2). Plutôt que de renommer les variantes
+aux points d'appel (`variant="accent"` → `variant="primary"`, ce qui aurait
+fait de l'orange un aplat omniprésent, contraire à la règle « jamais en grands
+aplats » de DESIGN.md §2), j'ai choisi de garder les noms de variables et de
+variantes inchangés et de leur réassigner les nouvelles valeurs : `--color-
+primary` = orange `primary-700` (#B4430A, CTA principal, ex. « Trouver un
+athlète »), `--color-accent` = teal `secondary-700` (#0F6E56, CTA secondaire
+de réassurance, ex. « Encourager {name} », « Voir la boutique »). Résultat :
+zéro changement de variant à un seul point d'appel existant, et une hiérarchie
+chaude/froide entre deux types d'appels à l'action qui respecte l'esprit de
+DESIGN.md. `--color-success` réutilise aussi `secondary-700` (et non
+`secondary-500`, qui échoue l'AA en texte blanc — voir décision 2).
+
+**Décision 2 — couleurs d'état recalculées pour l'AA.** Les hex bruts de
+DESIGN.md §2 pour `danger` (#D8483F, 4.27:1) et `info` utilisé comme texte sur
+fond clair échouaient l'AA dans au moins un contexte d'usage réel. Calculs
+(méthode de luminance relative, comme pour la Tâche V1) :
+- `--color-error` assombri à #AC3932 (6.20:1 sur blanc, 5.42:1 sur le fond
+  clair `--color-error-tint` #FDECEA) pour servir à la fois de fond plein
+  (`.btn--danger`) et de texte sur fond clair (`.badge--error`).
+- Nouveau token `--color-info-text` #236293 (6.48:1 sur blanc, 5.58:1 sur
+  `--color-info-tint`) distinct de `--color-info` #2C7BB8 (4.53:1 sur blanc,
+  AA de justesse — réservé au texte blanc sur fond plein, jamais comme texte
+  sur fond clair). Même patron que `--color-warning-bg`/`--color-warning-text`
+  déjà présent dans l'ancien système.
+
+**Décision 3 — nouveau token `--color-surface`.** DESIGN.md §2 distingue
+`cream` (fond de PAGE) de `surface` (cartes, surfaces surélevées) — l'ancien
+système n'avait qu'un seul `--color-bg` réutilisé pour les deux. Ajout de
+`--color-surface: #ffffff` ; `--color-bg` devient `cream` (#FBF7F2) pour le
+fond de `<body>` uniquement. Composants migrés vers `--color-surface` :
+`.card`, `.field__control`, `.modal` (+ ajout explicite de `background`/
+`color`, absents jusqu'ici, pour ne pas dépendre du style par défaut du
+`<dialog>`), `.site-header`, `.mobile-nav__panel`, `.wizard-nav`.
+`--color-bg-alt` recalculé en neutre chaud (#F3EEE7, entre `cream` et
+`border`) pour les fonds alternés (pied de page, en-tête de tableau, survol).
+
+**Décision 4 — rayons et ombres.** DESIGN.md §5 demande des coins 12-16px
+(cartes) / 8-10px (boutons) ; les anciennes valeurs (6/8/12px) ont été
+remontées à 8/10/16px, avec un nouveau `--radius-xl: 24px` pour les futurs
+blocs héros (V4). Les ombres (`--shadow-sm/md`) et l'anneau de focus
+(`--focus-ring`) sont reteintés sur `ink`/`primary-700` au lieu des anciennes
+teintes bleues, pour rester cohérents avec la nouvelle palette.
+
+**Conséquence.** Aucun fichier `.tsx` de composant ou de page n'a eu besoin
+d'être modifié pour appliquer la nouvelle palette — seuls `app/globals.css`
+(tokens + quelques valeurs de fond non couvertes par les tokens existants) et
+`app/layout.tsx` (police Bricolage Grotesque au lieu d'Outfit) ont changé,
+plus l'ajout d'une section « État vide » à `/styleguide` (composant
+`EmptyState` existant mais non démontré jusqu'ici). `npx tsc --noEmit`,
+`npm run lint` et les tests unitaires (logique métier + tous les composants
+`components/ui/*`) passent sans régression. La Tâche V3 (coquille de
+navigation : en-tête, pied de page, page d'accueil) peut démarrer ensuite.
+
 ## 2026-06-27 — Refonte visuelle : validation de la Tâche V1 par Frédéric
 
 **Contexte.** Suite à l'entrée du 2026-06-26 (aperçu `/styleguide-refonte`,

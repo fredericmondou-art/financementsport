@@ -1,25 +1,57 @@
 /**
- * Système de design — Tâche 1.4.2. Toutes les valeurs viennent de
- * docs/DESIGN.md (approuvé par Frédéric le 2026-06-22). Aucune couleur ni
- * taille ne doit être écrite en dur dans une page ou un composant : tout
- * passe par ces variables.
+ * Système de design — Tâche V2 (refonte). Toutes les valeurs viennent de
+ * docs/DESIGN.md (direction validée par Frédéric le 2026-06-27, voir
+ * docs/QUESTIONS.md et docs/DECISIONS.md). Aucune couleur ni taille ne doit
+ * être écrite en dur dans une page ou un composant : tout passe par ces
+ * variables. Ancien système (bleu/terracotta, Outfit) archivé dans
+ * docs/DESIGN-v1-archive.md.
+ *
+ * Mapping de rôle (décision V2, voir docs/DECISIONS.md) : dans l'ancienne
+ * direction, `primary` = couleur d'identité/confiance (bleu) et `accent` =
+ * couleur d'action secondaire (terracotta). La nouvelle direction inverse ce
+ * rôle : l'orange (`primary-700`) devient LA couleur d'action principale, le
+ * teal (`secondary-700`) devient la couleur de réassurance/confiance. Pour ne
+ * toucher AUCUN composant ni AUCUNE page (zéro changement de variant aux
+ * points d'appel), les noms de variables/variantes restent inchangés :
+ * --color-primary porte maintenant l'orange (CTA principal, ex. « Trouver un
+ * athlète »), --color-accent porte le teal (CTA secondaire de réassurance,
+ * ex. « Encourager {name} », « Voir la boutique ») — ce qui donne une belle
+ * hiérarchie chaude/froide entre deux types d'appels à l'action, et respecte
+ * la règle DESIGN.md §2 « l'orange jamais en grands aplats ».
  */
 
 :root {
-  /* Couleurs */
-  --color-primary: #1e3a5f;
-  --color-primary-dark: #15293f;
-  --color-accent: #c2410c;
-  --color-success: #1f7a45;
-  --color-error: #c0392b;
-  --color-warning-bg: #fcefc7;
-  --color-warning-text: #1a1f26;
+  /* Couleurs — palette principale (orange chaud/corail, voir DESIGN.md §2) */
+  --color-primary: #b4430a; /* primary-700 : seul ton AA pour texte blanc */
+  --color-primary-dark: #963608; /* survol */
+  --color-primary-light: #f4732b; /* primary-500 : accents, jamais en aplat avec texte blanc */
+  --color-primary-tint: #fff4ed; /* primary-50 : fonds très clairs */
 
-  --color-text: #1a1f26;
-  --color-text-secondary: #5b6470;
-  --color-bg: #ffffff;
-  --color-bg-alt: #f7f8fa;
-  --color-border: #e1e4e8;
+  /* Couleurs — secondaire (bleu-vert/teal, confiance et réassurance) */
+  --color-accent: #0f6e56; /* secondary-700 : AA, CTA secondaire */
+  --color-accent-dark: #0b5443; /* survol */
+  --color-accent-tint: #e8f6f1; /* secondary-50 : fonds très clairs */
+
+  /* États */
+  --color-success: #0f6e56; /* réutilise secondary-700 (AA texte blanc) */
+  --color-success-tint: #e8f6f1;
+  --color-warning: #e89b22;
+  --color-warning-bg: #fdf3e3; /* toujours fond clair + texte foncé, jamais blanc */
+  --color-warning-text: #8a5a0f;
+  --color-error: #ac3932; /* danger assombri pour l'AA (base #d8483f échoue à 4.27:1) */
+  --color-error-dark: #8c2e28; /* survol */
+  --color-error-tint: #fdecea;
+  --color-info: #2c7bb8; /* AA texte blanc (4.53:1) sur fond plein */
+  --color-info-text: #236293; /* assombri : texte sur fond clair info */
+  --color-info-tint: #e3f0f8;
+
+  /* Neutres chauds (jamais de gris froid, jamais de noir pur) */
+  --color-text: #2a2622; /* ink */
+  --color-text-secondary: #6b635c; /* slate */
+  --color-bg: #fbf7f2; /* cream — fond de PAGE, pas le blanc pur */
+  --color-bg-alt: #f3eee7; /* fonds alternés (sections, en-têtes de tableau) */
+  --color-surface: #ffffff; /* cartes, champs, surfaces surélevées au-dessus du cream */
+  --color-border: #ece5dc; /* bordures douces et chaudes */
 
   /* Couleurs « sur fond » (texte à utiliser par-dessus, vérifiées AA dans
      docs/DESIGN.md) */
@@ -27,9 +59,10 @@
   --color-on-accent: #ffffff;
   --color-on-success: #ffffff;
   --color-on-error: #ffffff;
+  --color-on-info: #ffffff;
 
   /* Typographie */
-  --font-heading: var(--font-outfit), 'Outfit', system-ui, sans-serif;
+  --font-heading: var(--font-bricolage), 'Bricolage Grotesque', system-ui, sans-serif;
   --font-body: var(--font-inter), 'Inter', system-ui, sans-serif;
 
   /* Espacement (base 4px) */
@@ -43,17 +76,18 @@
   --space-8: 64px;
   --space-9: 96px;
 
-  /* Rayons */
-  --radius-sm: 6px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
+  /* Rayons (cartes 12–16px, boutons 8–10px — DESIGN.md §5) */
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
 
-  /* Ombres */
-  --shadow-sm: 0 1px 3px rgba(26, 31, 38, 0.08);
-  --shadow-md: 0 4px 12px rgba(26, 31, 38, 0.12);
+  /* Ombres — subtiles et chaudes (teintées ink, jamais grises froides) */
+  --shadow-sm: 0 1px 3px rgba(42, 38, 34, 0.08);
+  --shadow-md: 0 4px 12px rgba(42, 38, 34, 0.12);
 
   /* Anneau de focus (accessibilité clavier — jamais supprimé, voir règle ci-dessous) */
-  --focus-ring: 0 0 0 3px rgba(30, 58, 95, 0.35);
+  --focus-ring: 0 0 0 3px rgba(180, 67, 10, 0.35);
 }
 
 *,
@@ -190,7 +224,7 @@ textarea {
   color: var(--color-on-accent);
 }
 .btn--accent:hover:not(:disabled) {
-  background: #a8380f;
+  background: var(--color-accent-dark);
 }
 .btn--outline {
   background: transparent;
@@ -205,7 +239,7 @@ textarea {
   color: var(--color-on-error);
 }
 .btn--danger:hover:not(:disabled) {
-  background: #a02d21;
+  background: var(--color-error-dark);
 }
 .btn:disabled,
 .btn[aria-disabled='true'] {
@@ -227,24 +261,24 @@ textarea {
   color: var(--color-text-secondary);
 }
 .badge--success {
-  background: #e8f5ed;
-  border-color: #bfe3cd;
+  background: var(--color-success-tint);
+  border-color: #bfe6d9;
   color: var(--color-success);
 }
 .badge--warning {
   background: var(--color-warning-bg);
-  border-color: #f0dd96;
+  border-color: #f5dda8;
   color: var(--color-warning-text);
 }
 .badge--error {
-  background: #fbe9e7;
-  border-color: #efc3bd;
+  background: var(--color-error-tint);
+  border-color: #f5c6c0;
   color: var(--color-error);
 }
 .badge--info {
-  background: #e7eef5;
-  border-color: #c3d4e3;
-  color: var(--color-primary);
+  background: var(--color-info-tint);
+  border-color: #bbd9ec;
+  color: var(--color-info-text);
 }
 
 /* Alerte */
@@ -264,11 +298,11 @@ textarea {
   margin: 0 0 4px;
 }
 .alert--info {
-  background: #e7eef5;
+  background: var(--color-info-tint);
   color: var(--color-text);
 }
 .alert--success {
-  background: #e8f5ed;
+  background: var(--color-success-tint);
   color: var(--color-text);
 }
 .alert--warning {
@@ -276,13 +310,13 @@ textarea {
   color: var(--color-warning-text);
 }
 .alert--error {
-  background: #fbe9e7;
+  background: var(--color-error-tint);
   color: var(--color-text);
 }
 
 /* Carte */
 .card {
-  background: var(--color-bg);
+  background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
@@ -308,7 +342,7 @@ textarea {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   padding: 10px 12px;
-  background: var(--color-bg);
+  background: var(--color-surface);
   color: var(--color-text);
 }
 .field__control:focus-visible {
@@ -410,6 +444,8 @@ textarea {
 
 /* Modale */
 .modal {
+  background: var(--color-surface);
+  color: var(--color-text);
   border: none;
   border-radius: var(--radius-lg);
   padding: 0;
@@ -418,7 +454,7 @@ textarea {
   width: calc(100vw - var(--space-5) * 2);
 }
 .modal::backdrop {
-  background: rgba(26, 31, 38, 0.5);
+  background: rgba(42, 38, 34, 0.5);
 }
 .modal__body {
   padding: var(--space-5);
@@ -473,7 +509,7 @@ textarea {
 
 .site-header {
   border-bottom: 1px solid var(--color-border);
-  background: var(--color-bg);
+  background: var(--color-surface);
   position: sticky;
   top: 0;
   z-index: 10;
@@ -549,7 +585,7 @@ textarea {
   position: absolute;
   left: 0;
   right: 0;
-  background: var(--color-bg);
+  background: var(--color-surface);
   border-bottom: 1px solid var(--color-border);
   box-shadow: var(--shadow-md);
   padding: var(--space-3) var(--space-4) var(--space-5);
@@ -1010,7 +1046,7 @@ textarea {
   gap: var(--space-3);
   position: sticky;
   bottom: 0;
-  background: var(--color-bg);
+  background: var(--color-surface);
   padding: var(--space-4) 0;
   border-top: 1px solid var(--color-border);
 }

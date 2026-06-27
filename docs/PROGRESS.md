@@ -922,18 +922,18 @@
         (631 tests) + 20/20 fichiers d'intégration (181 tests) verts,
         `tsc --noEmit` et `npm run lint` propres.
 
-## En cours
-- [ ] Refonte visuelle (`docs/prompts/07-prompts-refonte-visuelle.md`) —
-      **Tâche V1 validée par Frédéric le 2026-06-27** (tutoiement partout ;
-      titres en Bricolage Grotesque, corps en Inter ; voir `docs/QUESTIONS.md`
-      et `docs/DECISIONS.md`). Ancien `docs/DESIGN.md` archivé dans
-      `docs/DESIGN-v1-archive.md` ; `docs/DESIGN.md` à jour avec les choix
-      définitifs et la correction WCAG AA (texte blanc uniquement sur
-      `primary-700`/`secondary-700`/`info` ; `warning` en fond clair + texte
-      foncé). Aperçu de validation conservé à `/styleguide-refonte` (page
-      isolée, non indexée). **Tâche V2 (tokens CSS + chargement des polices +
-      `components/ui/*` + `/styleguide` complété) démarre ensuite.**
+## Terminé (suite 3)
+- [x] Refonte visuelle — **Tâche V1** : direction validée par Frédéric le
+      2026-06-27 (tutoiement partout ; titres en Bricolage Grotesque, corps en
+      Inter ; voir `docs/QUESTIONS.md` et `docs/DECISIONS.md`). Ancien
+      `docs/DESIGN.md` archivé dans `docs/DESIGN-v1-archive.md` ; `docs/
+      DESIGN.md` à jour avec les choix définitifs et la correction WCAG AA.
+      Aperçu de validation conservé à `/styleguide-refonte` (page isolée, non
+      indexée).
 
-## À venir
-(aucune autre tâche en attente pour la Phase 1.4b ; Tâches V2-V10 de la
-refonte visuelle à suivre une à la fois, rapport après chacune)
+- [x] Refonte visuelle — **Tâche V2** : système de design (tokens + composants)
+      conforme à `docs/DESIGN.md`. `app/globals.css` réécrit (`:root` :
+      nouvelle palette orange/teal avec inversion de rôle primary↔accent sans
+      toucher un seul fichier `.tsx`, nouveau token `--color-surface` distinct
+      de `--color-bg`/cream, couleurs d'état recalculées pour l'AA — `danger`
+      → `#AC3932`
