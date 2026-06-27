@@ -3819,3 +3819,68 @@ tout préservé à l'identique.
    relire le `git diff` complet (pas seulement `--stat`) avant de committer,
    et en particulier vérifier que le fichier se termine par le contenu et le
    saut de ligne attendus.
+
+## 2026-06-27 — Refonte visuelle : Tâche V4 (page d'accueil, vitrine chaleureuse)
+
+Contexte : cahier `docs/prompts/07-prompts-refonte-visuelle.md`, Tâche V4 —
+l'accueil était « squelettique », objectif : rythme, chaleur, 3 portes
+d'entrée, exemple chiffré, comment ça marche, sports desservis, confiance,
+FAQ, appel à l'action clubs. Présentation seulement.
+
+1. **Régression V3 corrigée avant de commencer** : le pied de page (Tâche
+   V3) avait ajouté un lien « Trouver un athlète » dans sa colonne
+   « Naviguer », avec exactement le même texte que le bouton d'entrée du même
+   nom sur l'accueil. `tests/e2e/accueil-confiance.spec.ts` interroge ce nom
+   accessible SANS `.first()` (`page.getByRole('link', { name: 'Trouver un
+   athlète' }).click()`), donc cette duplication aurait fait échouer ce test
+   en mode strict Playwright dès qu'il aurait tourné aux côtés de la Tâche
+   V3 (le test n'a pas pu être exécuté dans ce bac à sable — voir limite déjà
+   documentée — donc l'échec n'avait pas encore été détecté). Corrigé en
+   renommant le lien du pied de page en « Annuaire des athlètes » (même
+   `/trouver`). Leçon retenue : avant d'ajouter un lien au pied de page ou à
+   l'en-tête, vérifier le texte exact des liens déjà testés sur LES AUTRES
+   pages (pas seulement la page qu'on modifie), pas seulement
+   `pages-confiance.spec.ts`.
+2. **Restructuration de `app/(public)/page.tsx`** en sections pleine largeur
+   à fonds alternés (`.home-hero`, `.home-section`/`.home-section--alt`,
+   `.home-cta`) pour le rythme demandé. Conservés à l'identique : le `<h1>`,
+   le texte de l'exemple chiffré, le lien « Voir la boutique », le mécanisme
+   FAQ natif `<details>/<summary>` (classe `faq__item` inchangée). Le bouton
+   « Lancer une campagne » du héros reste seul à porter ce texte ; le second
+   appel à l'action en bas de page (section clubs) porte un texte différent
+   (« Créer une campagne maintenant ») vers la même destination, pour ne pas
+   dupliquer un nom accessible déjà testé.
+3. **Sports desservis — décision honnête** : `athletes.sport`/`teams.sport`
+   sont des champs texte libres en base (`supabase/seed.sql` ne seed qu'un
+   seul sport réel, « hockey ») ; il n'existe aucune liste fermée de sports
+   « supportés ». Présenter une liste fermée aurait laissé croire à des
+   partenariats ou limitations qui n'existent pas. La section dit donc « tous
+   les sports, toutes les catégories » et n'affiche que des EXEMPLES
+   illustratifs (Hockey, Soccer, Gymnastique, Natation, Basketball,
+   Athlétisme + « et plus encore »), jamais présentés comme une liste
+   exhaustive.
+4. **Imagerie (DESIGN.md §6)** : décision autonome de ne PAS utiliser de
+   vraies photos de banque pour cette tâche — aucune source de photo libre
+   de droits n'a pu être sourcée/vérifiée dans cette session (pas d'accès
+   réseau pour valider une licence), et DESIGN.md §6 interdit explicitement
+   de faire passer une image trouvée au hasard pour une vraie photo
+   d'athlète. Utilisé à la place des illustrations SVG décoratives
+   (médaillon aux couleurs de la marque, voir `DecorativeMedal` dans
+   `app/(public)/page.tsx`), conformes à l'option « LIANT » déjà prévue par
+   DESIGN.md §6. À remplacer par de vraies photos dès qu'une source libre de
+   droits aura été choisie et validée par le propriétaire — point à soulever
+   explicitement avant la mise en production (imagerie = « point sensible »
+   pour la confidentialité des mineurs).
+5. **Section Confiance** : conserve le texte honnête existant (aucun faux
+   témoignage, cahier 1.4b.2) et ajoute 3 liens vers les vraies pages de
+   confiance (À propos, Remboursement et livraison, Confidentialité), avec
+   des libellés DIFFÉRENTS des liens du pied de page (ex. « Notre politique
+   de confidentialité » plutôt que « Confidentialité ») pour éviter tout
+   risque futur de nom accessible dupliqué sur la même page.
+
+Tests : `npx tsc --noEmit` et `npm run lint` verts. `npx vitest run
+tests/unit` : 44/44 fichiers verts (aucune régression — V4 ne touche aucune
+logique métier). e2e non exécutables dans ce bac à sable (limite déjà
+documentée) ; vérifiés par lecture attentive des noms/chemins de lien
+attendus dans `tests/e2e/home.spec.ts` et `accueil-confiance.spec.ts` avant
+modification.

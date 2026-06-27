@@ -983,9 +983,28 @@
       Components purs, couverts seulement par les e2e non exécutables en
       sandbox).
 
+## Terminé (suite 4)
+
+- [x] Refonte visuelle — **Tâche V4** : page d'accueil, vitrine chaleureuse.
+      `app/(public)/page.tsx` restructuré en sections pleine largeur à fonds
+      alternés (héros + illustration SVG, sports desservis, exemple chiffré,
+      comment ça fonctionne, confiance + liens, FAQ, appel à l'action clubs).
+      Conservés à l'identique : `<h1>`, texte de l'exemple chiffré, lien
+      « Voir la boutique », mécanisme `<details>/<summary>` de la FAQ.
+      Corrigé au passage : une régression de la Tâche V3 (lien « Trouver un
+      athlète » dupliqué entre le pied de page et l'accueil) — voir
+      `docs/DECISIONS.md` (entrée Tâche V4, point 1). Décisions notables :
+      aucune liste fermée de sports « supportés » présentée (champ libre en
+      base), aucune vraie photo de banque utilisée faute de source vérifiée
+      (illustrations SVG décoratives à la place, point à statuer avant
+      production). Détail complet dans `docs/DECISIONS.md` (entrée du
+      2026-06-27, Tâche V4). `tsc --noEmit`/`npm run lint` propres, 44/44
+      fichiers de test unitaires verts (aucune régression — V4 ne touche
+      aucune logique métier).
+
 ## En cours
-(aucune — Tâche V3 complétée et committée)
+(aucune — Tâche V4 complétée et committée)
 
 ## À venir
-Tâches V4-V10 de la refonte visuelle à suivre une à la fois, rapport après
+Tâches V5-V10 de la refonte visuelle à suivre une à la fois, rapport après
 chacune (`docs/prompts/07-prompts-refonte-visuelle.md`).

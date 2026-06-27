@@ -1227,3 +1227,116 @@ textarea {
 .legal-content dl.recap-list {
   max-width: none;
 }
+
+/* ==========================================================================
+   Accueil — Tâche V4 (refonte visuelle, « vitrine chaleureuse »). Sections à
+   fonds alternés pour donner du rythme ; réutilise .page/.page--wide/.stack
+   et les tokens existants, aucune nouvelle couleur en dur.
+   ========================================================================== */
+
+.home-hero {
+  background: var(--color-primary-tint);
+}
+.home-hero__inner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-7);
+  padding-top: var(--space-7);
+  padding-bottom: var(--space-7);
+}
+.home-hero__content {
+  flex: 1 1 420px;
+}
+.home-hero__art {
+  flex: 0 0 auto;
+  display: none;
+}
+.home-hero__medal {
+  width: 160px;
+  height: 160px;
+}
+@media (min-width: 768px) {
+  .home-hero__art {
+    display: block;
+  }
+}
+
+/* Bande de section pleine largeur ; le contenu reste contraint par .page. */
+.home-section {
+  padding: var(--space-7) 0;
+}
+.home-section--alt {
+  background: var(--color-bg-alt);
+}
+.home-section__lead {
+  color: var(--color-text-secondary);
+  max-width: 60ch;
+}
+
+/* Sports desservis : puces décoratives, jamais une liste fermée présentée
+   comme exhaustive (voir docblock de app/(public)/page.tsx). */
+.sport-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.sport-chip {
+  padding: var(--space-2) var(--space-4);
+  border-radius: 999px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  font-weight: 600;
+  font-size: 0.9375rem;
+}
+.sport-chip--more {
+  color: var(--color-text-secondary);
+  font-weight: 500;
+  font-style: italic;
+}
+
+/* Icône décorative au sommet de chaque carte "Comment ça fonctionne". */
+.feature-card__icon {
+  width: 40px;
+  height: 40px;
+}
+
+/* Liens de confiance de l'accueil (distincts des liens du pied de page —
+   textes différents, voir docs/DECISIONS.md Tâche V4). */
+.trust-links {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.trust-links a {
+  font-weight: 600;
+}
+
+/* Appel à l'action clubs, en bas de l'accueil — bande pleine largeur dans la
+   couleur de confiance (teal), texte clair. */
+.home-cta {
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+}
+.home-cta__inner {
+  padding-top: var(--space-7);
+  padding-bottom: var(--space-7);
+  text-align: center;
+  align-items: center;
+}
+.home-cta h2,
+.home-cta p {
+  color: var(--color-on-accent);
+}
+.home-cta .btn--primary {
+  background: var(--color-on-accent);
+  color: var(--color-accent);
+}
+.home-cta .btn--primary:hover:not(:disabled) {
+  background: var(--color-primary-tint);
+}

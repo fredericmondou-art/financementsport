@@ -9,6 +9,14 @@
  * vide » (cahier 07-prompts-refonte-visuelle.md). Les noms et chemins de
  * lien restent identiques mot pour mot pour ne pas casser
  * tests/e2e/pages-confiance.spec.ts (requêtes scopées à `contentinfo`).
+ *
+ * Correction (Tâche V4) : le lien « Trouver un athlète » de la colonne
+ * Naviguer a été renommé « Annuaire des athlètes » (même `/trouver`) — le
+ * texte original dupliquait le nom accessible du bouton d'entrée du même nom
+ * sur la page d'accueil (`app/(public)/page.tsx`), ce qui aurait fait
+ * échouer `tests/e2e/accueil-confiance.spec.ts` (requête non scopée, mode
+ * strict Playwright) dès que les deux pages seraient testées ensemble. Voir
+ * docs/DECISIONS.md (entrée Tâche V4).
  */
 import Link from 'next/link';
 
@@ -36,7 +44,7 @@ export function SiteFooter(): JSX.Element {
               <Link href="/boutique">Boutique</Link>
             </li>
             <li>
-              <Link href="/trouver">Trouver un athlète</Link>
+              <Link href="/trouver">Annuaire des athlètes</Link>
             </li>
           </ul>
         </nav>
