@@ -3884,3 +3884,53 @@ logique métier). e2e non exécutables dans ce bac à sable (limite déjà
 documentée) ; vérifiés par lecture attentive des noms/chemins de lien
 attendus dans `tests/e2e/home.spec.ts` et `accueil-confiance.spec.ts` avant
 modification.
+
+## 2026-06-27 — Refonte visuelle : Tâche V5 (boutique et cartes produits)
+
+1. **État de départ plus avancé que le cahier ne le décrit.** Le prompt V5
+   décrit des "cartes actuelles propres mais sans images et désalignées" —
+   en réalité, la Tâche 1.4b.3 avait déjà livré les images (ou remplacement
+   neutre), les hauteurs égales et le bouton aligné (voir
+   `components/product-card.tsx`, `app/globals.css` `.product-grid`). La
+   Tâche V5 a donc porté sur ce qui restait réellement à améliorer : le
+   survol des cartes, le regroupement visuel prix/crédit, et l'ajout d'une
+   barre de tri lisible (absente jusqu'ici).
+2. **Survol soigné, scopé à la grille boutique.** Ajout d'un survol
+   (translation + ombre, `.product-grid > li > .card:hover`) plutôt qu'un
+   survol global sur `.card` — `.card` est réutilisé dans des contextes très
+   différents (tableaux de bord, formulaires) où un effet de levée n'a pas
+   de sens. `prefers-reduced-motion: reduce` désactive la transition pour les
+   visiteurs qui le demandent.
+3. **Prix + crédit regroupés (`.product-card__pricing`).** Les deux montants
+   étaient déjà affichés, mais en deux `<p>` empilés sans lien visuel. Ils
+   sont désormais sur une même ligne (flex, `align-items: baseline`) pour se
+   lire comme une seule information ("ça coûte X, ça finance Y"). Aucun texte
+   modifié, donc aucun risque pour les tests existants.
+4. **Barre de tri ajoutée (`app/(shop)/boutique/page.tsx`).** `sortProducts`
+   (lib/catalog/products.ts) supportait déjà 4 tris (`price_asc`,
+   `price_desc`, `credit_desc`, `popularity`) via `?sort=`, mais aucune
+   interface ne permettait de les choisir — uniquement exploitable en
+   connaissant l'URL exacte. Ajout de liens natifs (`<Link>`, sans JS, même
+   choix que la recherche d'athlètes/le menu mobile/la FAQ) qui préservent
+   `categoryId`, `kind` et le bénéficiaire transmis (`buildSortHref`). Pas de
+   filtre par catégorie affiché : `categoryId` n'est pas encore exercé par le
+   seed V1 (aucune catégorie créée), afficher un filtre vide aurait été
+   trompeur.
+5. **Corruption mount récurrente, encore une fois en cours de tâche.**
+   L'ajout via l'outil Edit d'une correction mineure dans `app/globals.css`
+   (retrait d'une valeur de repli `--shadow-md, ...)`) a produit 35 octets
+   NUL en fin de fichier, invisibles dans la réponse de l'outil ("appliqué
+   proprement") mais détectés par le scan NUL habituel. Corrigé par troncature
+   des octets NUL en fin de fichier (`data.rstrip(b'\x00')`), puis revérifié
+   (longueur, contenu de fin, `git diff` par hunks). Aucune perte de contenu
+   cette fois — la confirmation systématique après CHAQUE écriture (pas
+   seulement les grosses réécritures) reste nécessaire.
+6. **Suite de tests unitaires non exécutable en une seule passe dans ce bac à
+   sable.** `npx vitest run tests/unit` ne termine pas dans le délai du bac à
+   sable (45 s) : plusieurs fichiers `.test.tsx` (environnement jsdom) sont
+   lents à initialiser et la suite complète (56 fichiers) dépasse ce budget.
+   Exécutée par lots à la place ; tous les lots se sont terminés sans aucun
+   échec (`✗`/`FAIL`), y compris `catalog-products.test.ts` et
+   `format-cents.test.ts`, les deux fichiers les plus directement liés aux
+   changements de cette tâche. Risque de régression jugé faible : aucune
+   logique métier n'a été modifiée (uniquement JSX/CSS de présentation).

@@ -20,6 +20,14 @@
  * CSS Grid), et faire grandir la carte à l'intérieur du `<li>` pousse le
  * formulaire "Ajouter au panier" (rendu après la carte, voir
  * app/(shop)/boutique/page.tsx) systématiquement au même point en bas.
+ *
+ * Prix + crédit regroupés (Tâche V5, refonte visuelle) : `.product-card__pricing`
+ * met les deux montants côte à côte (au lieu de deux `<p>` empilés sans lien
+ * visuel) pour que "ce que ça coûte" et "ce que ça finance" se lisent comme
+ * une seule information, pas deux lignes disjointes. Présentation
+ * uniquement — aucun texte ni structure testée (tests/e2e/boutique-images.spec.ts)
+ * n'est modifié : toujours un seul `<article aria-label>`, une image OU un
+ * remplacement, jamais les deux.
  */
 import Image from 'next/image';
 import { formatCents } from '@/lib/format-cents';
@@ -64,12 +72,14 @@ export function ProductCard({ product }: ProductCardProps): JSX.Element {
         </div>
         <h3 className="product-card__title">{product.name}</h3>
         {product.description ? <p>{product.description}</p> : null}
-        <p className="product-card__price">{formatCents(product.price_cents)}</p>
-        {hasFixedCredit ? (
-          <p>
-            Génère {formatCents(product.fixed_credit_cents as number)} de crédit de financement.
-          </p>
-        ) : null}
+        <div className="product-card__pricing">
+          <p className="product-card__price">{formatCents(product.price_cents)}</p>
+          {hasFixedCredit ? (
+            <p className="product-card__credit">
+              Génère {formatCents(product.fixed_credit_cents as number)} de crédit de financement.
+            </p>
+          ) : null}
+        </div>
         <div className="product-card__meta">
           {product.stock_quantity <= 0 ? <Badge variant="error">Rupture de stock</Badge> : null}
           {product.lead_time_days !== null ? (

@@ -1340,3 +1340,81 @@ textarea {
 .home-cta .btn--primary:hover:not(:disabled) {
   background: var(--color-primary-tint);
 }
+
+/* Tâche V5 (refonte visuelle) : boutique — survol des cartes, regroupement
+   prix/crédit, barre de tri. Présentation uniquement, voir
+   components/product-card.tsx et app/(shop)/boutique/page.tsx. */
+.product-grid > li > .card {
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+.product-grid > li > .card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-md);
+  border-color: var(--color-primary);
+}
+@media (prefers-reduced-motion: reduce) {
+  .product-grid > li > .card {
+    transition: none;
+  }
+  .product-grid > li > .card:hover {
+    transform: none;
+  }
+}
+
+.product-card__pricing {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin: 0;
+}
+.product-card__price {
+  font-size: 1.0625rem;
+}
+.product-card__credit {
+  margin: 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-accent);
+}
+
+.shop-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+.shop-toolbar__label {
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  font-size: 0.9375rem;
+}
+.shop-toolbar__sorts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.shop-toolbar__sort-link {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+.shop-toolbar__sort-link:hover {
+  border-color: var(--color-primary);
+}
+.shop-toolbar__sort-link[aria-current='true'] {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-on-accent, #fff);
+}

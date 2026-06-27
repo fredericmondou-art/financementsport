@@ -1002,9 +1002,28 @@
       fichiers de test unitaires verts (aucune régression — V4 ne touche
       aucune logique métier).
 
+## Terminé (suite 5)
+
+- [x] Refonte visuelle — **Tâche V5** : boutique et cartes produits.
+      `components/product-card.tsx` : prix et crédit regroupés sur une même
+      ligne (`.product-card__pricing`) au lieu de deux lignes disjointes ;
+      structure testée (article aria-label, image/remplacement, bouton dans
+      le même `<li>`) inchangée. `app/globals.css` : survol soigné scopé à
+      `.product-grid > li > .card` (translation + ombre, désactivé si
+      `prefers-reduced-motion`). `app/(shop)/boutique/page.tsx` : ajout d'une
+      barre de tri visible (liens natifs, sans JS) pour les 4 tris déjà
+      supportés par `sortProducts` (prix croissant/décroissant, crédit,
+      popularité), absente jusqu'ici malgré la logique déjà écrite. Le
+      cahier décrivait un état antérieur à la Tâche 1.4b.3 (images/alignement
+      déjà livrés) — détail dans `docs/DECISIONS.md` (entrée du 2026-06-27,
+      Tâche V5). `tsc --noEmit`/`npm run lint` propres ; suite unitaire
+      exécutée par lots (la passe complète dépasse le délai du bac à sable) —
+      aucun échec sur aucun lot, y compris `catalog-products.test.ts` et
+      `format-cents.test.ts`. Aucune logique métier modifiée.
+
 ## En cours
-(aucune — Tâche V4 complétée et committée)
+(aucune — Tâche V5 complétée et committée)
 
 ## À venir
-Tâches V5-V10 de la refonte visuelle à suivre une à la fois, rapport après
+Tâches V6-V10 de la refonte visuelle à suivre une à la fois, rapport après
 chacune (`docs/prompts/07-prompts-refonte-visuelle.md`).
