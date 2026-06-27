@@ -183,7 +183,7 @@ export default async function VersementsDetailPage({
         <section className="stack stack--sm">
           <h2>Versements ({payouts.length})</h2>
           {payouts.length === 0 ? (
-            <p className="muted">Aucun versement calculé pour le moment.</p>
+            <p className="muted">Les versements apparaîtront ici une fois calculés pour cette campagne.</p>
           ) : (
             <div className="stack">
               {payouts.map((payout) => {

@@ -63,7 +63,7 @@ export default async function BoutiquePage({ searchParams }: BoutiquePageProps):
         </Alert>
       ) : null}
       {products.length === 0 ? (
-        <Alert variant="info">Aucun produit disponible pour le moment.</Alert>
+        <Alert variant="info">Aucun produit disponible pour le moment -- revenez bientôt.</Alert>
       ) : (
         <ul className="product-grid">
           {products.map((product) => (

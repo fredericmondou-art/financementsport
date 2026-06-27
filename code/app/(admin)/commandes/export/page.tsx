@@ -133,7 +133,7 @@ export default async function CommandesExportPage({ searchParams }: CommandesExp
 
       <Card>
         {orders.length === 0 ? (
-          <Alert variant="info">Aucune commande ne correspond à ces filtres.</Alert>
+          <Alert variant="info">Aucune commande ne correspond à ces filtres. Essayez d&apos;élargir la période ou de retirer un filtre.</Alert>
         ) : (
           <>
             <p className="muted">

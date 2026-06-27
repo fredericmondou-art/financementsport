@@ -119,7 +119,7 @@ export default async function CampagneQrPage({ params }: QrPageProps): Promise<J
 
       {displayed.length === 0 ? (
         <Card>
-          <p>Aucun code QR n&apos;est associé à cette campagne pour l&apos;instant.</p>
+          <p>Les codes QR apparaîtront ici une fois la campagne prête.</p>
         </Card>
       ) : (
         displayed.map((qr) => (

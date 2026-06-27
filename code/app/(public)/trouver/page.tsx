@@ -12,8 +12,8 @@ import { createSupabaseServerClient } from '@/lib/auth/supabase-server';
 import { loadAthleteDirectory } from '@/lib/public/athlete-directory';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { EmptyState } from '@/components/ui/empty-state';
 
 export const metadata: Metadata = {
   title: 'Trouver un athlète',
@@ -51,11 +51,15 @@ export default async function TrouverPage({
       </form>
 
       {athletes.length === 0 ? (
-        <Alert variant="info">
-          {searchParams.q
-            ? 'Aucun athlète ne correspond à cette recherche.'
-            : 'Aucun athlète public pour le moment.'}
-        </Alert>
+        searchParams.q ? (
+          <EmptyState title="Aucun athlète ne correspond à cette recherche." actionHref="/trouver" actionLabel="Voir tous les athlètes">
+            Essayez un autre nom, sport ou ville.
+          </EmptyState>
+        ) : (
+          <EmptyState title="Aucun athlète public pour le moment." actionHref="/boutique" actionLabel="Découvrir la boutique">
+            Revenez bientôt, ou explorez la boutique en attendant.
+          </EmptyState>
+        )
       ) : (
         <ul className="product-grid">
           {athletes.map((athlete) => (

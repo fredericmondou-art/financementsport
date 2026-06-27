@@ -70,7 +70,7 @@ export default async function EquipeDashboardPage({ params }: EquipePageProps): 
         <section className="stack stack--sm">
           <h2>Objectif collectif</h2>
           {goalCents === 0 ? (
-            <p className="muted">Aucune campagne active avec objectif pour cette équipe en ce moment.</p>
+            <p className="muted">Pas encore d&apos;objectif fixé pour cette équipe -- il apparaîtra ici dès qu&apos;une campagne sera lancée.</p>
           ) : (
             <>
               <ProgressBar
@@ -118,7 +118,7 @@ export default async function EquipeDashboardPage({ params }: EquipePageProps): 
         <section className="stack stack--sm">
           <h2>Ventes par athlète</h2>
           {credits.byAthlete.length === 0 ? (
-            <p className="muted">Aucun athlète dans cette équipe pour le moment.</p>
+            <p className="muted">Les ventes par athlète apparaîtront ici dès qu&apos;un premier crédit sera attribué.</p>
           ) : (
             <ul className="stack stack--sm" style={{ listStyle: 'none', padding: 0 }}>
               {credits.byAthlete.map((entry) => (
@@ -148,7 +148,7 @@ export default async function EquipeDashboardPage({ params }: EquipePageProps): 
         <section className="stack stack--sm">
           <h2>Progression dans le temps</h2>
           {progression.length === 0 ? (
-            <p className="muted">Aucun crédit enregistré pour le moment.</p>
+            <p className="muted">La progression hebdomadaire apparaîtra ici dès le premier achat.</p>
           ) : (
             <ul className="stack stack--sm" style={{ listStyle: 'none', padding: 0 }}>
               {progression.map((point) => (
@@ -174,7 +174,7 @@ export default async function EquipeDashboardPage({ params }: EquipePageProps): 
         <section className="stack stack--sm">
           <h2>Commandes à distribuer ({ordersToDistribute.length})</h2>
           {ordersToDistribute.length === 0 ? (
-            <p className="muted">Aucune commande en attente de distribution.</p>
+            <p className="muted">Rien à distribuer pour le moment.</p>
           ) : (
             <div className="table-wrap">
               <table className="table">
@@ -204,7 +204,7 @@ export default async function EquipeDashboardPage({ params }: EquipePageProps): 
         <section className="stack stack--sm">
           <h2>Statut de versement</h2>
           {payouts.length === 0 ? (
-            <p className="muted">Aucun versement calculé pour cette équipe pour le moment.</p>
+            <p className="muted">Les versements apparaîtront ici une fois la campagne clôturée.</p>
           ) : (
             <div className="table-wrap">
               <table className="table">

@@ -820,7 +820,7 @@
       appliquées en production (découvert et corrigé le 2026-06-25, voir
       `docs/DECISIONS.md` et `docs/AUDIT-2.0.md` §7).
 - [x] Phase 1.4b — Confiance et finitions visuelles (voir
-      `docs/prompts/phase-1-4b.md`) — **en cours.**
+      `docs/prompts/phase-1-4b.md`) — **terminée.**
   - [x] 1.4b.1 Corriger le bug de création de campagne (PRIORITÉ) —
         cause réelle : tables manquantes en production (voir ci-dessus),
         pas un problème de permissions ni d'interface (l'état guidé existait
@@ -901,5 +901,26 @@
         régression évitée de justesse en re-grepant les chaînes préservées
         après une modification du texte du bouton, avant de la corriger.
 
+  - [x] 1.4b.6 États vides encourageants et finitions générales — états vides
+        froids (« Aucun… ») reformulés en invitation à agir là où une action
+        a du sens (ex. boutique vide, commandes vides, distribution/livraison
+        vides, dashboards admin/équipe), ton seulement adouci là où aucune
+        action n'existe (ex. « Rien à distribuer pour le moment. »). Aucun
+        changement de logique ni de structure de données — présentation
+        uniquement. `app/loading.tsx` déjà conforme (`.page-loading` +
+        `Spinner`, aucune régression de layout entre pages) — vérifié, aucun
+        changement nécessaire. Espacement/largeur déjà couverts par les
+        primitives existantes (`.page`/`.page--wide`/`.stack`) — aucune
+        nouvelle classe requise. Bug de désync mount/git rencontré une 4e
+        fois, cette fois sur **13 fichiers simultanément** (tous les fichiers
+        touchés par cette tâche) — détecté via `npx tsc --noEmit` (erreurs de
+        JSX tronqué), réparé par reconstruction complète de chaque fichier via
+        heredoc bash, vérifié par scan d'octets (longueur exacte, aucun octet
+        NUL, fin de fichier correcte) en plus de `tsc`/`lint`. Voir
+        `docs/DECISIONS.md` (entrée du 2026-06-26) pour le détail des fichiers
+        et la liste des reformulations. 44/44 fichiers de tests unitaires
+        (631 tests) + 20/20 fichiers d'intégration (181 tests) verts,
+        `tsc --noEmit` et `npm run lint` propres.
+
 ## À venir
-- [ ] 1.4b.6 États vides encourageants et finitions générales
+(aucune tâche en attente pour la Phase 1.4b)

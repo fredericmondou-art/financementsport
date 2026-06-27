@@ -3,6 +3,56 @@
 Ce fichier consigne les choix mineurs pris sans validation, conformément à la
 section 9 de CLAUDE.md. Format : date — contexte — décision — raison.
 
+## 2026-06-26 — Tâche 1.4b.6 : états vides encourageants et finitions
+
+**Contexte.** Dernière tâche de la Phase 1.4b (`docs/prompts/phase-1-4b.md`) :
+remplacer les états vides froids (« Aucun… ») par une invitation à agir là où
+une action existe, et adoucir le ton ailleurs ; harmoniser espacement/largeur ;
+vérifier les états de chargement.
+
+**Décision — classification en deux groupes, pas de règle unique.**
+- *Groupe « action »* (un CTA a du sens) : boutique sans produit (devient une
+  alerte plus visible, texte inchangé pour ne pas casser les tests e2e),
+  annuaire `/trouver` sans résultat (liens vers `/trouver` sans filtre et vers
+  `/boutique`), export de commandes sans résultat (suggestion d'élargir la
+  période/retirer un filtre), compte client sans commande (déjà correct,
+  apostrophe typographique vérifiée).
+- *Groupe « ton seulement »* (aucune action disponible à cet endroit — la
+  donnée apparaîtra d'elle-même plus tard) : dashboards admin/équipe (campagnes
+  à risque, produits populaires, ventes par athlète, progression
+  hebdomadaire, versements), distribution/livraison groupée (rien à
+  distribuer/à cette étape), clôture de campagne (historique vide), reçu de
+  commande (aucun bénéficiaire particulier). Reformulé en phrase humaine
+  (« Rien à distribuer pour le moment. », « Les versements apparaîtront ici
+  une fois calculés… ») sans ajouter de bouton qui n'aurait rien à faire.
+  Aucun changement de logique de calcul ni de structure de données — texte et
+  présentation uniquement.
+
+**Décision — pas de nouvelle primitive de mise en page.** Les classes
+existantes (`.page`/`.page--wide`/`.stack`/`Card`) couvrent déjà tous les cas
+rencontrés ; aucune nouvelle classe d'espacement créée. `app/loading.tsx`
+vérifié : utilise déjà `.page-loading` + `Spinner`, rendu dans la zone de
+contenu sans remonter `SiteHeader`/`SiteFooter` — conforme, aucun changement.
+
+**Incident — désync mount/git, 4e occurrence, cette fois sur 13 fichiers à la
+fois.** Les 13 fichiers touchés par cette tâche (`app/(public)/trouver/
+page.tsx`, `app/(portails)/compte/page.tsx`, `components/beneficiary-split.tsx`,
+`app/(shop)/boutique/page.tsx`, `app/(admin)/commandes/export/page.tsx`,
+`app/(admin)/dashboard/page.tsx`, `app/(portails)/campagnes/[campaignId]/
+{qr,cloturer,livraison,distribution}/page.tsx`, `app/(portails)/equipe/
+[teamId]/page.tsx`, `app/(admin)/versements/[campaignId]/page.tsx`,
+`app/(portails)/compte/commandes/[orderId]/recu/page.tsx`) sont apparus
+tronqués côté bash/`tsc` (JSX non fermé) malgré un contenu complet et correct
+côté outil Read — même symptôme que les incidents précédents (voir l'entrée du
+2026-06-25/2026-06-26 ci-dessous et la mémoire persistante du projet), mais
+touchant simultanément tous les fichiers d'une même tâche plutôt qu'un seul.
+Réparé en reconstruisant chaque fichier en entier via heredoc bash (delimiteur
+quoté, contenu = sortie du outil Read, jamais un diff), puis vérifié par scan
+d'octets Python (longueur exacte, aucun octet NUL, fin de fichier correcte) en
+plus de `npx tsc --noEmit`/`npm run lint`/`npm test`. Tous verts après
+réparation : 44/44 fichiers de tests unitaires (631 tests), 20/20 fichiers
+d'intégration (181 tests).
+
 ## 2026-06-26 — Ajout de la liste « Mes campagnes » (`/campagnes`)
 
 **Contexte.** Bug signalé directement par l'utilisateur (capture d'écran de

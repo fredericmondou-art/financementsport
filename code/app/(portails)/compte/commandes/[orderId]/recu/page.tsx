@@ -108,7 +108,7 @@ export default async function RecuCommandePage({ params }: RecuPageProps): Promi
         <section className="stack stack--sm">
           <h2>Impact de cette commande</h2>
           {credits.length === 0 ? (
-            <p>Aucun bénéficiaire associé à cette commande.</p>
+            <p>Cette commande ne soutient aucun bénéficiaire en particulier.</p>
           ) : (
             <ul>
               {credits.map((credit) => (

@@ -246,7 +246,7 @@ export default function BeneficiarySplit({
       <input type="hidden" name="cartId" value={cartId} />
 
       {editableRows.length === 0 ? (
-        <p>Aucun bénéficiaire pour le moment.</p>
+        <p>Ajoutez un premier bénéficiaire pour commencer.</p>
       ) : (
         <div className="table-wrap">
           <table className="table">

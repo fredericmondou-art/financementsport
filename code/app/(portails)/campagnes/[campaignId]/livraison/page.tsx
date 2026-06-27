@@ -103,7 +103,7 @@ export default async function LivraisonPage({ params, searchParams }: LivraisonP
         <h1>Confirmation de réception et livraison -- {campaign.name}</h1>
         <p>
           {totalOrders === 0
-            ? 'Aucune commande prête pour la livraison groupée pour le moment.'
+            ? 'Pas encore de commande prête pour la livraison groupée.'
             : `${totalOrders} commande(s) dans le flux de livraison groupée.`}
         </p>
       </div>
@@ -120,7 +120,7 @@ export default async function LivraisonPage({ params, searchParams }: LivraisonP
                 {orderStatusLabelFr(status)} ({statusOrders.length})
               </h2>
               {statusOrders.length === 0 ? (
-                <p className="muted">Aucune commande à cette étape.</p>
+                <p className="muted">Rien à cette étape pour le moment.</p>
               ) : (
                 <div className="table-wrap">
                   <table className="table">

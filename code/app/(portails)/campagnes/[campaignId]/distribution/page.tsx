@@ -62,7 +62,7 @@ export default async function DistributionPage({ params }: DistributionPageProps
         <h1>Liste de distribution -- {campaign.name}</h1>
         <p>
           {totalOrders === 0
-            ? 'Aucune commande pour cette campagne pour le moment.'
+            ? 'Pas encore de commande pour cette campagne.'
             : `${totalOrders} commande(s) réparties sur ${groups.length} groupe(s).`}
         </p>
         <div className="form__actions hide-print">

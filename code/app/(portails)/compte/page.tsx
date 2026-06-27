@@ -14,6 +14,7 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Alert } from '@/components/ui/alert';
+import { EmptyState } from '@/components/ui/empty-state';
 import { reorderAction } from './actions';
 
 /**
@@ -91,7 +92,9 @@ export default async function ComptePage({ searchParams }: ComptePageProps): Pro
         <section className="stack stack--sm">
           <h2>Impact généré</h2>
           {impact.length === 0 ? (
-            <p>Aucun achat encore associé à un bénéficiaire.</p>
+            <EmptyState title="Aucun achat encore associé à un bénéficiaire." actionHref="/boutique" actionLabel="Découvrir la boutique">
+              Choisissez un produit et un athlète à encourager pour voir l&apos;impact apparaître ici.
+            </EmptyState>
           ) : (
             <ul>
               {impact.map((line) => (
@@ -109,7 +112,9 @@ export default async function ComptePage({ searchParams }: ComptePageProps): Pro
         <section className="stack stack--sm">
           <h2>Mes commandes</h2>
           {orders.length === 0 ? (
-            <p>Vous n&apos;avez encore aucune commande.</p>
+            <EmptyState title="Vous n'avez encore aucune commande." actionHref="/boutique" actionLabel="Faire un premier achat">
+              Vos commandes et leurs reçus apparaîtront ici.
+            </EmptyState>
           ) : (
             <div className="table-wrap">
               <table className="table">

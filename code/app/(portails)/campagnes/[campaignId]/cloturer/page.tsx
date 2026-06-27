@@ -137,7 +137,7 @@ export default async function CloturerPage({ params, searchParams }: CloturerPag
         <section className="stack stack--sm">
           <h2>Historique</h2>
           {history.length === 0 ? (
-            <p className="muted">Aucun changement de statut de clôture pour le moment.</p>
+            <p className="muted">L&apos;historique apparaîtra ici après une clôture ou une réouverture.</p>
           ) : (
             <div className="table-wrap">
               <table className="table">

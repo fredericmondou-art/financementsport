@@ -122,7 +122,7 @@ export default async function AdminDashboardPage(): Promise<JSX.Element> {
           <h2>Campagnes actives ({activeCampaignsCount})</h2>
           <h3>À risque ({atRiskCampaigns.length})</h3>
           {atRiskCampaigns.length === 0 ? (
-            <p className="muted">Aucune campagne à risque pour le moment.</p>
+            <p className="muted">Aucune campagne à risque pour le moment -- tout va bien.</p>
           ) : (
             <div className="table-wrap">
               <table className="table">
@@ -157,7 +157,7 @@ export default async function AdminDashboardPage(): Promise<JSX.Element> {
         <section className="stack stack--sm">
           <h2>Produits populaires</h2>
           {popularProducts.length === 0 ? (
-            <p className="muted">Aucune vente payée pour le moment.</p>
+            <p className="muted">Pas encore de vente payée -- les produits populaires apparaîtront ici.</p>
           ) : (
             <div className="table-wrap">
               <table className="table">
