@@ -3934,3 +3934,53 @@ modification.
    `format-cents.test.ts`, les deux fichiers les plus directement liés aux
    changements de cette tâche. Risque de régression jugé faible : aucune
    logique métier n'a été modifiée (uniquement JSX/CSS de présentation).
+
+## 2026-06-27 — Refonte visuelle : Tâche V6 (panier et paiement)
+
+1. **Beaucoup déjà livré par la Tâche 1.4b.4.** Comme pour V5, le cahier de
+   la Tâche V6 décrit un panier "à refondre" alors que la Tâche 1.4b.4 avait
+   déjà livré l'essentiel du fond : détail des taxes (sous-total/TPS/TVQ/
+   total) lu depuis `tax_rates`, bloc impact reformulé en invitation à
+   l'action, texte du bouton de paiement conforme. La Tâche V6 a donc porté
+   sur ce qui restait : mettre la ligne "Total" en évidence, rendre le bloc
+   impact visuellement engageant (pas seulement informatif), donner à la
+   répartition entre bénéficiaires la même présentation en `Card` que les
+   autres sections, et rendre le chemin de paiement plus évident.
+2. **Ligne "Total" mise en évidence (`recap-list__row--total`).** Nouvelle
+   classe scopée (pas une modification de `.recap-list`, réutilisé ailleurs
+   par l'assistant de campagne et les pages légales) appliquée uniquement à
+   la dernière ligne du détail des taxes du panier : bordure de séparation,
+   poids et taille de police augmentés. Aucun changement de `app/globals.css`
+   existant, uniquement un ajout.
+3. **Bloc impact en teinte accent/teal (`.cart-impact`).** Réutilise
+   `--color-accent`/`--color-accent-tint`, déjà la couleur de réassurance du
+   système de design (docs/DESIGN.md), pour distinguer visuellement ce bloc
+   comme positif/chaleureux plutôt que comme un simple tableau de chiffres.
+   Le même accent colore désormais aussi le montant "Impact estimé" par ligne
+   dans `components/beneficiary-split.tsx` (`.split-row__impact`), pour relier
+   visuellement les deux blocs.
+4. **Répartition entre bénéficiaires encapsulée dans une `Card`.** Avant V6,
+   cette section était une simple `<section>` nue entre deux `Card` (taxes et
+   paiement), rupture visuelle non intentionnelle. Désormais cohérente avec
+   le reste de la page.
+5. **Bloc paiement mis en valeur (`.cart-payment`).** Bordure couleur primaire
+   (la couleur d'action du système de design), total agrandi, bouton "Procéder
+   au paiement" en pleine largeur, phrase de réassurance "Paiement sécurisé,
+   traité par Stripe." ajoutée sous le bouton. Texte du bouton lui-même
+   inchangé (référencé tel quel par `tests/e2e/checkout.spec.ts` et
+   `tests/e2e/compte-dashboard.spec.ts`).
+6. **Aucun changement de logique.** Tous les calculs (`computeCartTaxBreakdown`,
+   `estimateCartCredit`, `splitCreditAmongBeneficiaries`, `equalSplitBps`/
+   `splitBpsEqually`) sont strictement inchangés — seules des classes CSS et
+   de la structure JSX de présentation ont été ajoutées/déplacées.
+7. **Vérification.** `npx tsc --noEmit` et `npm run lint` passent sans erreur.
+   Comme documenté pour V3/V4/V5, la suite `tests/unit` complète ne termine
+   pas dans le délai du bac à sable ; exécution ciblée sur les fichiers
+   directement concernés par cette tâche
+   (`beneficiary-split.test.tsx`, `cart-beneficiaries.test.ts`,
+   `saved-splits.test.ts`, `reorder.test.ts`,
+   `checkout-prepare-checkout.test.ts`) : 58 tests, tous verts. Les trois
+   fichiers modifiés (`app/(shop)/panier/page.tsx`,
+   `components/beneficiary-split.tsx`, `app/globals.css`) ont été réécrits
+   par heredoc bash (pas par l'outil Edit) et revérifiés (octets NUL,
+   longueur, `git diff` par hunks) — aucune corruption cette fois.

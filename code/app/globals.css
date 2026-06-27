@@ -1418,3 +1418,67 @@ textarea {
   border-color: var(--color-primary);
   color: var(--color-on-accent, #fff);
 }
+
+/* Tâche V6 (refonte visuelle) : panier et paiement — récap des taxes mis en
+   valeur, bloc impact engageant, répartition visuelle, chemin de paiement
+   rassurant. Présentation uniquement, voir app/(shop)/panier/page.tsx et
+   components/beneficiary-split.tsx. */
+.recap-list__row--total {
+  border-top: 1px solid var(--color-border);
+  padding-top: var(--space-2);
+  margin-top: var(--space-1);
+}
+.recap-list__row--total dt,
+.recap-list__row--total dd {
+  font-weight: 700;
+  font-size: 1.125rem;
+  color: var(--color-text);
+}
+
+/* Bloc impact : teinte accent/teal (couleur de réassurance, voir
+   docs/DESIGN.md) pour le rendre chaleureux et engageant plutôt que
+   purement informatif. */
+.cart-impact {
+  border-color: var(--color-accent);
+  background: var(--color-accent-tint);
+}
+.cart-impact h2 {
+  color: var(--color-accent-dark);
+}
+.cart-impact ul {
+  margin: 0;
+  padding-left: var(--space-5);
+}
+.cart-impact li + li {
+  margin-top: var(--space-2);
+}
+
+/* Impact par bénéficiaire (table de répartition) : même couleur accent que
+   le bloc impact ci-dessus, pour relier visuellement les deux. */
+.split-row__impact {
+  color: var(--color-accent);
+  font-weight: 600;
+}
+
+/* Bloc paiement : bordure couleur primaire (CTA), total agrandi, bouton
+   pleine largeur, phrase de réassurance sous le bouton. */
+.cart-payment {
+  border-color: var(--color-primary);
+}
+.cart-payment__total {
+  font-size: 1.0625rem;
+  margin: 0;
+}
+.cart-payment__total strong {
+  font-size: 1.3125rem;
+}
+.cart-payment__button {
+  font-size: 1.0625rem;
+  padding: 14px 20px;
+}
+.cart-payment__hint {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+  text-align: center;
+}

@@ -60,6 +60,22 @@
  * et référencé tel quel par tests/e2e/checkout.spec.ts et
  * tests/e2e/compte-dashboard.spec.ts -- non modifié pour éviter une
  * régression e2e).
+ *
+ * TÂCHE V6 (refonte visuelle, docs/prompts/07-prompts-refonte-visuelle.md) :
+ * présentation UNIQUEMENT, même logique de calcul, même contenu de données
+ * — seules les classes CSS et la structure visuelle changent. La ligne
+ * « Total » du détail des taxes est mise en évidence (classe
+ * `recap-list__row--total`, voir app/globals.css). Le bloc impact reçoit un
+ * habillage chaleureux (teinte accent/teal, la couleur de réassurance de
+ * docs/DESIGN.md) pour le rendre engageant plutôt que descriptif. La
+ * répartition entre bénéficiaires est maintenant dans une `Card` (cohérence
+ * visuelle avec les sections taxes/impact/paiement qui en avaient déjà une).
+ * Le bloc paiement est mis en valeur (bordure couleur primaire, total plus
+ * grand, bouton pleine largeur, phrase de réassurance « Paiement sécurisé »)
+ * pour rendre le chemin vers le paiement évident -- aucun texte ni contrat
+ * référencé par un test n'est modifié (« Procéder au paiement »,
+ * « Détail des taxes », « L'impact de votre achat », « TPS (5 %) »,
+ * « TVQ (9,975 %) », « Votre panier est vide. » tous inchangés).
  */
 import { formatCents } from '@/lib/format-cents';
 import { getCurrentUser } from '@/lib/auth/session';
@@ -235,7 +251,7 @@ export default async function PanierPage({ searchParams }: PanierPageProps): Pro
                 <dt>TVQ (9,975 %)</dt>
                 <dd>{formatCents(taxBreakdown.tvqCents)}</dd>
               </div>
-              <div>
+              <div className="recap-list__row--total">
                 <dt>Total</dt>
                 <dd>{formatCents(taxBreakdown.totalCents)}</dd>
               </div>
@@ -245,7 +261,7 @@ export default async function PanierPage({ searchParams }: PanierPageProps): Pro
       ) : null}
 
       {items.length > 0 ? (
-        <Card>
+        <Card className="cart-impact">
           <section className="stack stack--sm">
             <h2>L&apos;impact de votre achat</h2>
             {creditEstimate.beneficiaryCredits.length === 0 ? (
@@ -269,27 +285,29 @@ export default async function PanierPage({ searchParams }: PanierPageProps): Pro
         </Card>
       ) : null}
 
-      <section className="stack stack--sm">
-        <h2>Répartition entre bénéficiaires</h2>
-        <BeneficiarySplit
-          cartId={cart.id}
-          rows={beneficiaries.map((b) => ({
-            beneficiaryType: b.beneficiary_type,
-            beneficiaryId: b.beneficiary_id,
-            label: labels.get(beneficiaryLabelKey(b.beneficiary_type, b.beneficiary_id)) ?? '—',
-            shareBps: b.share_bps,
-          }))}
-          totalCreditCents={creditEstimate.totalCreditCents}
-          savedSplits={savedSplits}
-          canSaveSplits={Boolean(user)}
-        />
-      </section>
+      <Card>
+        <section className="stack stack--sm">
+          <h2>Répartition entre bénéficiaires</h2>
+          <BeneficiarySplit
+            cartId={cart.id}
+            rows={beneficiaries.map((b) => ({
+              beneficiaryType: b.beneficiary_type,
+              beneficiaryId: b.beneficiary_id,
+              label: labels.get(beneficiaryLabelKey(b.beneficiary_type, b.beneficiary_id)) ?? '—',
+              shareBps: b.share_bps,
+            }))}
+            totalCreditCents={creditEstimate.totalCreditCents}
+            savedSplits={savedSplits}
+            canSaveSplits={Boolean(user)}
+          />
+        </section>
+      </Card>
 
       {items.length > 0 ? (
-        <Card>
+        <Card className="cart-payment">
           <section className="stack stack--sm">
             <h2>Paiement</h2>
-            <p>
+            <p className="cart-payment__total">
               Total à payer, taxes incluses : <strong>{formatCents(taxBreakdown.totalCents)}</strong>.
             </p>
             {/* Texte du bouton inchangé volontairement (tests/e2e/checkout.spec.ts,
@@ -298,8 +316,11 @@ export default async function PanierPage({ searchParams }: PanierPageProps): Pro
                 le montant et le contexte « taxes incluses » sont déjà clairs
                 dans le paragraphe ci-dessus. */}
             <form action={checkoutAction}>
-              <Button type="submit">Procéder au paiement</Button>
+              <Button type="submit" fullWidth className="cart-payment__button">
+                Procéder au paiement
+              </Button>
             </form>
+            <p className="cart-payment__hint">Paiement sécurisé, traité par Stripe.</p>
           </section>
         </Card>
       ) : null}

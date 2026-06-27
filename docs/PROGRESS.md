@@ -1021,9 +1021,32 @@
       aucun échec sur aucun lot, y compris `catalog-products.test.ts` et
       `format-cents.test.ts`. Aucune logique métier modifiée.
 
+## Terminé (suite 6)
+
+- [x] Refonte visuelle — **Tâche V6** : panier et paiement.
+      `app/(shop)/panier/page.tsx` : ligne « Total » du détail des taxes mise
+      en évidence (`recap-list__row--total`) ; bloc « L'impact de votre
+      achat » habillé en teinte accent/teal (`.cart-impact`, couleur de
+      réassurance du système de design) ; section « Répartition entre
+      bénéficiaires » désormais dans une `Card` (cohérence avec les autres
+      sections) ; bloc « Paiement » mis en valeur (bordure couleur primaire,
+      total agrandi, bouton pleine largeur, phrase de réassurance « Paiement
+      sécurisé, traité par Stripe. »). `components/beneficiary-split.tsx` :
+      montant « Impact estimé » par ligne coloré en accent (même couleur que
+      le bloc impact). Textes testés par les e2e inchangés (« Procéder au
+      paiement », « Détail des taxes », « L'impact de votre achat »,
+      « TPS (5 %) », « TVQ (9,975 %) », « Votre panier est vide. »). Beaucoup
+      du fond (taxes/impact) avait déjà été livré par la Tâche 1.4b.4 —
+      détail dans `docs/DECISIONS.md` (entrée du 2026-06-27, Tâche V6).
+      `tsc --noEmit`/`npm run lint` propres ; suite unitaire ciblée sur les
+      fichiers concernés (`beneficiary-split.test.tsx`,
+      `cart-beneficiaries.test.ts`, `saved-splits.test.ts`,
+      `reorder.test.ts`, `checkout-prepare-checkout.test.ts`) : 58/58 verts.
+      Aucune logique métier modifiée.
+
 ## En cours
-(aucune — Tâche V5 complétée et committée)
+(aucune — Tâche V6 complétée et committée)
 
 ## À venir
-Tâches V6-V10 de la refonte visuelle à suivre une à la fois, rapport après
+Tâches V7-V10 de la refonte visuelle à suivre une à la fois, rapport après
 chacune (`docs/prompts/07-prompts-refonte-visuelle.md`).

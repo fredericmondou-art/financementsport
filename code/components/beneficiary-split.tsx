@@ -86,6 +86,12 @@ function toEditableRows(rows: BeneficiarySplitRow[]): EditableRow[] {
  * exclusivement dans `assertSplitTotals10000`, appelée côté serveur par
  * `setCartBeneficiarySplit` (défense en profondeur déjà en place avant cette
  * tâche, jamais reproduite ici).
+ *
+ * TÂCHE V6 (refonte visuelle) : présentation uniquement -- le montant
+ * d'impact par ligne (colonne « Impact estimé ») est mis en valeur avec la
+ * couleur accent/teal (réassurance, voir docs/DESIGN.md), cohérent avec le
+ * bloc impact du panier (app/(shop)/panier/page.tsx, classe `.cart-impact`).
+ * Aucun texte, label ou structure de formulaire testé n'est modifié.
  */
 export default function BeneficiarySplit({
   cartId,
@@ -305,7 +311,9 @@ export default function BeneficiarySplit({
                       </>
                     )}
                   </td>
-                  <td>{formatCents(liveImpact[index]?.amountCents ?? 0)}</td>
+                  <td>
+                    <strong className="split-row__impact">{formatCents(liveImpact[index]?.amountCents ?? 0)}</strong>
+                  </td>
                   <td>
                     <Button
                       type="button"
