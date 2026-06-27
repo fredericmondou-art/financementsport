@@ -873,6 +873,33 @@
         `ui-card`, `ui-badge`) verts. Bug de désync mount/git rencontré deux
         fois de plus sur ces deux fichiers (voir `docs/DECISIONS.md`).
 
+  - [x] 1.4b.4 Panier : clarté, taxes, impact et paiement rassurant —
+        nouveau `lib/cart/tax-breakdown.ts#computeCartTaxBreakdown` (fonction
+        pure, COMPOSE `calculateTaxCents`/`splitQcTax` déjà testés, ne
+        duplique aucun calcul d'argent, taux lu depuis `tax_rates` via
+        `lib/taxes/rates.ts`, jamais en dur) avec 7 tests unitaires
+        (`tests/unit/cart-tax-breakdown.test.ts`). Page panier
+        (`app/(shop)/panier/page.tsx`) : nouveau bloc « Détail des taxes »
+        (Sous-total/TPS 5 %/TVQ 9,975 %/Total, via `.recap-list` déjà utilisé
+        ailleurs) remplaçant l'ancienne mention vague « taxes calculées à
+        l'étape suivante » ; bloc impact renommé « L'impact de votre achat »
+        et reformulé pour inviter à choisir un bénéficiaire plutôt que
+        décrire un état. `components/beneficiary-split.tsx` : phrase
+        technique « Répartition actuelle : 100 % entre N bénéficiaire(s) »
+        remplacée par une formulation humaine. Texte du bouton de paiement
+        (« Procéder au paiement ») et message d'état vide (« Votre panier
+        est vide. ») volontairement INCHANGÉS (référencés tel quel par
+        `tests/e2e/checkout.spec.ts`/`compte-dashboard.spec.ts`) — aucun
+        changement de logique de calcul (présentation uniquement, comme
+        exigé par le cahier). `tests/e2e/checkout.spec.ts` complété avec des
+        assertions sur le détail des taxes et le bloc impact, avant le clic
+        sur le bouton de paiement (toujours non exécutable en sandbox, mêmes
+        raisons réseau). `tsc`/`lint` propres ; tests unitaires ciblés
+        (`cart-tax-breakdown`, `checkout-prepare-checkout`,
+        `reports-campaign` — 41/41) verts. Bug de désync mount/git rencontré
+        trois fois de plus sur ces fichiers (voir `docs/DECISIONS.md`) ;
+        régression évitée de justesse en re-grepant les chaînes préservées
+        après une modification du texte du bouton, avant de la corriger.
+
 ## À venir
-- [ ] 1.4b.4 Panier : clarté, taxes, impact et paiement rassurant
 - [ ] 1.4b.6 États vides encourageants et finitions générales

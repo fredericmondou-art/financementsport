@@ -3457,3 +3457,67 @@ confirmé via heredoc directement sur le mount ; revérifié par scan Python
 trois vérifications git (`hash-object`/`rev-parse HEAD:`/`ls-files -s`) n'est
 PAS une preuve suffisante de l'absence de troncature sur ce mount — seule une
 relecture fraîche via l'outil Read fait foi en cas de doute.
+
+## 2026-06-26 — Tâche 1.4b.4 : Panier, clarté/taxes/impact/paiement
+
+Décisions autonomes (CLAUDE.md section 9) :
+
+- **Pas de duplication de calcul.** `lib/cart/tax-breakdown.ts#computeCartTaxBreakdown`
+  ne fait que COMPOSER deux fonctions pures déjà écrites et testées :
+  `calculateTaxCents` (même calcul exact que la vraie session Stripe,
+  `lib/checkout/prepare-checkout.ts`) et `splitQcTax` (déjà utilisée pour les
+  rapports de campagne et l'export des commandes). Le taux combiné reste lu
+  depuis `tax_rates` via `lib/taxes/rates.ts` à chaque rendu de la page panier
+  -- jamais codé en dur, conformément à CLAUDE.md section 2.
+- **`DEFAULT_BILLING_PROVINCE = 'QC'` redéclaré localement** dans
+  `app/(shop)/panier/page.tsx`, même convention que
+  `lib/checkout/create-checkout-session.ts` et
+  `app/api/webhooks/stripe/route.ts` (pas de province par client en V1, donc
+  pas encore de raison de centraliser cette constante).
+- **Texte du bouton de paiement et message d'état vide INCHANGÉS.** J'ai
+  d'abord changé « Procéder au paiement » en une formulation plus proche du
+  cahier (« Payer {montant} en toute sécurité »), avant de re-grep les tests
+  et de découvrir que `tests/e2e/checkout.spec.ts` (x2) et
+  `tests/e2e/compte-dashboard.spec.ts` (x2) cliquent sur ce libellé exact via
+  `getByRole('button', { name: 'Procéder au paiement' })`. Revert immédiat +
+  commentaire explicatif dans le JSX. Le cahier demande « Payer »/« Passer au
+  paiement » -- ce libellé existant est déjà conforme, et le montant +
+  contexte « taxes incluses » sont déjà rendus clairs par le paragraphe
+  juste au-dessus du bouton. **Leçon pour la suite : après TOUTE modification
+  de texte visible, re-grep les chaînes préservées dans `tests/` -- ne pas se
+  fier seulement à la recherche faite avant l'édition.**
+- **Reformulations humaines** : « Répartition actuelle : 100 % entre N
+  bénéficiaire(s) » devient « Votre achat sera partagé entre N
+  bénéficiaires. » ; le bloc impact invite maintenant explicitement à choisir
+  un bénéficiaire plutôt que de décrire un état vide.
+- **e2e** : plutôt que dupliquer un parcours d'achat, les nouvelles
+  assertions (détail des taxes, bloc impact) ont été insérées dans
+  `runGuestPurchaseFlow` (`tests/e2e/checkout.spec.ts`), juste avant le clic
+  sur « Procéder au paiement » -- ce parcours couvre déjà exactement la
+  séquence demandée par le cahier (« panier avec un pack → taxes et total
+  affichés → choix bénéficiaire → impact visible → accès au paiement »),
+  bénéficiaire déjà pré-sélectionné via l'URL comme c'est le cas depuis la
+  Tâche 1.4.6. Toujours non exécutable dans ce bac à sable (mêmes raisons
+  réseau que les autres specs e2e du projet).
+
+**7e, 8e et 9e récurrences du bug de désync mount/git** (voir
+`docs/PROGRESS.md` du 2026-06-26 ci-dessus, et la mémoire persistante
+`feedback-ecommerce-mount-git-cache`), toutes trois résolues par la même
+procédure déjà établie (relecture fraîche via l'outil Read comme vérité,
+réécriture complète via heredoc bash directement sur le mount, puis
+vérification indépendante par scan Python des octets bruts + nouvelle
+relecture Read confirmant l'accord des deux vues) :
+1. `app/(shop)/panier/page.tsx`, une première fois après l'ajout initial du
+   détail des taxes (`wc -l` bash à 206 lignes vs. 305 réelles, coupure en
+   plein milieu de `</But[ton>]`) ;
+2. `components/beneficiary-split.tsx`, après la reformulation de la phrase
+   technique (`wc -l` bash resté identique à l'ancienne valeur malgré l'ajout
+   réel de contenu -- nouvelle confirmation que la stabilité du nombre de
+   lignes n'est pas une preuve d'absence de troncature) ;
+3. `app/(shop)/panier/page.tsx` à nouveau après le revert du texte du bouton
+   (bash a montré la taille en octets PRÉ-édition exacte, comme si la
+   modification n'avait pas du tout été vue côté bash) ;
+4. `tests/e2e/checkout.spec.ts`, après l'ajout des assertions taxes/impact
+   (bash a montré 119 lignes/6856 octets contre 158 lignes réelles, coupure
+   en plein milieu d'une phrase du docblock final, bien après la zone
+   éditée).

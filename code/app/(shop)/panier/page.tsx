@@ -41,6 +41,25 @@
  * supplémentaire) -- nécessaire pour que ce composant affiche l'impact par
  * bénéficiaire EN DIRECT à chaque ajustement de répartition, avant tout
  * enregistrement côté serveur.
+ *
+ * Tâche 1.4b.4 (docs/prompts/phase-1-4b.md) : page la plus sensible (décision
+ * de payer) -- présentation et clarté UNIQUEMENT, aucun changement de logique
+ * de calcul. Détail des taxes ajouté (sous-total, TPS, TVQ, total) via
+ * `lib/cart/tax-breakdown.ts`, qui ne fait que COMPOSER des fonctions déjà
+ * écrites et testées (`calculateTaxCents`, même calcul exact que la vraie
+ * session Stripe dans `lib/checkout/prepare-checkout.ts` ; `splitQcTax`, même
+ * ventilation TPS/TVQ déjà utilisée pour les rapports de campagne) -- le taux
+ * combiné reste lu depuis `tax_rates` via `lib/taxes/rates.ts`, jamais codé en
+ * dur (CLAUDE.md section 2). `DEFAULT_BILLING_PROVINCE` redéclaré localement
+ * en 'QC' : même convention que `lib/checkout/create-checkout-session.ts` et
+ * `app/api/webhooks/stripe/route.ts` (pas de province par client en V1).
+ * Formulations techniques retirées (« Total à payer : ... taxes calculées à
+ * l'étape suivante » devient un vrai détail de taxes ; le bloc impact est
+ * reformulé pour inviter à l'action plutôt que décrire un état). Le texte du
+ * bouton de paiement reste « Procéder au paiement » (déjà conforme au cahier,
+ * et référencé tel quel par tests/e2e/checkout.spec.ts et
+ * tests/e2e/compte-dashboard.spec.ts -- non modifié pour éviter une
+ * régression e2e).
  */
 import { formatCents } from '@/lib/format-cents';
 import { getCurrentUser } from '@/lib/auth/session';
@@ -53,12 +72,16 @@ import { loadCartCreditContext } from '@/lib/cart/credit-context';
 import { estimateCartCredit, formatCreditMessage } from '@/lib/cart/estimate-credit';
 import { resolveCartIdentity } from '@/lib/cart/identity';
 import { createSupabaseCartItemsRepo, listCartItems } from '@/lib/cart/items';
+import { computeCartTaxBreakdown } from '@/lib/cart/tax-breakdown';
 import { createSupabaseProductRepo } from '@/lib/catalog/products';
 import { createSupabaseSavedSplitsRepo, listSavedSplitsForUser } from '@/lib/cart/saved-splits';
+import { createSupabaseTaxRatesRepo } from '@/lib/taxes/rates';
 import { Card } from '@/components/ui/card';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { checkoutAction, removeItemAction, updateQuantityAction } from './actions';
+
+const DEFAULT_BILLING_PROVINCE = 'QC';
 
 interface PanierPageProps {
   searchParams: { erreur?: string; avis?: string };
@@ -113,8 +136,25 @@ export default async function PanierPage({ searchParams }: PanierPageProps): Pro
   const productNameById = new Map(
     uniqueProductIds.map((id, index) => [id, products[index]?.name ?? 'Produit retiré du catalogue']),
   );
+  // Tâche 1.4b.4 : taxable par défaut si le produit a été retiré du catalogue
+  // depuis l'ajout au panier (cas limite, jamais le cas normal -- défensif
+  // pour ne jamais SOUS-estimer la taxe affichée au client avant paiement).
+  const isTaxableById = new Map(uniqueProductIds.map((id, index) => [id, products[index]?.is_taxable ?? true]));
 
-  const subtotalCents = items.reduce((sum, item) => sum + item.unit_price_cents * item.quantity, 0);
+  // Tâche 1.4b.4 (docs/prompts/phase-1-4b.md) : détail des taxes affiché
+  // clairement avant le paiement. Taux lu depuis `tax_rates` (jamais en dur),
+  // même province par défaut que la vraie session Stripe
+  // (`lib/checkout/create-checkout-session.ts`).
+  const taxRatesRepo = createSupabaseTaxRatesRepo(supabase);
+  const taxRate = await taxRatesRepo.getApplicableRate(DEFAULT_BILLING_PROVINCE, new Date().toISOString());
+  const taxBreakdown = computeCartTaxBreakdown(
+    items.map((item) => ({
+      unitPriceCents: item.unit_price_cents,
+      quantity: item.quantity,
+      isTaxable: isTaxableById.get(item.product_id) ?? true,
+    })),
+    taxRate?.rate_bps ?? 0,
+  );
 
   return (
     <main className="page stack">
@@ -178,14 +218,41 @@ export default async function PanierPage({ searchParams }: PanierPageProps): Pro
         </div>
       )}
 
-      <p>Sous-total : {formatCents(subtotalCents)}</p>
+      {items.length > 0 ? (
+        <Card>
+          <section className="stack stack--sm">
+            <h2>Détail des taxes</h2>
+            <dl className="recap-list">
+              <div>
+                <dt>Sous-total</dt>
+                <dd>{formatCents(taxBreakdown.subtotalCents)}</dd>
+              </div>
+              <div>
+                <dt>TPS (5 %)</dt>
+                <dd>{formatCents(taxBreakdown.tpsCents)}</dd>
+              </div>
+              <div>
+                <dt>TVQ (9,975 %)</dt>
+                <dd>{formatCents(taxBreakdown.tvqCents)}</dd>
+              </div>
+              <div>
+                <dt>Total</dt>
+                <dd>{formatCents(taxBreakdown.totalCents)}</dd>
+              </div>
+            </dl>
+          </section>
+        </Card>
+      ) : null}
 
       {items.length > 0 ? (
         <Card>
           <section className="stack stack--sm">
-            <h2>Impact de votre achat</h2>
+            <h2>L&apos;impact de votre achat</h2>
             {creditEstimate.beneficiaryCredits.length === 0 ? (
-              <p>Choisissez un ou plusieurs bénéficiaires ci-dessous pour voir l&apos;impact de votre achat.</p>
+              <p>
+                Chaque achat aide directement quelqu&apos;un. Choisissez ci-dessous qui vous voulez encourager pour
+                voir, en temps réel, ce que votre achat lui rapportera.
+              </p>
             ) : (
               <ul>
                 {creditEstimate.beneficiaryCredits.map((b) => (
@@ -222,7 +289,14 @@ export default async function PanierPage({ searchParams }: PanierPageProps): Pro
         <Card>
           <section className="stack stack--sm">
             <h2>Paiement</h2>
-            <p>Total à payer : {formatCents(subtotalCents)} (taxes calculées à l&apos;étape suivante).</p>
+            <p>
+              Total à payer, taxes incluses : <strong>{formatCents(taxBreakdown.totalCents)}</strong>.
+            </p>
+            {/* Texte du bouton inchangé volontairement (tests/e2e/checkout.spec.ts,
+                tests/e2e/compte-dashboard.spec.ts cliquent sur ce libellé exact) --
+                déjà conforme au cahier (« Payer » / « Passer au paiement »),
+                le montant et le contexte « taxes incluses » sont déjà clairs
+                dans le paragraphe ci-dessus. */}
             <form action={checkoutAction}>
               <Button type="submit">Procéder au paiement</Button>
             </form>

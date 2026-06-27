@@ -39,6 +39,14 @@ import { expect, test, type Page } from '@playwright/test';
  * tests/e2e/navigation.spec.ts) via `runGuestPurchaseFlow`, pour ne pas
  * dupliquer la logique du test desktop ci-dessous tout en couvrant les deux
  * tailles d'écran exigées par les critères d'acceptation de la tâche.
+ *
+ * Tâche 1.4b.4 (docs/prompts/phase-1-4b.md, « Tests attendus » : « e2e :
+ * panier avec un pack → taxes et total affichés → choix bénéficiaire →
+ * impact visible → accès au paiement ») : ce parcours couvre déjà
+ * exactement cette séquence (bénéficiaire pré-sélectionné via l'URL, comme
+ * `runGuestPurchaseFlow` le fait depuis la Tâche 1.4.6) -- complété ici par
+ * les assertions sur le détail des taxes (TPS/TVQ/Total) et le bloc impact,
+ * plutôt que de dupliquer un parcours d'achat distinct.
  */
 
 const ATHLETE_ID = '44444444-4444-4444-4444-444444444401';
@@ -59,6 +67,19 @@ async function runGuestPurchaseFlow(page: Page): Promise<void> {
   await expect(page).toHaveURL(/\/panier/);
   await expect(page.getByText('100%')).toBeVisible();
   await expect(page.getByRole('cell', { name: PACK_MAISON_NAME })).toBeVisible();
+
+  // 2b. Tâche 1.4b.4 : détail des taxes (sous-total/TPS/TVQ/total) affiché
+  //     clairement avant le paiement -- lu depuis `tax_rates`, jamais en dur
+  //     (voir lib/cart/tax-breakdown.ts). Le bénéficiaire est déjà
+  //     pré-sélectionné à 100% (étape 2 ci-dessus) donc l'impact doit déjà
+  //     être visible, pas le message d'invitation à choisir.
+  await expect(page.getByRole('heading', { name: 'Détail des taxes' })).toBeVisible();
+  await expect(page.getByText('TPS (5 %)')).toBeVisible();
+  await expect(page.getByText('TVQ (9,975 %)')).toBeVisible();
+  await expect(page.getByRole('heading', { name: "L'impact de votre achat" })).toBeVisible();
+  await expect(
+    page.getByText("Chaque achat aide directement quelqu'un. Choisissez ci-dessous"),
+  ).not.toBeVisible();
   await expect(page.getByRole('button', { name: 'Procéder au paiement' })).toBeVisible();
 
   // 3. Déclenche checkoutAction -> redirection vers Stripe Checkout hébergé.

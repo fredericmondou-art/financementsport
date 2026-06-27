@@ -329,8 +329,11 @@ export default function BeneficiarySplit({
       </Button>
 
       <p>
-        Répartition actuelle : 100 % entre {editableRows.length}{' '}
-        {editableRows.length > 1 ? 'bénéficiaires' : 'bénéficiaire'} -- enregistrez pour confirmer.
+        {editableRows.length === 0
+          ? 'Choisissez qui vous voulez encourager, puis enregistrez.'
+          : `Votre achat sera partagé entre ${editableRows.length} ${
+              editableRows.length > 1 ? 'bénéficiaires' : 'bénéficiaire'
+            }. Enregistrez pour confirmer.`}
       </p>
 
       <Button type="submit" disabled={editableRows.length === 0}>
