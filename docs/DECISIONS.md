@@ -3,6 +3,28 @@
 Ce fichier consigne les choix mineurs pris sans validation, conformément à la
 section 9 de CLAUDE.md. Format : date — contexte — décision — raison.
 
+## 2026-06-27 — Refonte visuelle : validation de la Tâche V1 par Frédéric
+
+**Contexte.** Suite à l'entrée du 2026-06-26 (aperçu `/styleguide-refonte`,
+contrastes AA vérifiés), les 2 questions ouvertes ont été posées à Frédéric via
+`AskUserQuestion`. Réponses : **tutoiement** partout, et **Bricolage
+Grotesque** pour les titres (corps en Inter, Option A de l'aperçu).
+
+**Décision.** `docs/DESIGN.md` mis à jour pour intégrer ces choix comme
+définitifs : bandeau d'en-tête, section 3 (typographie, simplifiée à la seule
+paire retenue), section 7 (tutoiement sans réserve). La correction WCAG AA
+(texte blanc uniquement sur `primary-700`/`secondary-700`/`info` ; `warning` en
+fond clair + texte foncé) intégrée directement dans la section 2 comme règle
+officielle de la palette, pas seulement comme note dans l'aperçu. `docs/
+QUESTIONS.md` : l'entrée passe de « Ouvert » à « Résolu ».
+
+**Conséquence.** La Tâche V1 est complète. La Tâche V2 (`docs/prompts/
+07-prompts-refonte-visuelle.md`) — système de design : tokens CSS + chargement
+des polices définitives + bibliothèque `components/ui/*` + `/styleguide`
+complété comme référence vivante — peut démarrer sans autre validation
+requise, conformément à la section 9 de CLAUDE.md (plus d'ambiguïté
+bloquante).
+
 ## 2026-06-26 — Refonte visuelle (Tâche V1) : remplacement de DESIGN.md, aperçu, contrastes
 
 **Contexte.** Frédéric a fourni deux nouveaux documents : un `DESIGN.md` v2

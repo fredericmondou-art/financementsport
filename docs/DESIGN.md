@@ -2,16 +2,14 @@
 
 > **Remplace** la direction visuelle v1 (validée 2026-06-22, implémentée
 > Phases 1.4/1.4b) — voir `docs/DESIGN-v1-archive.md` pour l'historique.
-> Nouvelle direction en cours de validation, voir `docs/prompts/
-> 07-prompts-refonte-visuelle.md` (Tâche V1) et `docs/QUESTIONS.md`.
+> **Direction validée par Frédéric le 2026-06-27** (Tâche V1, voir
+> `docs/QUESTIONS.md` et `docs/DECISIONS.md`) : tutoiement retenu partout ;
+> titres en Bricolage Grotesque, corps en Inter ; palette corrigée pour l'AA
+> (voir section 2). Prête pour la Tâche V2 (système de design).
 
 Document de référence visuelle. Toute interface du site doit s'y conformer. Ambiance
 choisie : CHALEUREUSE ET HUMAINE — énergie, sport, familles, couleurs vivantes —
 tout en restant rassurante (on touche à l'argent de familles et au sport d'enfants).
-
-NOTE : cette direction est une PROPOSITION de départ. Le propriétaire la valide et
-l'ajuste avant application complète (cf. tâche dédiée). Les valeurs ci-dessous sont
-un point de départ cohérent, pas un dogme.
 
 ---
 
@@ -26,11 +24,21 @@ Le site doit donner, dès la première seconde, trois sensations :
 Mot d'ordre : « chaleureux mais fiable ». Ni froid et corporatif, ni criard et
 amateur.
 
-## 2. Palette de couleurs (proposition neuve)
+## 2. Palette de couleurs
 
 Approche : une couleur principale énergique et chaleureuse, une couleur d'accent
 pour l'action, des neutres doux (pas de blanc clinique ni de gris froids), et des
-couleurs d'état claires. Valeurs hex de départ, à ajuster à la validation :
+couleurs d'état claires.
+
+**Correction AA (validée 2026-06-27, voir `docs/DECISIONS.md`)** : le calcul de
+contraste par luminance relative a montré que 5 paires texte blanc / fond
+ci-dessous échouent l'AA pour du texte normal (4.5:1) : `primary-500` (2.86:1),
+`primary-600` (3.81:1), `secondary-500`/`success` (3.37:1), `warning` (2.30:1) et
+`danger` (4.27:1). Règle retenue : **texte blanc UNIQUEMENT sur `primary-700`,
+`secondary-700` ou `info`** (qui passent l'AA) ; `primary-500`/`primary-600` et
+`secondary-500`/`success` restent valides comme accents ou comme fond avec texte
+`ink` dessus (pas de texte blanc) ; `warning` toujours en fond clair teinté +
+texte foncé (jamais texte blanc), comme l'ambre de l'ancienne direction.
 
 COULEUR PRINCIPALE (énergie, sport) — un orange chaud/corail :
 - primary-50  #FFF4ED  (fonds très clairs, surbrillances)
@@ -62,16 +70,14 @@ RÈGLES DE COULEUR :
 - L'orange principal est réservé aux ACTIONS et aux accents, jamais en grands
   aplats qui fatiguent l'œil.
 - Le texte n'est jamais noir pur (#000) : toujours `ink` (#2A2622).
-- Contrastes conformes WCAG AA partout (vérifier chaque paire texte/fond).
+- Contrastes conformes WCAG AA partout (vérifier chaque paire texte/fond ; voir
+  la correction ci-dessus).
 
 ## 3. Typographie
 
-Deux familles maximum, lisibles et chaleureuses :
-- TITRES : une sans-serif géométrique au caractère affirmé (ex : « Bricolage
-  Grotesque », « Clash Display » ou « Fraunces » pour un côté plus humain). Doit
-  avoir de la personnalité sans nuire à la lisibilité.
-- TEXTE : une sans-serif neutre et très lisible (ex : « Inter », « Plus Jakarta
-  Sans »).
+**Retenu (validé 2026-06-27)** : TITRES en **Bricolage Grotesque** (600/700),
+TEXTE en **Inter** (400/500/600) — chargées via `next/font/google`, comme dans
+l'aperçu `/styleguide-refonte` (Option A).
 
 Échelle (desktop ; réduire proportionnellement sur mobile) :
 - Titre héros : 48–56px, poids 700, interligne serré
@@ -101,8 +107,9 @@ Le défaut actuel du site est le VIDE : contenu étroit, perdu au centre. Corrig
   d'arrondi sur un seul côté.
 - OMBRES : subtiles et chaudes (jamais de grosses ombres dures). Une ombre légère
   suffit à décoller une carte.
-- BOUTONS : principal = fond `primary-600`, texte blanc, bien rembourré, survol
-  plus foncé ; secondaire = contour. Taille tactile (≥44px de haut) pour le mobile.
+- BOUTONS : principal = fond `primary-700` (AA, voir section 2), texte blanc,
+  bien rembourré, survol plus foncé ; secondaire = contour. Taille tactile
+  (≥44px de haut) pour le mobile.
 - CARTES : fond `surface`, bordure `border` fine, arrondi 12–16px, contenu aéré,
   hauteurs égales dans une grille.
 - ÉTATS DE SURVOL ET TRANSITIONS : douces (150–200ms), présentes mais discrètes —
@@ -124,9 +131,8 @@ Le défaut actuel du site est le VIDE : contenu étroit, perdu au centre. Corrig
 
 ## 7. Ton et formulations
 
-- Tout en français québécois, chaleureux et simple. Tutoiement cohérent avec la
-  cible familiale (à confirmer par le propriétaire : tu/vous — choisir UN registre
-  et s'y tenir partout).
+- Tout en français québécois, chaleureux et simple. **Tutoiement partout**
+  (validé 2026-06-27), cohérent avec la cible familiale.
 - Zéro jargon visible par l'utilisateur. « Choisis qui tu veux encourager », pas
   « sélectionner un bénéficiaire ».
 - Les montants : format CAD clair (35,00 $).
