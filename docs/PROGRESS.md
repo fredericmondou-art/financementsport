@@ -936,4 +936,56 @@
       nouvelle palette orange/teal avec inversion de rôle primary↔accent sans
       toucher un seul fichier `.tsx`, nouveau token `--color-surface` distinct
       de `--color-bg`/cream, couleurs d'état recalculées pour l'AA — `danger`
-      → `#AC3932`
+      → `#AC3932`, nouveau `--color-info-text` → `#236293` —, rayons 8/10/16/
+      24px, ombres et anneau de focus reteintés sur la nouvelle palette).
+      `app/layout.tsx` : police de titre Outfit → Bricolage Grotesque.
+      Composants migrés vers `--color-surface` : `.card`, `.field__control`,
+      `.modal` (+ fond/couleur explicites, absents jusqu'ici), `.site-header`,
+      `.mobile-nav__panel`, `.wizard-nav` ; teintes de badges/alertes
+      retokenisées ; deux survols auparavant en dur (`.btn--accent:hover`/
+      `.btn--danger:hover`) deviennent `--color-accent-dark`/
+      `--color-error-dark`. `/styleguide` complété avec une section « État
+      vide » (composant `EmptyState` existant mais jamais démontré). Détail
+      complet des 4 décisions (mapping de rôle, recalculs AA, `--color-
+      surface`, rayons/ombres) dans `docs/DECISIONS.md` (entrée du
+      2026-06-27). Aucun fichier `.tsx` de composant/page modifié. Deux
+      nouvelles manifestations du bug de cache mount/git rencontrées
+      (`app/layout.tsx` tronqué, `app/globals.css` tronqué de ~118 lignes,
+      puis `app/styleguide/page.tsx` tronqué) et réparées par reconstruction
+      heredoc/git-show+Python, vérifiées par `wc -l`/scan d'octets nuls/
+      `git diff --stat`. `tsc --noEmit`/`eslint .` propres, 10/10 fichiers de
+      test `components/ui/*` verts + tous les tests unitaires de logique
+      métier déjà observés verts (aucune régression — V2 ne touche aucune
+      logique métier).
+
+- [x] Refonte visuelle — **Tâche V3** : navigation, pied de page et coquille
+      générale. En-tête (`components/nav/site-header.tsx`) : marque visuelle
+      (icône SVG médaille, décorative), liseré dégradé orange→teal, lien actif
+      en repère « pilule » (`--color-primary-tint`) au lieu d'un simple
+      soulignement, menu mobile avec icône hamburger et animation d'ouverture
+      CSS douce. Pied de page (`components/nav/site-footer.tsx`) : passage
+      d'une rangée plate à un plan du site à 3 colonnes (marque/tagline/
+      mention Québec, navigation, liens de confiance) + barre de copyright
+      séparée ; ajout du lien « Trouver un athlète ». Tous les noms/chemins de
+      lien testés par `tests/e2e/navigation.spec.ts` et
+      `pages-confiance.spec.ts` conservés à l'identique (DOM order, `aria-
+      current`, scoping `contentinfo`, cible tactile 44×44px). Détail complet
+      dans `docs/DECISIONS.md` (entrée du 2026-06-27, Tâche V3). **Note
+      importante** : cette tâche a aussi permis de découvrir et corriger une
+      corruption silencieuse déjà présente dans le commit V2 (`c704d35`,
+      poussé vers `origin/main`) — l'entrée Tâche V2 ci-dessus avait été
+      tronquée en plein milieu d'une phrase sans qu'aucune vérification ne le
+      détecte à l'époque (le texte committé s'arrêtait à « → `#AC3932` »).
+      Reconstruite ici à l'identique du texte original prévu. Voir
+      `docs/DECISIONS.md` (entrée du 2026-06-27, Tâche V3, point 4) pour le
+      détail de la détection et de la réparation. `tsc --noEmit`/`npm run
+      lint` propres. Aucun test unitaire Vitest pour ces composants (Server
+      Components purs, couverts seulement par les e2e non exécutables en
+      sandbox).
+
+## En cours
+(aucune — Tâche V3 complétée et committée)
+
+## À venir
+Tâches V4-V10 de la refonte visuelle à suivre une à la fois, rapport après
+chacune (`docs/prompts/07-prompts-refonte-visuelle.md`).

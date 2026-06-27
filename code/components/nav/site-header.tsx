@@ -20,6 +20,11 @@
  * 768px via CSS (voir app/globals.css), desktop nav masquée à l'inverse —
  * voir docs/DECISIONS.md pour le choix de cette implémentation sans nouvelle
  * exception `'use client'`.
+ *
+ * Refonte visuelle Tâche V3 : marque (icône SVG décorative) + repère pill
+ * pour le lien actif (voir .nav-link--active dans app/globals.css) + icône
+ * hamburger dans le bouton du menu mobile. Présentation seulement, aucun
+ * changement de comportement ou de nom accessible (voir docs/DECISIONS.md).
  */
 import { headers } from 'next/headers';
 import Link from 'next/link';
@@ -58,7 +63,14 @@ export async function SiteHeader(): Promise<JSX.Element> {
 
       <div className="site-header__bar">
         <Link href="/" className="site-header__brand">
-          Plateforme de financement sportif
+          <svg className="site-header__mark" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <circle cx="12" cy="12" r="11" fill="var(--color-primary)" />
+            <path
+              d="M12 6.3l1.9 3.7 4.1.6-3 2.9.7 4.1-3.7-1.9-3.7 1.9.7-4.1-3-2.9 4.1-.6z"
+              fill="var(--color-on-primary)"
+            />
+          </svg>
+          <span>Plateforme de financement sportif</span>
         </Link>
 
         <nav className="site-header__nav" aria-label="Navigation principale">
@@ -97,6 +109,14 @@ export async function SiteHeader(): Promise<JSX.Element> {
 
         <details className="mobile-nav">
           <summary className="mobile-nav__toggle" aria-label="Ouvrir le menu de navigation">
+            <svg className="mobile-nav__icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path
+                d="M3 6h18M3 12h18M3 18h18"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+              />
+            </svg>
             Menu
           </summary>
           <nav className="mobile-nav__panel" aria-label="Navigation mobile">

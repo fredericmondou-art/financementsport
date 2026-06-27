@@ -508,11 +508,19 @@ textarea {
 }
 
 .site-header {
-  border-bottom: 1px solid var(--color-border);
-  background: var(--color-surface);
   position: sticky;
   top: 0;
   z-index: 10;
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+}
+/* Liseré dégradé chaud/froid (orange → teal) — repère de marque discret en
+   haut de chaque page, voir docs/DECISIONS.md (Tâche V3). */
+.site-header::before {
+  content: '';
+  display: block;
+  height: 3px;
+  background: linear-gradient(90deg, var(--color-primary) 0%, var(--color-accent) 100%);
 }
 .site-header__bar {
   max-width: 1100px;
@@ -523,6 +531,9 @@ textarea {
   gap: var(--space-5);
 }
 .site-header__brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
   font-family: var(--font-heading);
   font-weight: 700;
   font-size: 1.0625rem;
@@ -530,9 +541,14 @@ textarea {
   text-decoration: none;
   margin-right: auto;
 }
+.site-header__mark {
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+}
 .site-header__nav-list {
   display: flex;
-  gap: var(--space-5);
+  gap: var(--space-2);
   list-style: none;
   margin: 0;
   padding: 0;
@@ -544,19 +560,27 @@ textarea {
 }
 
 .nav-link {
+  display: inline-flex;
+  align-items: center;
   color: var(--color-text-secondary);
   text-decoration: none;
   font-weight: 600;
   font-size: 0.9375rem;
-  padding: var(--space-2) 0;
-  border-bottom: 2px solid transparent;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  transition: color 150ms ease, background-color 150ms ease;
 }
 .nav-link:hover {
   color: var(--color-text);
+  background: var(--color-bg-alt);
 }
 .nav-link--active {
   color: var(--color-primary);
-  border-bottom-color: var(--color-primary);
+  background: var(--color-primary-tint);
+}
+.nav-link--active:hover {
+  color: var(--color-primary);
+  background: var(--color-primary-tint);
 }
 
 .mobile-nav {
@@ -570,10 +594,20 @@ textarea {
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: var(--space-2);
   padding: var(--space-2) var(--space-4);
   border-radius: var(--radius-sm);
   border: 1px solid var(--color-border);
   font-weight: 600;
+  transition: background-color 150ms ease;
+}
+.mobile-nav__toggle:hover {
+  background: var(--color-bg-alt);
+}
+.mobile-nav__icon {
+  width: 18px;
+  height: 18px;
+  color: var(--color-primary);
 }
 .mobile-nav__toggle::-webkit-details-marker {
   display: none;
@@ -587,8 +621,20 @@ textarea {
   right: 0;
   background: var(--color-surface);
   border-bottom: 1px solid var(--color-border);
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
   box-shadow: var(--shadow-md);
   padding: var(--space-3) var(--space-4) var(--space-5);
+  animation: mobile-nav-in 180ms ease;
+}
+@keyframes mobile-nav-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 .mobile-nav__panel ul {
   list-style: none;
@@ -628,21 +674,48 @@ textarea {
   background: var(--color-bg-alt);
   margin-top: var(--space-8);
 }
-.site-footer__bar {
+.site-footer__top {
   max-width: 1100px;
   margin: 0 auto;
-  padding: var(--space-5) var(--space-4);
+  padding: var(--space-7) var(--space-4) var(--space-5);
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
+  gap: var(--space-6);
+}
+.site-footer__brand {
+  flex: 2 1 260px;
+  max-width: 360px;
+}
+.site-footer__brand-name {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 1.0625rem;
+  color: var(--color-text);
+  margin: 0 0 var(--space-2);
+}
+.site-footer__tagline {
+  color: var(--color-text-secondary);
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  margin: 0 0 var(--space-3);
+}
+.site-footer__locale {
   color: var(--color-text-secondary);
   font-size: 0.875rem;
+  margin: 0;
+}
+.site-footer__col-title {
+  font-weight: 700;
+  color: var(--color-text);
+  font-size: 0.8125rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin: 0 0 var(--space-3);
 }
 .site-footer__links {
   display: flex;
-  gap: var(--space-4);
+  flex-direction: column;
+  gap: var(--space-2);
   list-style: none;
   margin: 0;
   padding: 0;
@@ -650,10 +723,20 @@ textarea {
 .site-footer__links a {
   color: var(--color-text-secondary);
   text-decoration: none;
+  font-size: 0.9375rem;
+  transition: color 150ms ease;
 }
 .site-footer__links a:hover {
-  color: var(--color-text);
+  color: var(--color-primary);
   text-decoration: underline;
+}
+.site-footer__bottom {
+  border-top: 1px solid var(--color-border);
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: var(--space-4) var(--space-4);
+  color: var(--color-text-secondary);
+  font-size: 0.8125rem;
 }
 
 /* État de chargement entre pages (app/loading.tsx) — jamais d'écran blanc. */

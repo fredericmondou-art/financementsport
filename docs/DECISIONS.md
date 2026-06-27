@@ -3743,3 +3743,79 @@ relecture Read confirmant l'accord des deux vues) :
    (bash a montré 119 lignes/6856 octets contre 158 lignes réelles, coupure
    en plein milieu d'une phrase du docblock final, bien après la zone
    éditée).
+
+
+## 2026-06-27 — Refonte visuelle : Tâche V3 (navigation, pied de page, coquille)
+
+Contexte : cahier `docs/prompts/07-prompts-refonte-visuelle.md`, Tâche V3 —
+« l'en-tête et le pied de page actuels sont fonctionnels mais fades et trop
+vides ». Présentation seulement (CLAUDE.md section 6) : aucune logique
+métier, aucun rôle/permission touché.
+
+1. **En-tête (`components/nav/site-header.tsx` + CSS)** : ajout d'une marque
+   visuelle (icône SVG décorative en forme de médaille, `aria-hidden`, donc
+   sans impact sur le nom accessible du lien « Plateforme de financement
+   sportif »), d'un liseré dégradé orange→teal en haut de l'en-tête (repère
+   de marque discret), et d'un bouton de menu mobile avec icône hamburger
+   (toujours du texte « Menu » conservé, sélecteur CSS inchangé pour les
+   tests). Le lien de page active passe d'un soulignement à un repère
+   « pilule » (fond `--color-primary-tint`, texte `--color-primary`) — plus
+   chaleureux et plus visible, sans toucher à `aria-current="page"` ni à
+   `components/nav/nav-link.tsx` (logique d'activation inchangée). Le menu
+   mobile (`<details>/<summary>` natif) gagne une animation d'ouverture
+   CSS pure (fade + léger glissement, 180ms) — purement décorative, aucun
+   JS ajouté.
+2. **Pied de page (`components/nav/site-footer.tsx` + CSS)** : passage d'une
+   seule rangée plate à un plan du site à 3 colonnes (marque + tagline +
+   mention Québec ; navigation ; liens de confiance), puis une barre de bas
+   de page séparée pour le copyright. Tous les noms et chemins de lien
+   testés par `tests/e2e/pages-confiance.spec.ts` (À propos, Confidentialité,
+   Conditions d'utilisation, Remboursement et livraison, Contact) sont
+   conservés mot pour mot ; le test cible déjà `getByRole('contentinfo')`,
+   donc la restructuration interne ne casse rien. Ajout d'un lien
+   « Trouver un athlète » (`/trouver`, page déjà existante) pour enrichir le
+   plan du site sans inventer de nouvelle page (CLAUDE.md section 10).
+3. **Décision mineure (autonome, CLAUDE.md section 9)** : la mention
+   « Québec, Canada » a été déplacée de la barre de copyright vers le bloc
+   de marque du pied de page (« Fièrement basée au Québec, Canada. ») —
+   aucun test ne fixe son emplacement exact, seulement sa présence visuelle
+   demandée par le cahier.
+4. **Incident de corruption mount/git (4e occurrence ce projet)** : pendant
+   cette tâche, les 3 fichiers touchés (`site-header.tsx`, `site-footer.tsx`,
+   `app/globals.css`) ont été tronqués silencieusement par l'outil d'édition
+   sur le dossier monté — y compris une troncature de ~90 lignes en fin de
+   fichier sur `globals.css` qui n'était PAS dans la zone éditée (les
+   sections `.entry-buttons`/`.feature-grid`/`.faq`/`.legal-content` de la
+   page d'accueil et des pages de confiance avaient disparu). Détecté grâce
+   à `git diff --stat` montrant un hunk `-92,+4` loin de la zone touchée, et
+   confirmé par un comptage d'accolades ouvrantes/fermantes. Réparé avec la
+   technique établie : base propre via `git show HEAD:...`, ré-application
+   des remplacements exacts par script Python (`content.count(old) == 1`),
+   écriture directe en contournant l'outil d'édition. Le compte d'accolades
+   équilibré seul n'est PAS une preuve suffisante d'intégrité (une coupure
+   sur du contenu lui-même équilibré peut passer ce test) — toujours
+   recouper avec `git diff --stat`/hunks et, pour les gros fichiers, un
+   diff complet relu ligne par ligne avant de committer.
+
+Tests : `npx tsc --noEmit` et `npm run lint` verts après réparation. Aucun
+test unitaire Vitest n'existe pour ces composants (Server Components purs,
+couverts uniquement par `tests/e2e/navigation.spec.ts` et
+`pages-confiance.spec.ts`, non exécutables dans le bac à sable — limite déjà
+documentée). Conformité aux deux specs vérifiée par lecture attentive avant
+modification : noms de lien, ordre du DOM (requêtes `.first()`), sémantique
+`aria-current`, mécanisme natif `<details>/<summary>`, cible tactile
+44×44px du bouton de menu mobile, scoping `contentinfo` du pied de page —
+tout préservé à l'identique.
+
+5. **Corruption déjà présente dans un commit poussé (`c704d35`, Tâche V2)** :
+   en reconstruisant `docs/PROGRESS.md` pour ajouter l'entrée V3 ci-dessus, la
+   même technique de vérification a révélé que l'entrée « Tâche V2 » de ce
+   fichier était DÉJÀ tronquée en plein milieu d'une phrase dans le commit
+   `c704d35` lui-même (texte committé s'arrêtant à « → `#AC3932` », sans saut
+   de ligne final) — la corruption avait donc échappé à la vérification de
+   l'époque et avait été poussée vers `origin/main`. Reconstruite ici, dans le
+   commit de la Tâche V3, à partir du texte original prévu (conservé dans le
+   contexte de la session). Leçon retenue : pour les fichiers volumineux,
+   relire le `git diff` complet (pas seulement `--stat`) avant de committer,
+   et en particulier vérifier que le fichier se termine par le contenu et le
+   saut de ligne attendus.

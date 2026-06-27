@@ -3,6 +3,12 @@
  * pages de confiance — À propos, Confidentialité, Conditions,
  * Remboursement et livraison, Contact — désormais créées, voir
  * docs/DECISIONS.md).
+ *
+ * Restructuré en plan du site à 3 colonnes pour la Tâche V3 (refonte
+ * visuelle) : le pied de page à une seule rangée se sentait « fade et trop
+ * vide » (cahier 07-prompts-refonte-visuelle.md). Les noms et chemins de
+ * lien restent identiques mot pour mot pour ne pas casser
+ * tests/e2e/pages-confiance.spec.ts (requêtes scopées à `contentinfo`).
  */
 import Link from 'next/link';
 
@@ -11,9 +17,17 @@ export function SiteFooter(): JSX.Element {
 
   return (
     <footer className="site-footer">
-      <div className="site-footer__bar">
-        <p>© {year} Plateforme de financement sportif — Québec, Canada.</p>
-        <nav aria-label="Pied de page">
+      <div className="site-footer__top">
+        <div className="site-footer__brand">
+          <p className="site-footer__brand-name">Plateforme de financement sportif</p>
+          <p className="site-footer__tagline">
+            On aide les familles à financer le sport de leurs jeunes, un encouragement à la fois.
+          </p>
+          <p className="site-footer__locale">Fièrement basée au Québec, Canada.</p>
+        </div>
+
+        <nav aria-label="Navigation du pied de page">
+          <p className="site-footer__col-title">Naviguer</p>
           <ul className="site-footer__links">
             <li>
               <Link href="/">Accueil</Link>
@@ -21,6 +35,15 @@ export function SiteFooter(): JSX.Element {
             <li>
               <Link href="/boutique">Boutique</Link>
             </li>
+            <li>
+              <Link href="/trouver">Trouver un athlète</Link>
+            </li>
+          </ul>
+        </nav>
+
+        <nav aria-label="Pages de confiance">
+          <p className="site-footer__col-title">Confiance</p>
+          <ul className="site-footer__links">
             <li>
               <Link href="/a-propos">À propos</Link>
             </li>
@@ -38,6 +61,10 @@ export function SiteFooter(): JSX.Element {
             </li>
           </ul>
         </nav>
+      </div>
+
+      <div className="site-footer__bottom">
+        <p>© {year} Plateforme de financement sportif. Tous droits réservés.</p>
       </div>
     </footer>
   );
