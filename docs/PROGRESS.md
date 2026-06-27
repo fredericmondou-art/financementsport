@@ -922,5 +922,24 @@
         (631 tests) + 20/20 fichiers d'intégration (181 tests) verts,
         `tsc --noEmit` et `npm run lint` propres.
 
+## En cours
+- [ ] Refonte visuelle (`docs/prompts/07-prompts-refonte-visuelle.md`) —
+      **Tâche V1 faite, en attente de validation de Frédéric** (voir
+      `docs/QUESTIONS.md`, entrée du 2026-06-26). Ancien `docs/DESIGN.md`
+      archivé dans `docs/DESIGN-v1-archive.md` ; nouveau `docs/DESIGN.md`
+      (orange/corail + teal) en place. Aperçu réel à `/styleguide-refonte`
+      (palette, 2 paires de polices chargées, composants, maquette héros),
+      page isolée et non indexée, aucun impact sur le reste du site. 5
+      combinaisons de la palette proposée échouent le contraste WCAG AA —
+      corrigées dans l'aperçu (`primary-700` au lieu de `primary-600` pour les
+      boutons pleins ; `warning` en fond clair + texte foncé), à confirmer
+      avec Frédéric avant la Tâche V2. Deux choix encore ouverts : registre
+      tu/vous, police des titres. **Ne pas démarrer la Tâche V2 (tokens +
+      composants) avant cette validation.** `tsc`/`lint` propres ; le sandbox
+      n'a pas d'accès réseau sortant vers Google Fonts donc `next build`
+      complet non testable ici (limite d'environnement, pas une régression —
+      même mécanisme déjà utilisé en prod pour Inter/Outfit).
+
 ## À venir
-(aucune tâche en attente pour la Phase 1.4b)
+(aucune autre tâche en attente pour la Phase 1.4b ; Tâches V2-V10 de la
+refonte visuelle bloquées sur la validation ci-dessus)

@@ -1,0 +1,291 @@
+/*
+ * Styles scopés à /styleguide-refonte uniquement (Tâche V1, refonte
+ * visuelle). CSS Module Next.js : les noms de classes sont hashés au build,
+ * donc strictement aucun impact sur le reste du site. Les couleurs ci-dessous
+ * reprennent docs/DESIGN.md, avec la correction signalée en page (primary-700
+ * plutôt que primary-600 pour le texte blanc sur fond plein ; warning traité
+ * comme fond clair + texte foncé).
+ */
+
+.page {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 48px 24px 96px;
+  background: #fbf7f2;
+  color: #2a2622;
+}
+
+.kicker {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #b4430a;
+  margin: 0 0 8px;
+}
+
+.intro h1 {
+  font-family: var(--apercu-font-bricolage), system-ui, sans-serif;
+  font-size: 2rem;
+  font-weight: 700;
+  margin: 0 0 12px;
+}
+
+.intro p {
+  color: #6b635c;
+  max-width: 640px;
+  line-height: 1.6;
+}
+
+.section {
+  margin-top: 64px;
+  padding-top: 32px;
+  border-top: 1px solid #ece5dc;
+}
+
+.section h2 {
+  font-family: var(--apercu-font-bricolage), system-ui, sans-serif;
+  font-size: 1.5rem;
+  margin: 0 0 16px;
+}
+
+.section h3 {
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin: 24px 0 12px;
+}
+
+.note {
+  font-size: 0.875rem;
+  color: #6b635c;
+}
+
+.alertEchec {
+  background: #fff4ed;
+  border: 1px solid #ffe0cc;
+  border-radius: 12px;
+  padding: 16px 20px;
+  line-height: 1.6;
+}
+
+.swatchRow {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.swatch {
+  width: 150px;
+}
+
+.swatchColor {
+  height: 80px;
+  border-radius: 12px;
+  border: 1px solid #ece5dc;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.swatchTextWhite {
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 1.25rem;
+}
+
+.swatchTextInk {
+  color: #2a2622;
+  font-weight: 600;
+  font-size: 1.25rem;
+}
+
+.swatchLabel {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.8125rem;
+}
+
+.swatchLabel code {
+  color: #6b635c;
+}
+
+.badgeOk,
+.badgeEchec {
+  display: inline-block;
+  margin-top: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  width: fit-content;
+}
+
+.badgeOk {
+  background: #e8f6f1;
+  color: #0f6e56;
+}
+
+.badgeEchec {
+  background: #fdecea;
+  color: #b3261e;
+}
+
+.fontOption {
+  margin-bottom: 32px;
+  padding: 24px;
+  background: #ffffff;
+  border: 1px solid #ece5dc;
+  border-radius: 16px;
+}
+
+.fontOptionLabel {
+  font-family: var(--apercu-font-inter), system-ui, sans-serif;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #b4430a;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 0 0 16px;
+}
+
+.heroSample {
+  font-size: 2.5rem;
+  font-weight: 700;
+  line-height: 1.15;
+  margin: 0 0 16px;
+}
+
+.h2Sample {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin: 0 0 12px;
+}
+
+.bodySample {
+  font-size: 1.0625rem;
+  line-height: 1.6;
+  color: #2a2622;
+  max-width: 560px;
+  margin: 0;
+}
+
+.componentsRow {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+}
+
+.btnPrimary {
+  background: #b4430a;
+  color: #ffffff;
+  border: none;
+  border-radius: 10px;
+  padding: 12px 24px;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  font-family: var(--apercu-font-inter), system-ui, sans-serif;
+  cursor: pointer;
+  min-height: 44px;
+  transition: background 180ms ease;
+}
+
+.btnPrimary:hover {
+  background: #963608;
+}
+
+.btnOutline {
+  background: transparent;
+  color: #b4430a;
+  border: 1.5px solid #b4430a;
+  border-radius: 10px;
+  padding: 12px 24px;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  font-family: var(--apercu-font-inter), system-ui, sans-serif;
+  cursor: pointer;
+  min-height: 44px;
+  transition: background 180ms ease;
+}
+
+.btnOutline:hover {
+  background: #fff4ed;
+}
+
+.badgeSuccess,
+.badgeWarning {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.badgeSuccess {
+  background: #e8f6f1;
+  color: #0f6e56;
+}
+
+.badgeWarning {
+  background: #fdf3e3;
+  color: #8a5a0f;
+}
+
+.card {
+  background: #ffffff;
+  border: 1px solid #ece5dc;
+  border-radius: 16px;
+  padding: 24px;
+  max-width: 320px;
+  box-shadow: 0 1px 3px rgba(42, 38, 34, 0.06);
+}
+
+.cardTitle {
+  font-family: var(--apercu-font-bricolage), system-ui, sans-serif;
+  margin: 0 0 8px;
+}
+
+.heroMock {
+  background: linear-gradient(180deg, #fff4ed 0%, #fbf7f2 100%);
+  border-radius: 24px;
+  padding: 64px 48px;
+  text-align: center;
+}
+
+.heroMockTitle {
+  font-size: 2.75rem;
+  font-weight: 700;
+  line-height: 1.15;
+  margin: 0 0 16px;
+}
+
+.heroMockBody {
+  color: #6b635c;
+  font-size: 1.0625rem;
+  line-height: 1.6;
+  max-width: 520px;
+  margin: 0 auto 32px;
+}
+
+.heroMockActions {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 600px) {
+  .heroSample {
+    font-size: 1.875rem;
+  }
+  .heroMockTitle {
+    font-size: 2rem;
+  }
+  .heroMock {
+    padding: 40px 24px;
+  }
+}

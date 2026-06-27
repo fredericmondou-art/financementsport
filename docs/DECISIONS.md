@@ -3,6 +3,86 @@
 Ce fichier consigne les choix mineurs pris sans validation, conformément à la
 section 9 de CLAUDE.md. Format : date — contexte — décision — raison.
 
+## 2026-06-26 — Refonte visuelle (Tâche V1) : remplacement de DESIGN.md, aperçu, contrastes
+
+**Contexte.** Frédéric a fourni deux nouveaux documents : un `DESIGN.md` v2
+(palette orange/corail + teal, polices Bricolage Grotesque/Fraunces/Clash
+Display + Inter/Plus Jakarta Sans) et `docs/prompts/07-prompts-refonte-
+visuelle.md` (10 tâches V1-V10). Conflit détecté avant d'agir : le `DESIGN.md`
+existant (palette bleu #1E3A5F + terracotta, polices Outfit/Inter) avait déjà
+été validé par Frédéric le 2026-06-22 et implémenté dans les Phases 1.4/1.4b
+(tokens dans `code/app/globals.css`, composants `components/ui/*`, page
+`/styleguide`). Question posée à Frédéric en chat (pas seulement autonome, car
+ambiguïté bloquante au sens de la section 9 : remplacer une direction déjà
+validée et construite est une décision lourde) : remplacer, garder en réserve,
+ou autre. Réponse : **remplacer**.
+
+**Décision — archivage plutôt qu'écrasement.** L'ancien `docs/DESIGN.md` a été
+renommé `docs/DESIGN-v1-archive.md` (avec un bandeau expliquant le
+remplacement) plutôt que supprimé, pour conserver la référence historique de
+ce qui est réellement implémenté tant que la Tâche V2 (nouveau système de
+tokens) n'a pas eu lieu. Le nouveau contenu fourni a été placé tel que reçu
+dans `docs/DESIGN.md`, et `docs/prompts/07-prompts-refonte-visuelle.md` placé
+dans `docs/prompts/` (convention déjà en place : `phase-*.md` numérotés ;
+celui-ci suit la numérotation `07-` fournie par Frédéric).
+
+**Décision — aperçu isolé plutôt que modification du `/styleguide` existant.**
+La Tâche V1 demande une page provisoire montrant palette/typo/composants. Le
+`/styleguide` existant (`code/app/styleguide/page.tsx`) est la référence
+vivante de la direction ENCORE EN VIGUEUR (v1, toujours utilisée par tout le
+reste du site tant que V2+ n'est pas fait) : l'écraser avec la proposition non
+validée aurait cassé cette référence sans raison. Créé à la place une route
+dédiée et isolée `/styleguide-refonte` (noindex, jamais liée depuis la nav),
+avec un module CSS scopé (`styleguide-refonte.module.css`, classes hashées par
+Next.js) et ses propres polices chargées via `next/font/google` — aucune
+modification de `globals.css`, `layout.tsx` ni `components/ui/*`. Strictement
+aucun impact sur le reste du site, conforme à la règle V1 « NE PAS appliquer au
+site tant que le propriétaire n'a pas validé ».
+
+**Constat — 5 échecs de contraste WCAG AA dans la palette proposée.** Calcul
+par formule de luminance relative officielle (script Python, pas une
+estimation) sur chaque paire texte blanc / fond de `docs/DESIGN.md` :
+
+| Paire | Ratio | Verdict |
+|---|---|---|
+| blanc sur primary-500 `#F4732B` | 2.86:1 | échec (même AA-large) |
+| blanc sur primary-600 `#DC5A14` (bouton principal proposé) | 3.81:1 | échec AA texte normal |
+| blanc sur secondary-500/success `#1F9E7A` | 3.37:1 | échec AA texte normal |
+| blanc sur warning `#E89B22` | 2.30:1 | échec (même AA-large) |
+| blanc sur danger `#D8483F` | 4.27:1 | échec AA texte normal (proche) |
+| blanc sur primary-700 `#B4430A` | 5.60:1 | OK (AA) |
+| blanc sur secondary-700 `#0F6E56` | 6.20:1 | OK (AA) |
+| blanc sur info `#2C7BB8` | 4.53:1 | OK (AA) |
+| ink sur cream/surface/secondary-50/border | 12-15:1 | OK (AAA) |
+
+Le bouton principal proposé (`primary-600` + texte blanc) échoue donc l'AA. Dans
+l'aperçu `/styleguide-refonte`, corrigé en utilisant `primary-700` pour les
+boutons pleins à texte blanc (5.60:1), et `warning` traité comme l'ambre de
+l'ancienne direction (fond clair teinté + texte foncé, jamais texte blanc
+dessus) — pas encore appliqué à `DESIGN.md` lui-même, signalé à Frédéric dans
+`docs/QUESTIONS.md` pour validation explicite avant la Tâche V2.
+
+**Limite technique constatée.** Le sandbox bash n'a pas d'accès réseau sortant
+vers `fonts.googleapis.com` (vérifié par `curl`, échec de connexion) — donc
+impossible de lancer un `next build` complet ici pour valider le chargement
+réel des polices au build. Ceci est une limite de l'environnement de
+développement, pas une régression : le même mécanisme `next/font/google` est
+déjà utilisé en production pour Inter/Outfit dans `app/layout.tsx`. Vérification
+faite à la place : `npx tsc --noEmit` et `npm run lint` propres, et les noms
+d'export `Bricolage_Grotesque`/`Fraunces`/`Plus_Jakarta_Sans` confirmés présents
+dans les types compilés de `next/dist/compiled/@next/font/dist/google`.
+
+**Incident — désync mount/git, 5e occurrence.** `docs/DESIGN.md` (après
+écriture complète via l'outil Write) et `docs/QUESTIONS.md` (après une édition
+ciblée via l'outil Edit) se sont retrouvés tronqués côté bash/git (`wc -l`
+inférieur au compte réel, contenu visible par l'outil Read pourtant complet et
+correct). Réparé par reconstruction complète de chaque fichier via heredoc bash
+à partir du contenu confirmé par l'outil Read, vérifié par scan d'octets (aucun
+octet NUL, fin de fichier correcte). `docs/DECISIONS.md` et `docs/PROGRESS.md`
+mis à jour avec la technique `git show HEAD:<fichier>` + remplacement Python
+ciblé plutôt qu'édition directe, par prudence (cf. incidents précédents sur ces
+deux fichiers volumineux, voir entrée du 2026-06-26 précédente ci-dessous).
+
 ## 2026-06-26 — Tâche 1.4b.6 : états vides encourageants et finitions
 
 **Contexte.** Dernière tâche de la Phase 1.4b (`docs/prompts/phase-1-4b.md`) :

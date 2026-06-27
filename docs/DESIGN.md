@@ -1,106 +1,141 @@
-# Direction visuelle — Plateforme de financement sportif
+# DESIGN.md — Direction esthétique de FinancementSport
 
-Statut : **proposition, non appliquée au site**. À valider par Frédéric avant la
-Tâche 1.4.2 (voir `docs/QUESTIONS.md`).
+> **Remplace** la direction visuelle v1 (validée 2026-06-22, implémentée
+> Phases 1.4/1.4b) — voir `docs/DESIGN-v1-archive.md` pour l'historique.
+> Nouvelle direction en cours de validation, voir `docs/prompts/
+> 07-prompts-refonte-visuelle.md` (Tâche V1) et `docs/QUESTIONS.md`.
 
-Objectif : une identité sobre et crédible (plateforme financière qui touche des
-enfants) tout en donnant de l'élan aux jeunes athlètes. Mobile-first, accessible
-AA, en français.
+Document de référence visuelle. Toute interface du site doit s'y conformer. Ambiance
+choisie : CHALEUREUSE ET HUMAINE — énergie, sport, familles, couleurs vivantes —
+tout en restant rassurante (on touche à l'argent de familles et au sport d'enfants).
 
-## 1. Palette de couleurs
+NOTE : cette direction est une PROPOSITION de départ. Le propriétaire la valide et
+l'ajuste avant application complète (cf. tâche dédiée). Les valeurs ci-dessous sont
+un point de départ cohérent, pas un dogme.
 
-Toutes les paires texte/fond ci-dessous ont été vérifiées par calcul de contraste
-WCAG (formule de luminance relative officielle), pas estimées à l'œil.
+---
 
-| Rôle | Couleur | Hex | Contraste texte blanc dessus | Usage |
-|---|---|---|---|---|
-| Primaire (confiance) | Bleu Confiance | `#1E3A5F` | 11.5:1 (AAA) | Boutons primaires, en-tête, liens, titres de section |
-| Accent (action / élan) | Terracotta | `#C2410C` | 5.2:1 (AA) | CTA secondaires (« Encourager », boutons d'action ponctuels) — à utiliser avec retenue, jamais comme couleur dominante |
-| Succès | Vert Succès | `#1F7A45` | 5.3:1 (AA) | Confirmations, crédit attribué, paiement réussi |
-| Erreur | Rouge Erreur | `#C0392B` | 5.4:1 (AA) | Messages d'erreur, stock épuisé, échec de paiement |
-| Avertissement | Ambre | `#B8860B` | 3.3:1 (insuffisant en texte blanc) | **Toujours en fond clair teinté `#FCEFC7` + texte foncé `#1A1F26`**, jamais en texte blanc dessus |
-| Texte principal | Anthracite | `#1A1F26` | 16.6:1 sur blanc | Corps de texte, titres |
-| Texte secondaire | Gris ardoise | `#5B6470` | 6.0:1 sur blanc | Légendes, métadonnées, texte secondaire |
-| Fond | Blanc | `#FFFFFF` | — | Fond principal |
-| Fond alterné | Gris très clair | `#F7F8FA` | — | Sections alternées, cartes |
-| Bordure | Gris clair | `#E1E4E8` | — | Séparateurs, contours de champs |
+## 1. Esprit
 
-Règle ferme : **jamais de texte blanc sur l'ambre ou sur une couleur non
-vérifiée ci-dessus.** Toute nouvelle combinaison doit être vérifiée par calcul
-avant usage (section 1.4.5 fera un audit automatisé en complément).
+Le site doit donner, dès la première seconde, trois sensations :
+- CHALEUR : des visages, du mouvement, des couleurs vivantes, du sport.
+- CLARTÉ : on comprend quoi faire sans réfléchir ; rien n'est encombré.
+- CONFIANCE : c'est soigné, cohérent, sérieux dans les détails ; on confie son
+  argent sans hésiter.
 
-## 2. Typographie
+Mot d'ordre : « chaleureux mais fiable ». Ni froid et corporatif, ni criard et
+amateur.
 
-- **Titres** : `Outfit` (Google Fonts) — géométrique, moderne, un peu d'élan
-  sans perdre en sérieux. Graisses 600/700.
-- **Corps de texte** : `Inter` (Google Fonts) — excellente lisibilité à toutes
-  tailles, très large support, neutre et professionnel. Graisses 400/500/600.
-- Chargement via `next/font/google` (auto-hébergé par Next.js, donc pas de
-  requête externe au navigateur du visiteur — bon pour la performance et la
-  confidentialité).
-- Échelle (mobile-first, `rem`, base 16px) :
+## 2. Palette de couleurs (proposition neuve)
 
-| Usage | Taille | Graisse | Interligne |
-|---|---|---|---|
-| Titre principal (H1) | 1.75rem (mobile) → 2.5rem (desktop) | 700 | 1.2 |
-| Titre de section (H2) | 1.375rem → 1.875rem | 600 | 1.25 |
-| Sous-titre (H3) | 1.125rem → 1.375rem | 600 | 1.3 |
-| Corps | 1rem | 400 | 1.6 |
-| Petit texte / légende | 0.875rem | 400 | 1.5 |
-| Bouton | 0.9375rem | 600 | 1 |
+Approche : une couleur principale énergique et chaleureuse, une couleur d'accent
+pour l'action, des neutres doux (pas de blanc clinique ni de gris froids), et des
+couleurs d'état claires. Valeurs hex de départ, à ajuster à la validation :
 
-## 3. Espacement
+COULEUR PRINCIPALE (énergie, sport) — un orange chaud/corail :
+- primary-50  #FFF4ED  (fonds très clairs, surbrillances)
+- primary-100 #FFE0CC
+- primary-500 #F4732B  (couleur de marque, accents)
+- primary-600 #DC5A14  (boutons principaux, liens forts)
+- primary-700 #B4430A  (survol, texte sur fond clair)
 
-Échelle à base 4px, réutilisée partout (jamais de valeur arbitraire en dur) :
+COULEUR SECONDAIRE (confiance, calme) — un bleu-vert/teal profond :
+- secondary-50  #E8F6F1
+- secondary-500 #1F9E7A
+- secondary-700 #0F6E56  (titres d'accent, éléments de réassurance)
 
-`4, 8, 12, 16, 24, 32, 48, 64, 96` (px), exposée comme tokens
-`--space-1` à `--space-9`.
+NEUTRES CHAUDS (pas de gris froid) — base de tout le texte et des fonds :
+- ink      #2A2622  (texte principal — brun très foncé, plus chaleureux que le noir)
+- slate    #6B635C  (texte secondaire)
+- cream    #FBF7F2  (fond de page — chaleur subtile vs blanc pur)
+- surface  #FFFFFF  (cartes, surfaces surélevées)
+- border   #ECE5DC  (bordures douces et chaudes)
 
-## 4. Rayons et ombres
+ÉTATS :
+- success #1F9E7A (réutilise le teal)
+- warning #E89B22
+- danger  #D8483F
+- info    #2C7BB8
 
-- Rayon petit (champs, badges) : `6px`
-- Rayon moyen (boutons) : `8px`
-- Rayon large (cartes, modales) : `12px`
-- Ombre légère (carte au repos) : `0 1px 3px rgba(26,31,38,0.08)`
-- Ombre moyenne (carte au survol, menu) : `0 4px 12px rgba(26,31,38,0.12)`
+RÈGLES DE COULEUR :
+- Le fond de page est `cream`, pas le blanc pur : ça réchauffe immédiatement.
+- L'orange principal est réservé aux ACTIONS et aux accents, jamais en grands
+  aplats qui fatiguent l'œil.
+- Le texte n'est jamais noir pur (#000) : toujours `ink` (#2A2622).
+- Contrastes conformes WCAG AA partout (vérifier chaque paire texte/fond).
 
-Rayons modérés délibérément : assez doux pour être accueillant, pas assez pour
-paraître « ludique » au point de nuire au sérieux d'une plateforme financière.
+## 3. Typographie
 
-## 5. Ton
+Deux familles maximum, lisibles et chaleureuses :
+- TITRES : une sans-serif géométrique au caractère affirmé (ex : « Bricolage
+  Grotesque », « Clash Display » ou « Fraunces » pour un côté plus humain). Doit
+  avoir de la personnalité sans nuire à la lisibilité.
+- TEXTE : une sans-serif neutre et très lisible (ex : « Inter », « Plus Jakarta
+  Sans »).
 
-Chaleureux mais sérieux. Vouvoiement par défaut sur les pages publiques et
-l'admin (on s'adresse à des parents, des gestionnaires, des organisations) ;
-tutoiement possible uniquement si un profil athlète mineur s'adresse
-directement à ses supporteurs dans un contenu éditorial qu'il contrôle (hors
-scope V1). Pas de superlatifs marketing creux (« incroyable », « explosif ») ;
-on préfère la clarté factuelle (« 1 240 $ amassés sur 2 000 $ », « 18 $ de
-crédit pour [Nom] »).
+Échelle (desktop ; réduire proportionnellement sur mobile) :
+- Titre héros : 48–56px, poids 700, interligne serré
+- H1 page : 36–40px, poids 700
+- H2 section : 28px, poids 600
+- H3 : 20px, poids 600
+- Corps : 17px, poids 400, interligne 1.6 (confort de lecture)
+- Petit texte : 14px
 
-## 6. Approche d'implémentation prévue pour la Tâche 1.4.2
+RÈGLES : pas plus de deux familles. Sentence case (pas de TOUT EN MAJUSCULES).
+Hiérarchie claire : on doit distinguer titre / sous-titre / corps d'un coup d'œil.
 
-Décision autonome (CLAUDE.md §9 — choix mineur, pas d'ambiguïté bloquante) :
-**variables CSS natives** (`:root { --color-primary: ... }`) plutôt que
-Tailwind. Le projet n'a actuellement aucune dépendance de styling ; ajouter
-Tailwind maintenant introduirait un nouvel outil de build pour un projet dont
-la priorité reste « ne jamais casser le cœur ». Les variables CSS suffisent
-pour des tokens centralisés, fonctionnent nativement avec `next/font`, et
-n'ajoutent aucune dépendance. Documenté aussi dans `docs/DECISIONS.md`.
+## 4. Espacement et mise en page
 
-## 7. Maquettes de validation
+Le défaut actuel du site est le VIDE : contenu étroit, perdu au centre. Corriger :
+- Largeur de contenu confortable (max ~1100–1200px), bien rempli, pas une colonne
+  étriquée au milieu d'un océan blanc.
+- Rythme vertical généreux et RÉGULIER entre les sections (échelle d'espacement :
+  4, 8, 12, 16, 24, 32, 48, 64px).
+- Les sections alternent les fonds (cream / surface / léger teinté) pour créer du
+  rythme et éviter la page plate.
+- Mobile-first : tout doit respirer aussi sur petit écran, sans entassement.
 
-Trois maquettes statiques (HTML autonome, hors de l'application Next.js, donc
-sans aucun impact sur le site actuel) sont fournies dans `docs/maquettes/` :
+## 5. Composants
 
-1. `accueil.html` — page d'accueil
-2. `athlete.html` — page publique d'un athlète (avec barre de progression de
-   campagne et confidentialité mineur respectée par défaut « Standard »)
-3. `panier.html` — panier avec répartition entre bénéficiaires
+- COINS : arrondis doux et cohérents (cartes 12–16px, boutons 8–10px). Jamais
+  d'arrondi sur un seul côté.
+- OMBRES : subtiles et chaudes (jamais de grosses ombres dures). Une ombre légère
+  suffit à décoller une carte.
+- BOUTONS : principal = fond `primary-600`, texte blanc, bien rembourré, survol
+  plus foncé ; secondaire = contour. Taille tactile (≥44px de haut) pour le mobile.
+- CARTES : fond `surface`, bordure `border` fine, arrondi 12–16px, contenu aéré,
+  hauteurs égales dans une grille.
+- ÉTATS DE SURVOL ET TRANSITIONS : douces (150–200ms), présentes mais discrètes —
+  elles donnent l'impression « vivant et soigné ».
+- ICÔNES : un set cohérent (une seule famille), trait régulier, jamais mélangé.
 
-Ouvrir directement ces fichiers dans un navigateur pour prévisualiser.
+## 6. Imagerie (point sensible — mineurs)
 
-## 8. Prochaine étape
+- Pages MARKETING (accueil, à propos) : vraies photos de banque libres de droits,
+  chaleureuses, diverses (sport, jeunes, familles, mouvement). Ne JAMAIS faire
+  passer un mannequin pour un vrai athlète de la plateforme.
+- Pages PROFIL D'ATHLÈTE : seules vraies photos d'enfants admises = celles
+  téléversées par un parent AVEC consentement, et toujours soumises aux masquages
+  (`hide_photo`, etc.).
+- LIANT : illustrations et éléments graphiques (formes organiques, motifs,
+  textures douces aux couleurs de la marque) pour réchauffer sans risque de droits
+  ni de confidentialité.
+- Toute image a un texte alternatif ; les images sont optimisées (poids, format).
 
-En attente de validation humaine (voir `docs/QUESTIONS.md`). Aucune
-application au code de production tant que cette validation n'est pas
-obtenue, conformément à la Tâche 1.4.1 du cahier de prompts.
+## 7. Ton et formulations
+
+- Tout en français québécois, chaleureux et simple. Tutoiement cohérent avec la
+  cible familiale (à confirmer par le propriétaire : tu/vous — choisir UN registre
+  et s'y tenir partout).
+- Zéro jargon visible par l'utilisateur. « Choisis qui tu veux encourager », pas
+  « sélectionner un bénéficiaire ».
+- Les montants : format CAD clair (35,00 $).
+
+## 8. Ce qu'on évite absolument
+
+- Le blanc clinique et les gris froids (on veut de la chaleur).
+- Les grands vides : contenu perdu au centre.
+- Les pages plates sans rythme ni alternance.
+- Le mélange d'icônes ou de polices dépareillées.
+- Les couleurs criardes ou les dégradés tape-à-l'œil.
+- Tout ce qui fait « gabarit par défaut non personnalisé ».
