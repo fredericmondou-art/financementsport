@@ -1127,6 +1127,24 @@
   contrainte réseau/Chromium que le reste de la suite e2e) -- à exécuter en
   CI/local avant mise en production.
 
+## Terminé (suite 11)
+- Ménage du dépôt : `README.md` (racine) et `docs/README.md` créés pour
+  qu'un nouveau développeur comprenne le projet sans contexte préalable.
+  Code (`code/`) audité et confirmé déjà propre (`tsc --noEmit`/`eslint .`
+  verts, pas de secret en dur) -- aucune modification nécessaire côté code.
+  Réorganisation complète de `docs/` (choix de Frédéric : ménage en
+  profondeur plutôt que README seul) : tous les fichiers historiques
+  (prompts de phases, rapports RAPPORT-*.md, audits, ancien DESIGN v1,
+  maquettes statiques) déplacés dans `docs/archive/{prompts,rapports,
+  audits,design,maquettes}/`. Références mises à jour dans les fichiers
+  vivants (`CLAUDE.md`, `ORCHESTRATION.md`, `docs/QUESTIONS.md`,
+  `docs/DESIGN.md`), y compris un chemin erroné préexistant dans `CLAUDE.md`
+  (`docs/03-prompts/`). Les entrées historiques de ce fichier et de
+  `docs/DECISIONS.md` n'ont pas été réécrites (chemins valides au moment où
+  chacune a été écrite) -- voir l'entrée du 2026-06-27 dans
+  `docs/DECISIONS.md` pour la table de correspondance ancien→nouveau chemin.
+  Aucun test ni `tsc`/`lint` affecté (changements documentaires uniquement).
+
 ## La refonte visuelle (V1 à V10) est TERMINÉE.
 Voir docs/DECISIONS.md, section « Après la refonte visuelle (V1 à V10) »
 pour le résumé complet et les points encore ouverts avant un lancement
@@ -1134,12 +1152,13 @@ commercial réel (révision juridique des pages légales, favicon/
 opengraph-image manquants).
 
 ## En cours
-(aucune — refonte visuelle V1-V10 complétée et committée)
+(aucune — refonte visuelle V1-V10 et ménage documentaire complétés et
+committés)
 
 ## À venir
-Aucune tâche de refonte visuelle restante. Prochaines priorités à définir
-avec le propriétaire du produit (hors `docs/prompts/07-prompts-refonte-visuelle.md`,
-qui est maintenant entièrement traité).
+Aucune tâche en attente. Prochaines priorités à définir avec le propriétaire
+du produit (les plans déjà traités sont archivés dans `docs/archive/
+prompts/`, voir `docs/README.md` pour l'index complet).
 
 ## Point ouvert (hors refonte visuelle)
 Aucune image `opengraph-image`/`favicon`/`icon` n'existe dans `app/` --

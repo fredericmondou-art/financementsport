@@ -122,7 +122,12 @@ Pour CHAQUE fonctionnalité livrée, tu dois fournir :
 
 ## 9. Comment travailler (autonomie)
 
-- Travaille tâche par tâche selon les prompts fournis dans `docs/03-prompts/`.
+- Travaille tâche par tâche selon les prompts fournis. Les plans déjà traités
+  (phases 0 à 1.6, puis la refonte visuelle V1-V10) sont archivés dans
+  `docs/archive/prompts/` une fois terminés — voir `docs/PROGRESS.md` pour
+  l'état actuel et `docs/README.md` pour l'index complet de la documentation.
+  Tout nouveau plan de tâches arrive sous forme de nouveau fichier, à traiter
+  puis archiver de la même façon.
 - **Avance de façon autonome tant que tu n'as pas de doute bloquant.** Ne
   demande pas confirmation pour des choix mineurs : prends la décision la plus
   raisonnable, code-la, et NOTE-la dans `docs/DECISIONS.md` (un journal des

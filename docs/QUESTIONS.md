@@ -5,9 +5,10 @@ argent, sécurité, données de mineurs, ambiguïté du cahier des charges, ou a
 secret manquant.
 
 ## Résolu — 2026-06-27 : nouvelle direction visuelle (refonte, Tâche V1)
-Frédéric a fourni deux nouveaux documents (`docs/DESIGN.md` v2 + `docs/prompts/
-07-prompts-refonte-visuelle.md`) qui **remplacent** la direction visuelle v1
-(validée 2026-06-22, archivée dans `docs/DESIGN-v1-archive.md`). Conflit
+Frédéric a fourni deux nouveaux documents (`docs/DESIGN.md` v2 + `docs/archive/
+prompts/07-prompts-refonte-visuelle.md`) qui **remplacent** la direction
+visuelle v1 (validée 2026-06-22, archivée dans
+`docs/archive/design/DESIGN-v1-archive.md`). Conflit
 signalé et confirmé par Frédéric : on remplace. Aperçu produit à
 `/styleguide-refonte` (palette, 2 paires de polices réelles, composants,
 maquette de héros). Réponses de Frédéric aux 2 choix ouverts (via

@@ -1,7 +1,8 @@
 # DESIGN.md — Direction esthétique de FinancementSport
 
 > **Remplace** la direction visuelle v1 (validée 2026-06-22, implémentée
-> Phases 1.4/1.4b) — voir `docs/DESIGN-v1-archive.md` pour l'historique.
+> Phases 1.4/1.4b) — voir `docs/archive/design/DESIGN-v1-archive.md` pour
+> l'historique.
 > **Direction validée par Frédéric le 2026-06-27** (Tâche V1, voir
 > `docs/QUESTIONS.md` et `docs/DECISIONS.md`) : tutoiement retenu partout ;
 > titres en Bricolage Grotesque, corps en Inter ; palette corrigée pour l'AA

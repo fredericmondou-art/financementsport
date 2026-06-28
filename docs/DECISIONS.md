@@ -4316,3 +4316,66 @@ commercial réel, ce que cette refonte présentationnelle ne remplace pas.
 Point ouvert distinct, déjà signalé en V9 et toujours non résolu : aucun
 favicon/`opengraph-image` n'existe dans `app/` (aucun actif de marque fourni
 à ce jour) -- à fournir par l'équipe avant la mise en production.
+
+## 2026-06-27 — Ménage du dépôt : README d'accueil + archivage de la documentation historique
+
+Frédéric a demandé un ménage du code et des fichiers du dossier pour qu'un
+nouveau développeur puisse reprendre le projet et tout comprendre. Lecture du
+code (`code/app`, `code/lib`, `code/components`) : déjà propre (`tsc
+--noEmit`/`eslint .` verts, aucun secret en dur, aucun artefact de build
+committé, aucun TODO ou console.log oublié) — aucune action requise côté code.
+L'opportunité réelle était documentaire : un `README.md` racine vide (18
+octets, juste le titre) et un dossier `docs/` non indexé contenant, mêlés à la
+documentation vivante, plus de 20 fichiers historiques (rapports de tâches,
+plans de phases, audits, maquettes).
+
+Question posée à Frédéric (`AskUserQuestion`) sur la profondeur du ménage :
+README seulement, ou réorganisation complète des fichiers historiques.
+Réponse : **réorganisation complète**.
+
+Décisions prises :
+1. Création de `README.md` (racine) : présentation du projet, stack, démarrage
+   local, variables d'environnement, carte du dépôt, pointeurs vers
+   `CLAUDE.md`/`ORCHESTRATION.md`/`docs/README.md`.
+2. Création de `docs/README.md` : index distinguant documents vivants,
+   références actives et archive historique.
+3. Archivage physique de tous les fichiers historiques de `docs/` dans
+   `docs/archive/{prompts,rapports,audits,design,maquettes}/`. Table de
+   correspondance (ancien chemin → nouveau) :
+
+   | Ancien chemin | Nouveau chemin |
+   |---|---|
+   | `docs/prompts/phase-0-et-1.md` | `docs/archive/prompts/phase-0-et-1.md` |
+   | `docs/prompts/phase-1-4.md` | `docs/archive/prompts/phase-1-4.md` |
+   | `docs/prompts/phase-1-4b.md` | `docs/archive/prompts/phase-1-4b.md` |
+   | `docs/prompts/phase-1-5.md` | `docs/archive/prompts/phase-1-5.md` |
+   | `docs/prompts/phase-1-6.md` | `docs/archive/prompts/phase-1-6.md` |
+   | `docs/prompts/07-prompts-refonte-visuelle.md` | `docs/archive/prompts/07-prompts-refonte-visuelle.md` |
+   | `docs/rapports/RAPPORT-0.1.md` … `RAPPORT-1.5.11.md` (16 fichiers) | `docs/archive/rapports/<même nom>` |
+   | `docs/gabarit-rapport.md` | `docs/archive/rapports/gabarit-rapport.md` |
+   | `docs/AUDIT-1.0.md`, `docs/AUDIT-2.0.md` | `docs/archive/audits/<même nom>` |
+   | `docs/DESIGN-v1-archive.md` | `docs/archive/design/DESIGN-v1-archive.md` |
+   | `docs/maquettes/*.html` (3 fichiers) | `docs/archive/maquettes/<même nom>` |
+
+4. Mise à jour des références dans les fichiers VIVANTS uniquement
+   (`CLAUDE.md` section 9, `ORCHESTRATION.md`, `docs/QUESTIONS.md`,
+   `docs/DESIGN.md`) pour pointer vers les nouveaux chemins. `CLAUDE.md`
+   contenait en plus un chemin erroné préexistant (`docs/03-prompts/` au lieu
+   de `docs/prompts/`) — corrigé au passage et reformulé pour ne plus nommer
+   un seul dossier figé.
+5. **Les entrées historiques de `docs/PROGRESS.md` et de ce fichier
+   (`docs/DECISIONS.md`) n'ont PAS été réécrites.** Elles documentent un état
+   passé (chemins valides au moment où chaque tâche a été faite) et restent
+   donc inchangées, comme convenu pour les rapports d'audit archivés
+   (`docs/archive/audits/AUDIT-1.0.md`). Seule une nouvelle entrée datée (la
+   présente) documente le changement, avec la table de correspondance
+   ci-dessus pour qui doit retrouver un ancien lien.
+6. `ORCHESTRATION.md` mis à jour pour noter explicitement que toutes les
+   phases listées (0/1, 1.4, 1.6, 1.5, refonte visuelle V1-V10) sont
+   terminées, et que la convention « un RAPPORT-*.md par tâche » a été
+   remplacée, depuis la refonte visuelle, par des entrées dans
+   `docs/DECISIONS.md`/`docs/PROGRESS.md` (déjà la pratique réelle suivie
+   depuis V1 — aucun fichier RAPPORT-V*.md n'existe).
+
+Aucune modification de code, de schéma ou de règle métier dans cette tâche :
+ménage documentaire uniquement.
