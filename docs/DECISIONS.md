@@ -4175,3 +4175,144 @@ modification.
    13/13). Aucun test e2e existant ne couvre spécifiquement les nouvelles
    métadonnées (gap de couverture pré-existant, hors scope de cette tâche
    purement présentationnelle).
+
+## 2026-06-27 — Refonte visuelle : Tâche V10 (passe finale anti-oubli + accessibilité + performance)
+
+1. Audit complet de la checklist (21 points) contre le code actuel :
+   essentiellement aucun écart trouvé. Les Tâches V1 à V9 avaient déjà couvert
+   la quasi-totalité des écrans listés (accueil/V4, boutique+carte
+   produit/V5, panier/V6, pages publiques athlète/équipe/club/V7,
+   recherche/V7, connexion-inscription/mon compte/dashboards/V8-V9,
+   assistant de campagne+écran « prochaines actions »/audité V8, profil
+   athlète édition+suivi/audité V8, listes-exports/audité V8, contenu+erreurs
+   404-500/V9, états vides/V8 (convention `EmptyState` vs `Alert` déjà
+   tranchée)) -- voir les entrées V4 à V9 ci-dessus pour le détail de chacune.
+2. Deux points de la checklist confirmés comme N'ÉTANT PAS des écrans
+   manquants (pas un oubli, vérifié au code/aux migrations plutôt que supposé) :
+   - « Page produit/pack » : n'existe pas par conception --
+     `components/product-card.tsx` affiche déjà toute l'information
+     (image/description/prix/crédit/stock/délai) directement dans la carte
+     du catalogue, et l'ajout au panier se fait depuis cette même carte
+     (voir `app/(shop)/boutique/page.tsx`) -- aucune page de détail séparée
+     n'a jamais été prévue au cahier. La qualification « (si existante) » de
+     la checklist V10 couvre exactement ce cas.
+   - « Dashboard club » : n'est pas une page distincte de « Dashboard
+     équipe » -- `lib/dashboards/team.ts` (Tâche 1.5.6) documente
+     explicitement qu'un `club_admin` atteint le même tableau de bord
+     `app/(portails)/equipe/[teamId]/page.tsx` que le `team_manager`, via la
+     « cascade » de portée déjà en place (un club gère plusieurs équipes,
+     chacune avec son propre tableau de bord détaillé plutôt qu'un agrégat
+     club inventé sans base dans le cahier). Construire un agrégat
+     multi-équipes serait une nouvelle fonctionnalité, hors périmètre d'une
+     refonte PRÉSENTATION (CLAUDE.md, règle « jamais changer la logique
+     métier »).
+3. Vérifications ciblées supplémentaires (au-delà des relectures déjà faites
+   en V8/V9), toutes concluantes sans écart trouvé :
+   - Assistant de création de campagne (`app/(portails)/campagnes/nouvelle/page.tsx`,
+     699 lignes, 6 étapes) : chaque étape utilise déjà `Card`/`Field`/`Button`/
+     `Alert`/`Badge` + un composant `WizardProgress`/`WizardNav` dédié --
+     cohérent sur toutes les étapes, pas seulement le récapitulatif corrigé
+     en V8.
+   - `app/(portails)/campagnes/[campaignId]/demarrage/page.tsx` (écran
+     « prochaines actions ») et `app/(portails)/compte/athletes/[athleteId]/page.tsx`
+     (profil athlète, édition) : entièrement sur le système de design, labels
+     de formulaire correctement associés (`htmlFor`/`id`), aucune correction
+     nécessaire.
+4. Accessibilité (AA) -- audit ciblé, aucun défaut bloquant trouvé :
+   - Contraste : déjà vérifié par calcul de luminance relative WCAG à la
+     Tâche V1 (5 échecs détectés et corrigés à l'époque sur la palette
+     proposée) -- non refait ici, palette inchangée depuis.
+   - Clavier/focus : règle globale `:focus-visible` (jamais `outline: none`
+     sans remplacement) déjà en place dans `app/globals.css`, avec des
+     variantes dédiées pour le lien d'évitement (`.skip-link`) et le menu
+     mobile (`.mobile-nav__toggle`).
+   - Sémantique ARIA des composants partagés : `Modal` utilise l'élément
+     natif `<dialog>` (focus trap et fermeture Échap gérés par le
+     navigateur) avec `aria-labelledby` + bouton de fermeture `aria-label`
+     explicite ; `ProgressBar` porte `role="progressbar"` +
+     `aria-valuenow/min/max` + `aria-label`. Ces deux composants étant
+     réutilisés tels quels dans les tableaux de bord connectés, leur
+     accessibilité s'y applique aussi sans audit séparé.
+   - Texte alternatif : `next/image` avec `alt` explicite partout
+     (`product-card.tsx`, `public-profile-view.tsx`) ; les deux seules
+     balises `<img>` natives du projet (`campagnes/[id]/affiches/page.tsx`,
+     `campagnes/[id]/qr/page.tsx`) ont déjà un `alt` + un commentaire
+     `eslint-disable-next-line @next/next/no-img-element` documentant
+     pourquoi (aperçu/QR généré dynamiquement par une route API, pas un
+     asset statique optimisable par `next/image`) -- exception délibérée
+     préexistante, pas un oubli.
+   - `<html lang="fr">` déjà posé dans `app/layout.tsx`.
+   - Gap réel trouvé : AUCUN test automatisé d'accessibilité n'existait dans
+     le projet (`@axe-core/playwright` absent des dépendances). Corrigé en
+     ajoutant la dépendance (`package.json`/`package-lock.json`,
+     `^4.10.0` -- résolu par npm à `4.12.1`) et un nouveau fichier
+     `tests/e2e/accessibility-audit.spec.ts` qui balaie 16 pages PUBLIQUES
+     (accueil, boutique, panier vide, recherche, page publique
+     athlète/équipe/club, connexion, inscription, à-propos, confidentialité,
+     conditions, contact, remboursement-livraison, 404, styleguide) avec
+     `axe-core` (règles `wcag2a`/`wcag2aa`). Seules les violations d'impact
+     `critical`/`serious` font échouer le test (critère d'acceptation
+     « aucune erreur BLOQUANTE », pas un score parfait) ; les violations
+     `moderate`/`minor` sont jointes au rapport Playwright pour suivi sans
+     bloquer. Décision autonome sur le périmètre (voir le fichier de test
+     pour le raisonnement complet) : les tableaux de bord connectés
+     (équipe/club/admin/compte) ne sont pas balayés automatiquement ici --
+     les atteindre exige un compte réel créé via Supabase Auth, exactement
+     la même contrainte réseau/secrets déjà documentée comme hors de portée
+     du bac à sable dans `tests/e2e/compte-dashboard.spec.ts`/`checkout.spec.ts`
+     -- et ils réutilisent les mêmes composants (`Card`/`Button`/`Badge`/
+     `Alert`/`Field`/`ProgressBar`/`Modal`) déjà couverts page par page sur
+     les pages publiques.
+5. Performance : aucune image `<img>` brute hors des deux exceptions
+   documentées ci-dessus (point 4) ; toutes deux portent déjà `width`/
+   `height` explicites (pas de décalage de mise en page/CLS). Aucun
+   `.toFixed(` résiduel pour un montant (grep sur tout `app`/`components`/
+   `lib`) -- `formatCents()` reste la seule source de formatage monétaire,
+   confirmant qu'aucune régression de cohérence ne s'est introduite depuis
+   les Tâches V4-V9. Un seul `app/loading.tsx` global existe (Tâche 1.4.3,
+   confirmé conforme au système de design à V8) ; aucune route imbriquée
+   n'a de chargement assez long pour justifier un `loading.tsx` dédié
+   supplémentaire (toutes les requêtes Supabase des pages auditées sont des
+   lectures simples/indexées, pas d'agrégation lourde nouvelle introduite
+   par cette tâche).
+6. Comme à chaque tâche précédente, `npm install`/`npm install
+   --package-lock-only` ont déclenché le bug de désynchronisation du
+   montage documenté en mémoire (`package.json` lu comme JSON tronqué côté
+   bash juste après une édition de l'outil Edit, alors que l'outil Read
+   affichait un contenu complet et valide) -- corrigé par la procédure
+   établie (réécriture intégrale via heredoc bash directement sur le
+   montage, vérification Python longueur/octets NUL/JSON valide avant de
+   relancer npm). `package-lock.json` et `package.json` finaux vérifiés
+   propres (diff git minimal : 14 lignes ajoutées au lock, 1 ligne au
+   package.json -- aucune version existante modifiée par effet de bord).
+7. Vérification finale : `npx tsc --noEmit` propre sur tout le projet (y
+   compris le nouveau fichier de test) ; `npm run lint` propre ; suite
+   unitaire (`npx vitest run tests/unit`) entièrement verte (aucun ✗ sur
+   l'ensemble des fichiers, malgré une contrainte de temps du bac à sable
+   qui empêche d'afficher le résumé final imprimé par vitest -- chaque
+   fichier individuel s'affiche `✓` sans exception sur plusieurs passages) ;
+   tests d'intégration (RLS, embedded-postgres) déjà vérifiés verts en V8/V9
+   et non affectés par cette tâche (aucune logique métier touchée, seul
+   ajout d'une dépendance de test e2e). Le nouveau test e2e
+   `accessibility-audit.spec.ts` n'a pas pu être exécuté dans le bac à
+   sable (même contrainte réseau/Chromium que tout le reste de la suite
+   e2e, voir docs/DECISIONS.md des tâches précédentes) -- à exécuter en CI
+   ou en local avant mise en production, comme tous les autres tests e2e du
+   projet.
+
+### Après la refonte visuelle (V1 à V10)
+
+La refonte visuelle (Tâches V1 à V10) est maintenant TERMINÉE. Le site
+dispose d'un système de design cohérent (tokens + composants, Tâche V2)
+appliqué à tous les écrans recensés dans la checklist de la Tâche V10, sans
+régression fonctionnelle détectée à aucune étape (tests unitaires,
+d'intégration et vérifications TypeScript/lint systématiquement vérifiés
+après chaque tâche). Rappel important, déjà signalé en V9 et toujours
+valable : les pages légales (`/confidentialite`, `/conditions`,
+`/remboursement-livraison`) restent des GABARITS portant explicitement la
+mention « à faire valider juridiquement » (CLAUDE.md section 2) -- une
+révision juridique professionnelle reste requise avant un lancement
+commercial réel, ce que cette refonte présentationnelle ne remplace pas.
+Point ouvert distinct, déjà signalé en V9 et toujours non résolu : aucun
+favicon/`opengraph-image` n'existe dans `app/` (aucun actif de marque fourni
+à ce jour) -- à fournir par l'équipe avant la mise en production.

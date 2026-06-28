@@ -1100,13 +1100,50 @@
   identité visuelle. `tsc --noEmit`/`npm run lint` propres ; tests unitaires
   ciblés 13/13 verts.
 
+
+## Terminé (suite 10)
+- TÂCHE V10 (refonte visuelle) — Passe finale anti-oubli + accessibilité +
+  performance. Audit complet des 21 points de la checklist : aucun écran
+  encore dans l'ancien style trouvé (V1 à V9 avaient déjà tout couvert).
+  Deux points de la checklist confirmés "non applicables" plutôt qu'oubliés
+  (vérifié au code, pas supposé) : « page produit/pack » n'existe pas par
+  conception (la carte produit du catalogue affiche déjà tout) ; « dashboard
+  club » n'est pas un écran distinct (un club_admin atteint le même tableau
+  de bord équipe que le gérant d'équipe, via la cascade de portée déjà en
+  place depuis la Tâche 1.5.6). Accessibilité (AA) : contraste déjà vérifié
+  à V1, focus clavier/`:focus-visible`/lien d'évitement déjà en place,
+  composants partagés (`Modal`, `ProgressBar`) déjà bien étiquetés en ARIA,
+  texte alternatif déjà présent partout (les 2 seules balises `<img>` natives
+  du projet sont des exceptions déjà documentées). Vrai gap trouvé et
+  comblé : aucun test d'accessibilité automatisé n'existait -- ajout de
+  `@axe-core/playwright` et d'un nouveau test e2e
+  (`tests/e2e/accessibility-audit.spec.ts`) qui balaie 16 pages publiques
+  clés (règles WCAG 2 A/AA), bloquant seulement sur les violations
+  critiques/sérieuses. Performance : aucune image non optimisée hors
+  exceptions déjà documentées, aucun montant mal formaté résiduel. Aucune
+  logique métier modifiée. `tsc --noEmit`/`npm run lint` propres ; tests
+  unitaires verts (aucun échec observé sur l'ensemble des fichiers). Le
+  nouveau test e2e n'a pas pu être exécuté dans le bac à sable (même
+  contrainte réseau/Chromium que le reste de la suite e2e) -- à exécuter en
+  CI/local avant mise en production.
+
+## La refonte visuelle (V1 à V10) est TERMINÉE.
+Voir docs/DECISIONS.md, section « Après la refonte visuelle (V1 à V10) »
+pour le résumé complet et les points encore ouverts avant un lancement
+commercial réel (révision juridique des pages légales, favicon/
+opengraph-image manquants).
+
 ## En cours
-(aucune — Tâche V9 complétée et committée)
+(aucune — refonte visuelle V1-V10 complétée et committée)
 
 ## À venir
-Tâche V10 (passe finale anti-oubli + accessibilité + performance) de la
-refonte visuelle (`docs/prompts/07-prompts-refonte-visuelle.md`).
+Aucune tâche de refonte visuelle restante. Prochaines priorités à définir
+avec le propriétaire du produit (hors `docs/prompts/07-prompts-refonte-visuelle.md`,
+qui est maintenant entièrement traité).
 
 ## Point ouvert (hors refonte visuelle)
 Aucune image `opengraph-image`/`favicon`/`icon` n'existe dans `app/` --
-à fournir par l'équipe (identité visuelle) avant le lancement public.
+à fournir par l'équipe (identité visuelle) avant le lancement public. Les
+pages légales (`/confidentialite`, `/conditions`, `/remboursement-livraison`)
+restent des gabarits portant la mention « à faire valider juridiquement » --
+révision professionnelle requise avant un lancement commercial réel.
