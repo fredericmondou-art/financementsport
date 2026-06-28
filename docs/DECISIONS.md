@@ -4379,3 +4379,24 @@ Décisions prises :
 
 Aucune modification de code, de schéma ou de règle métier dans cette tâche :
 ménage documentaire uniquement.
+
+## 2026-06-28 — Correction de la carte « Trouver un athlète »
+
+Frédéric a signalé (capture d'écran) que les cartes de `/trouver` étaient
+écrasées : nom, badges et bouton « Voir le profil » s'alignaient en ligne au
+lieu d'être empilés, avec retour à la ligne désordonné sur les noms longs.
+
+Cause : `app/(public)/trouver/page.tsx` plaçait `<h3>`, le `<div
+className="product-card__meta">` et le `<Button>` directement comme enfants
+de `<Card>`. Or `.product-grid > li > .card` (`app/globals.css`) impose
+`display: flex` (ligne, sans `flex-direction`) en attendant que l'enfant
+direct soit un conteneur `.product-card` en colonne -- voir
+`components/product-card.tsx`, qui suit déjà ce patron. Sans ce conteneur,
+les trois enfants devenaient des items flex en ligne au lieu d'un bloc
+empilé.
+
+Correctif : enveloppé le contenu de la carte dans `<article
+className="product-card">` (avec `aria-label`, comme `ProductCard`), et
+ajouté `product-card__title` au `<h3>`. Changement de présentation
+seulement, aucune logique métier ni texte affiché modifié. `tsc --noEmit`/
+`eslint` propres.

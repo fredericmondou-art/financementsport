@@ -6,6 +6,12 @@
  * (`/boutique?beneficiaryType=athlete&beneficiaryId=...`, voir
  * app/(public)/[athleteSlug]/page.tsx) pour rester cohérent avec le flux
  * existant.
+ *
+ * Carte mise en page comme `components/product-card.tsx` (Tâche ménage docs
+ * 2026-06-28) : un `<article className="product-card">` enveloppe le
+ * contenu à l'intérieur de `<Card>`. Sans ce conteneur, le `display: flex`
+ * de `.product-grid > li > .card` (app/globals.css) range nom/badges/bouton
+ * en ligne au lieu d'empiler verticalement, ce qui écrasait la carte.
  */
 import type { Metadata } from 'next';
 import { createSupabaseServerClient } from '@/lib/auth/supabase-server';
@@ -65,14 +71,16 @@ export default async function TrouverPage({
           {athletes.map((athlete) => (
             <li key={athlete.id}>
               <Card>
-                <h3>{athlete.display_name}</h3>
-                <div className="product-card__meta">
-                  {athlete.sport ? <Badge variant="info">{athlete.sport}</Badge> : null}
-                  {athlete.city ? <Badge>{athlete.city}</Badge> : null}
-                </div>
-                <Button href={`/${athlete.slug}`} variant="outline" fullWidth>
-                  Voir le profil
-                </Button>
+                <article aria-label={athlete.display_name} className="product-card">
+                  <h3 className="product-card__title">{athlete.display_name}</h3>
+                  <div className="product-card__meta">
+                    {athlete.sport ? <Badge variant="info">{athlete.sport}</Badge> : null}
+                    {athlete.city ? <Badge>{athlete.city}</Badge> : null}
+                  </div>
+                  <Button href={`/${athlete.slug}`} variant="outline" fullWidth>
+                    Voir le profil
+                  </Button>
+                </article>
               </Card>
             </li>
           ))}
