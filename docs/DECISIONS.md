@@ -3984,3 +3984,63 @@ modification.
    `components/beneficiary-split.tsx`, `app/globals.css`) ont été réécrits
    par heredoc bash (pas par l'outil Edit) et revérifiés (octets NUL,
    longueur, `git diff` par hunks) — aucune corruption cette fois.
+
+## 2026-06-27 — Refonte visuelle : Tâche V7 (pages publiques athlète/équipe/club)
+
+1. Les 3 pages publiques (`app/(public)/[athleteSlug]`, `app/(public)/team/[slug]`,
+   `app/(public)/club/[slug]`) partagent déjà un seul composant de rendu,
+   `components/public-profile-view.tsx` (Tâche 1.6.B3) — toute la refonte
+   visuelle a donc été faite à cet unique endroit, garantissant par
+   construction que les 3 pages ET l'aperçu du récapitulatif de l'assistant
+   de campagne restent visuellement cohérents.
+2. En-tête « chaleureux » : enveloppé dans `.public-profile__hero` (fond
+   accent-tint, coins arrondis). Le bouton « Encourager » et un nouveau
+   bouton « Partager ce profil » ont été déplacés DANS ce bandeau, donc
+   visibles immédiatement sous le nom, avant même le bloc campagne — lecture
+   volontaire du critère « bouton Encourager très visible » comme « le plus
+   haut possible sur la page », pas seulement « plus gros ».
+3. Bloc campagne (progression + montant amassé) teinté en accent/teal
+   (`--color-accent`, `--color-accent-tint`, `--color-accent-dark`) — même
+   rôle de couleur que le bloc impact du panier (Tâche V6, accent =
+   réassurance). Le montant amassé est mis en gras et plus grand
+   (`.public-profile__raised`) ; la barre de progression est plus haute
+   (`.public-profile__progress .progress`, 12px). Aucun changement de texte
+   ni de la logique de calcul (`computeCampaignProgress`,
+   `applyAmountsMask`) — uniquement la présentation.
+4. « Partager » : plutôt que d'inventer un nouveau mécanisme, réutilisation
+   de `components/copy-button.tsx` (déjà utilisé par l'écran de démarrage de
+   campagne, Tâche 1.6.B3) avec l'URL publique réelle du bénéficiaire,
+   construite via les fonctions pures déjà existantes `getPublicAppUrl()`
+   (`lib/env.ts`) et `buildBeneficiaryPublicPath()` (`lib/public/preview.ts`)
+   — exactement la même paire de fonctions que l'écran « prochaines
+   actions » utilise pour son propre bouton « Copier le lien ». Aucune
+   nouvelle fonction métier créée.
+5. `publicUrl` est une prop OPTIONNELLE de `PublicProfileView` (et non
+   obligatoire) : décision délibérée pour rester strictement dans le
+   périmètre « Fichiers concernés » de la Tâche V7 (les 3 pages publiques),
+   sans toucher à `app/(portails)/campagnes/nouvelle/page.tsx` (le gros
+   fichier de l'assistant de campagne, déjà source d'un bug critique corrigé
+   à la Tâche 1.4b.1 — risque de régression jugé non justifié pour un simple
+   bouton de partage dans un aperçu de brouillon). Conséquence acceptée :
+   l'aperçu du récapitulatif de l'assistant n'affiche pas de bouton
+   « Partager ce profil » (les 3 vraies pages publiques l'affichent
+   toujours). Ne casse aucune assertion de
+   `tests/e2e/campagne-apercu-correction.spec.ts` (seul
+   `.public-profile__identity h1` y est vérifié).
+6. Bouton Encourager agrandi (`.public-profile__cta`, padding/police plus
+   grands) et la rangée de CTA passe en colonne pleine largeur sous 480px
+   (mobile-first, critère d'acceptation explicite de la Tâche V7) — sans
+   utiliser la prop `fullWidth` du composant `Button` (qui s'appliquerait
+   aussi au bouton « Partager »), uniquement via une media query scopée à
+   `.public-profile__cta-row`.
+7. Aucun texte, rôle ARIA ni structure vérifiés par
+   `tests/e2e/public-profile.spec.ts` n'a changé (titre h1, lien
+   « Encourager », « Cette campagne est active. », absence de
+   « amassés sur un objectif » quand `hide_amounts` est actif). Vérification :
+   `tsc --noEmit`/`npm run lint` propres ; tests unitaires ciblés
+   (`copy-button.test.tsx`, `ui-progress-bar.test.tsx`,
+   `public-preview.test.ts`, `public-recommended-products.test.ts`,
+   `public-campaign-progress.test.ts`) : 38/38 verts. Fichiers réécrits par
+   heredoc bash (pas l'outil Edit, peu fiable sur ce montage — voir entrées
+   précédentes) et vérifiés (octets NUL, hunks `git diff` uniques et
+   correctement bornés) : aucune corruption.

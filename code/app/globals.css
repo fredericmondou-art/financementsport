@@ -1482,3 +1482,64 @@ textarea {
   color: var(--color-text-secondary);
   text-align: center;
 }
+
+/* Tâche V7 (refonte visuelle) : pages publiques (athlète/équipe/club) — voir
+   components/public-profile-view.tsx. En-tête chaleureux, CTA Encourager
+   proéminent + partage, progression/impact mis en valeur. Présentation
+   uniquement. */
+.public-profile__hero {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  background: var(--color-accent-tint);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+}
+
+.public-profile__cta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+}
+.public-profile__cta {
+  font-size: 1.0625rem;
+  padding: 14px 24px;
+}
+@media (max-width: 480px) {
+  .public-profile__cta-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .public-profile__cta-row > * {
+    width: 100%;
+    text-align: center;
+  }
+}
+
+.public-profile__campaign {
+  border-color: var(--color-accent);
+  background: var(--color-accent-tint);
+}
+.public-profile__campaign h2 {
+  color: var(--color-accent-dark);
+}
+
+.public-profile__progress {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.public-profile__raised {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+.public-profile__progress .progress {
+  height: 12px;
+}
+
+.public-profile__recommended {
+  border-top: 1px solid var(--color-border);
+  padding-top: var(--space-5);
+}

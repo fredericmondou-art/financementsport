@@ -28,11 +28,22 @@
  * État vide (Tâche 1.4.5) : "Aucune campagne active pour le moment." passé
  * dans `Alert variant="info"` pour plus de clarté visuelle — texte
  * inchangé.
+ *
+ * TÂCHE V7 (refonte visuelle) : `publicUrl` (même URL que celle construite
+ * par `generateMetadata` ci-dessus pour l'aperçu Open Graph, et par l'écran
+ * de démarrage de campagne) passée à `PublicProfileView` pour le bouton
+ * « Partager ce profil » — voir le commentaire de tête de ce composant.
+ * `buildBeneficiaryPublicPath('athlete', ...)` retourne ici simplement
+ * `/${params.athleteSlug}` (même valeur), mais on réutilise volontairement
+ * la fonction pure partagée plutôt que de reconstruire ce chemin à la main,
+ * pour ne garder qu'un seul endroit qui connaisse cette correspondance.
  */
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { createSupabaseServerClient } from '@/lib/auth/supabase-server';
 import { loadPublicAthleteProfile } from '@/lib/public/profile';
+import { getPublicAppUrl } from '@/lib/env';
+import { buildBeneficiaryPublicPath } from '@/lib/public/preview';
 import { Badge } from '@/components/ui/badge';
 import { PublicProfileView } from '@/components/public-profile-view';
 
@@ -86,6 +97,7 @@ export default async function AthletePage({ params }: AthletePageProps): Promise
   }
 
   const encouragerHref = `/boutique?beneficiaryType=athlete&beneficiaryId=${profile.id}`;
+  const publicUrl = `${getPublicAppUrl()}${buildBeneficiaryPublicPath('athlete', params.athleteSlug)}`;
 
   return (
     <main className="page stack">
@@ -103,6 +115,7 @@ export default async function AthletePage({ params }: AthletePageProps): Promise
         campaignSection={campaignSection}
         encouragerHref={encouragerHref}
         recommendedProducts={recommendedProducts}
+        publicUrl={publicUrl}
       />
     </main>
   );

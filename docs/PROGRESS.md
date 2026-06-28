@@ -1044,9 +1044,28 @@
       `reorder.test.ts`, `checkout-prepare-checkout.test.ts`) : 58/58 verts.
       Aucune logique métier modifiée.
 
+## Terminé (suite 7)
+- TÂCHE V7 (refonte visuelle) — Pages publiques athlète/équipe/club.
+  `components/public-profile-view.tsx` (composant unique partagé par les 3
+  pages ET l'aperçu de l'assistant de campagne) : en-tête enveloppé dans un
+  bandeau chaleureux (`.public-profile__hero`), bouton « Encourager »
+  déplacé dans ce bandeau et agrandi, nouveau bouton « Partager ce profil »
+  (réutilise `CopyButton`, déjà utilisé par l'écran de démarrage de
+  campagne — aucun nouveau mécanisme créé), bloc campagne teinté en
+  accent/teal avec montant amassé mis en valeur et barre de progression
+  plus haute. `app/(public)/[athleteSlug]/page.tsx`,
+  `app/(public)/team/[slug]/page.tsx`, `app/(public)/club/[slug]/page.tsx` :
+  construisent `publicUrl` via `getPublicAppUrl()` +
+  `buildBeneficiaryPublicPath()` (fonctions déjà existantes). `publicUrl`
+  reste une prop optionnelle pour ne pas toucher à l'assistant de campagne
+  (`app/(portails)/campagnes/nouvelle/page.tsx`, hors périmètre — voir
+  `docs/DECISIONS.md`). Aucun masquage `hide_*` ni texte testé par
+  `tests/e2e/public-profile.spec.ts` n'a changé. `tsc --noEmit`/
+  `npm run lint` propres ; tests unitaires ciblés 38/38 verts.
+
 ## En cours
-(aucune — Tâche V6 complétée et committée)
+(aucune — Tâche V7 complétée et committée)
 
 ## À venir
-Tâches V7-V10 de la refonte visuelle à suivre une à la fois, rapport après
+Tâches V8-V10 de la refonte visuelle à suivre une à la fois, rapport après
 chacune (`docs/prompts/07-prompts-refonte-visuelle.md`).
