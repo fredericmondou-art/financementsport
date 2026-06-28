@@ -6,8 +6,13 @@
  * (critère d'acceptation Tâche 1.4.5 : « Les pages 404/500 sont soignées et
  * en français »).
  */
+import type { Metadata } from 'next';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+
+export const metadata: Metadata = {
+  title: 'Page introuvable',
+};
 
 export default function NotFound(): JSX.Element {
   return (

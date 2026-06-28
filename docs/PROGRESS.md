@@ -1081,9 +1081,32 @@
   `docs/DECISIONS.md` pour la liste complète). `tsc --noEmit`/
   `npm run lint` propres ; tests unitaires ciblés 63/63 verts.
 
+
+## Terminé (suite 9)
+- TÂCHE V9 (refonte visuelle) — Pages utilitaires et états système. Audit
+  complet (`app/(auth)/login`, `app/(auth)/signup`, `app/not-found.tsx`,
+  `app/error.tsx`, confirmation de commande, pages de contenu À propos/
+  Confidentialité/Conditions/Contact/Remboursement-livraison) : déjà
+  majoritairement conformes (héritage 1.4.5/1.4.6/1.4b.5) -- avertissements
+  juridiques déjà en place sur les 4 pages légales/remboursement. Écart réel
+  corrigé : connexion et inscription n'avaient AUCUNE métadonnée (`title`/
+  `description`) ; ajout sur les deux, plus un sous-titre chaleureux à la
+  connexion (parité avec l'inscription). Métadonnées ajoutées aussi sur
+  `not-found.tsx` et complétées sur la confirmation de commande. `error.tsx`
+  reste sans métadonnées (composant client, limite du framework, pas un
+  oubli). Gap signalé mais non comblé : aucune image `opengraph-image`/
+  favicon n'existe sur le site -- à fournir par l'équipe avant lancement
+  (voir point ouvert ci-dessous), pas fabriqué ici pour éviter d'inventer une
+  identité visuelle. `tsc --noEmit`/`npm run lint` propres ; tests unitaires
+  ciblés 13/13 verts.
+
 ## En cours
-(aucune — Tâche V8 complétée et committée)
+(aucune — Tâche V9 complétée et committée)
 
 ## À venir
-Tâches V9-V10 de la refonte visuelle à suivre une à la fois, rapport après
-chacune (`docs/prompts/07-prompts-refonte-visuelle.md`).
+Tâche V10 (passe finale anti-oubli + accessibilité + performance) de la
+refonte visuelle (`docs/prompts/07-prompts-refonte-visuelle.md`).
+
+## Point ouvert (hors refonte visuelle)
+Aucune image `opengraph-image`/`favicon`/`icon` n'existe dans `app/` --
+à fournir par l'équipe (identité visuelle) avant le lancement public.

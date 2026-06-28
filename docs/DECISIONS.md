@@ -4119,3 +4119,59 @@ modification.
    `docs/DECISIONS.md`/mémoire — fiabilité du montage) ; chaque écriture
    vérifiée (longueur, octets NUL, hunks `git diff` uniques et correctement
    bornés) : aucune corruption.
+
+## 2026-06-27 — Refonte visuelle : Tâche V9 (pages utilitaires et états système)
+
+1. Audit complet des fichiers listés par la tâche : `app/(auth)/login`,
+   `app/(auth)/signup`, `app/not-found.tsx`, `app/error.tsx`, la confirmation
+   de commande (`app/(shop)/commande/confirmation/page.tsx`) et les pages de
+   contenu (`a-propos`, `confidentialite`, `conditions`, `contact`,
+   `remboursement-livraison`). Constat : l'essentiel était déjà conforme au
+   système de design (héritage des Tâches 1.4.5/1.4.6/1.4b.5) -- `Card`,
+   `Alert`, `Field`, `Button`, `.error-state`/`.legal-content` déjà sur les
+   tokens V2, et les quatre pages légales/de remboursement portent déjà
+   l'avertissement « Gabarit à faire valider juridiquement » exigé par le
+   critère d'acceptation. Aucune réécriture de présentation n'était donc
+   nécessaire sur ces pages.
+2. Écart réel trouvé et corrigé : `app/(auth)/login/page.tsx` et
+   `app/(auth)/signup/page.tsx` n'exportaient AUCUNE métadonnée (`title`/
+   `description`) -- l'onglet du navigateur et un partage social affichaient
+   donc le titre générique du site plutôt que « Se connecter »/« Créer un
+   compte ». Ajout de `export const metadata: Metadata` sur les deux pages,
+   et d'un sous-titre chaleureux (registre « tu », cohérent avec le reste du
+   site) au `page-header` de connexion, pour parité avec l'inscription qui en
+   avait déjà un.
+3. `app/not-found.tsx` : ajout d'un `export const metadata` (« Page
+   introuvable ») -- absent jusqu'ici. `app/error.tsx` reste volontairement
+   sans export `metadata` : c'est un composant client (`'use client'`,
+   convention Next.js obligatoire pour `error.tsx`), et Next.js n'autorise
+   pas l'export `metadata` depuis un composant client -- ce n'est pas un
+   oubli mais une limite du framework.
+4. `app/(shop)/commande/confirmation/page.tsx` : la page avait déjà un
+   `title`, mais sans `description` ni typage `Metadata` explicite -- ajout
+   des deux pour cohérence avec le reste du site et un aperçu de partage
+   correct.
+5. Gap identifié mais volontairement PAS comblé dans cette tâche : aucune
+   image `opengraph-image`/`favicon`/`icon` n'existe dans `app/` (vérifié --
+   aucun fichier de ce type dans tout l'arbre). Décision autonome : ne pas
+   fabriquer une image de marque inventée (logo, illustration) sans direction
+   visuelle fournie -- cohérent avec la règle déjà appliquée en 1.4b.5
+   (« ne jamais inventer de coordonnées/faits d'entreprise »). À signaler à
+   l'équipe avant le lancement public ; ajouté à `docs/PROGRESS.md` comme
+   point ouvert pour une tâche future, pas pour V9/V10.
+6. Bug de désynchronisation mount/git (voir mémoire -- fiabilité du montage) :
+   les 4 fichiers `.tsx` édités (`login`, `signup`, `not-found`,
+   `confirmation`) ont montré le symptôme connu (longueur vue par `wc -l`/
+   `git diff` plus courte que le contenu réel confirmé par l'outil Read,
+   `git diff` ne détectant aucun changement). Correctif appliqué
+   systématiquement : contenu de l'outil Read traité comme vérité,
+   réécriture intégrale de chacun des 4 fichiers via heredoc bash directement
+   sur le mount, puis vérification indépendante (longueur exacte, absence
+   d'octets NUL, fin de fichier cohérente, hunk `git diff` unique et borné à
+   la zone éditée) -- aucune corruption résiduelle.
+7. Vérification : `npx tsc --noEmit` propre, `npm run lint` propre, et les
+   tests unitaires touchant ces pages verts (`app-not-found.test.tsx` : 1,
+   `ui-alert.test.tsx` : 3, `email-build-confirmation-content.test.ts` : 9 --
+   13/13). Aucun test e2e existant ne couvre spécifiquement les nouvelles
+   métadonnées (gap de couverture pré-existant, hors scope de cette tâche
+   purement présentationnelle).

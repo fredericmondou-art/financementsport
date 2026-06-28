@@ -1,8 +1,14 @@
+import type { Metadata } from 'next';
 import { loginAction } from './actions';
 import { Card } from '@/components/ui/card';
 import { Field } from '@/components/ui/field';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+
+export const metadata: Metadata = {
+  title: 'Se connecter',
+  description: "Connecte-toi pour suivre tes commandes, tes reçus et l'impact de tes achats.",
+};
 
 export default function LoginPage({
   searchParams,
@@ -13,6 +19,7 @@ export default function LoginPage({
     <main className="page">
       <div className="page-header">
         <h1>Se connecter</h1>
+        <p>Retrouve tes commandes, tes reçus et l&rsquo;impact de tes achats.</p>
       </div>
       {searchParams.inscription === 'ok' ? (
         <Alert variant="success">Compte créé. Tu peux te connecter.</Alert>

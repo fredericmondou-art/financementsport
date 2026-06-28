@@ -33,6 +33,7 @@
  * expirée, etc.), la page se dégrade simplement : pas de proposition de
  * compte, juste le message de remerciement -- jamais une erreur visible.
  */
+import type { Metadata } from 'next';
 import { getCurrentUser } from '@/lib/auth/session';
 import { getStripeClient } from '@/lib/payments/stripe-client';
 import { logger } from '@/lib/logger/logger';
@@ -42,8 +43,9 @@ import { Field } from '@/components/ui/field';
 import { Alert } from '@/components/ui/alert';
 import { createAccountFromOrderAction } from './actions';
 
-export const metadata = {
+export const metadata: Metadata = {
   title: 'Merci pour votre achat',
+  description: 'Votre paiement est confirmé -- le crédit est attribué au bénéficiaire choisi.',
 };
 
 interface ConfirmationCommandePageProps {

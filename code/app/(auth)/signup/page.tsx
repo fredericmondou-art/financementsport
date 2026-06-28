@@ -1,8 +1,14 @@
+import type { Metadata } from 'next';
 import { signupAction } from './actions';
 import { Card } from '@/components/ui/card';
 import { Field } from '@/components/ui/field';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+
+export const metadata: Metadata = {
+  title: 'Créer un compte',
+  description: "Crée un compte pour suivre l'impact de tes achats -- jamais obligatoire pour acheter.",
+};
 
 export default function SignupPage({
   searchParams,
