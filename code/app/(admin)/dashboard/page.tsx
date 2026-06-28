@@ -62,37 +62,33 @@ export default async function AdminDashboardPage(): Promise<JSX.Element> {
       <Card>
         <section className="stack stack--sm">
           <h2>En un coup d&apos;œil</h2>
-          <div className="table-wrap">
-            <table className="table">
-              <tbody>
-                <tr>
-                  <th>Revenus totaux</th>
-                  <td>{formatCents(revenue.totalRevenueCents)}</td>
-                </tr>
-                <tr>
-                  <th>Commandes totales</th>
-                  <td>{revenue.totalOrderCount}</td>
-                </tr>
-                <tr>
-                  <th>Commandes payées</th>
-                  <td>{revenue.paidOrderCount}</td>
-                </tr>
-                <tr>
-                  <th>Panier moyen</th>
-                  <td>{formatCents(revenue.averageBasketCents)}</td>
-                </tr>
-                <tr>
-                  <th>Marge brute</th>
-                  <td>
-                    {grossMargin.availableCents === null ? (
-                      <span className="muted">Non disponible -- {grossMargin.reason}</span>
-                    ) : (
-                      formatCents(grossMargin.availableCents)
-                    )}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+          <div className="stat-grid">
+            <div className="stat-card">
+              <span className="stat-card__value">{formatCents(revenue.totalRevenueCents)}</span>
+              <span className="stat-card__label">Revenus totaux</span>
+            </div>
+            <div className="stat-card">
+              <span className="stat-card__value">{revenue.totalOrderCount}</span>
+              <span className="stat-card__label">Commandes totales</span>
+            </div>
+            <div className="stat-card">
+              <span className="stat-card__value">{revenue.paidOrderCount}</span>
+              <span className="stat-card__label">Commandes payées</span>
+            </div>
+            <div className="stat-card">
+              <span className="stat-card__value">{formatCents(revenue.averageBasketCents)}</span>
+              <span className="stat-card__label">Panier moyen</span>
+            </div>
+            <div className="stat-card">
+              {grossMargin.availableCents === null ? (
+                <span className="stat-card__value stat-card__value--muted">Non disponible</span>
+              ) : (
+                <span className="stat-card__value">{formatCents(grossMargin.availableCents)}</span>
+              )}
+              <span className="stat-card__label">
+                Marge brute{grossMargin.availableCents === null ? ` -- ${grossMargin.reason}` : ''}
+              </span>
+            </div>
           </div>
         </section>
       </Card>
@@ -100,19 +96,15 @@ export default async function AdminDashboardPage(): Promise<JSX.Element> {
       <Card>
         <section className="stack stack--sm">
           <h2>Crédits</h2>
-          <div className="table-wrap">
-            <table className="table">
-              <tbody>
-                <tr>
-                  <th>Crédits dus</th>
-                  <td>{formatCents(creditsDue.dueCents)}</td>
-                </tr>
-                <tr>
-                  <th>Crédits payés</th>
-                  <td>{formatCents(creditsDue.paidCents)}</td>
-                </tr>
-              </tbody>
-            </table>
+          <div className="stat-grid">
+            <div className="stat-card">
+              <span className="stat-card__value">{formatCents(creditsDue.dueCents)}</span>
+              <span className="stat-card__label">Crédits dus</span>
+            </div>
+            <div className="stat-card">
+              <span className="stat-card__value">{formatCents(creditsDue.paidCents)}</span>
+              <span className="stat-card__label">Crédits payés</span>
+            </div>
           </div>
         </section>
       </Card>
@@ -186,23 +178,17 @@ export default async function AdminDashboardPage(): Promise<JSX.Element> {
       <Card>
         <section className="stack stack--sm">
           <h2>Paiements échoués et remboursements</h2>
-          <div className="table-wrap">
-            <table className="table">
-              <tbody>
-                <tr>
-                  <th>Paiements échoués</th>
-                  <td>
-                    {failedPayments.count} ({formatCents(failedPayments.attemptedTotalCents)} tenté)
-                  </td>
-                </tr>
-                <tr>
-                  <th>Remboursements</th>
-                  <td>
-                    {refunds.count} ({formatCents(refunds.totalCents)})
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+          <div className="stat-grid">
+            <div className="stat-card">
+              <span className="stat-card__value">{failedPayments.count}</span>
+              <span className="stat-card__label">
+                Paiements échoués ({formatCents(failedPayments.attemptedTotalCents)} tenté)
+              </span>
+            </div>
+            <div className="stat-card">
+              <span className="stat-card__value">{refunds.count}</span>
+              <span className="stat-card__label">Remboursements ({formatCents(refunds.totalCents)})</span>
+            </div>
           </div>
         </section>
       </Card>

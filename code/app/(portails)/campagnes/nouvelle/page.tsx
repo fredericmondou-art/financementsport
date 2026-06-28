@@ -39,6 +39,7 @@ import {
   type CampaignDraftData,
 } from '@/lib/campaigns/draft';
 import { applyCampaignDefaults } from '@/lib/campaigns/defaults';
+import { formatCents } from '@/lib/format-cents';
 import {
   createSupabaseBeneficiaryPreviewRepo,
   loadBeneficiaryPreviewIdentity,
@@ -593,7 +594,7 @@ function RecapStep({
           </div>
           <dl className="recap-list">
             <dt>Objectif</dt>
-            <dd>{data.goalCents != null ? `${(data.goalCents / 100).toFixed(2)} $` : 'Aucun objectif fixé'}</dd>
+            <dd>{data.goalCents != null ? formatCents(data.goalCents) : 'Aucun objectif fixé'}</dd>
 
             <dt>Dates</dt>
             <dd>

@@ -1543,3 +1543,43 @@ textarea {
   border-top: 1px solid var(--color-border);
   padding-top: var(--space-5);
 }
+
+/* ==========================================================================
+   Grille de statistiques « en un coup d'œil » (TÂCHE V8, refonte visuelle)
+   ========================================================================== */
+/* Remplace un <table> à une seule colonne de métriques par des cartes mises
+   en valeur -- plus lisible pour 3 à 5 chiffres clés qu'un tableau. Les
+   vraies listes de lignes (commandes à distribuer, campagnes à risque,
+   versements...) restent en <table> ailleurs sur ces mêmes pages ; seul le
+   résumé "en un coup d'œil" des dashboards équipe/admin change (TÂCHE V8).
+   Couleur accent (teinte de fond) : même rôle "mise en valeur" que
+   `.cart-impact` (V6) et `.public-profile__campaign` (V7) -- cohérence entre
+   dashboards connectés et pages publiques. */
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: var(--space-3);
+}
+.stat-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  background: var(--color-accent-tint);
+  border-radius: var(--radius-md);
+}
+.stat-card__value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--color-accent-dark);
+}
+.stat-card__value--muted {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+.stat-card__label {
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+}

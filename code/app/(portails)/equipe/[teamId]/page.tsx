@@ -89,27 +89,23 @@ export default async function EquipeDashboardPage({ params }: EquipePageProps): 
       <Card>
         <section className="stack stack--sm">
           <h2>En un coup d&apos;œil</h2>
-          <div className="table-wrap">
-            <table className="table">
-              <tbody>
-                <tr>
-                  <th>Ventes totales</th>
-                  <td>{formatCents(sales.totalSalesCents)}</td>
-                </tr>
-                <tr>
-                  <th>Crédits générés</th>
-                  <td>{formatCents(credits.totalCents)}</td>
-                </tr>
-                <tr>
-                  <th>Nombre de commandes</th>
-                  <td>{sales.orderCount}</td>
-                </tr>
-                <tr>
-                  <th>Panier moyen</th>
-                  <td>{formatCents(sales.averageOrderCents)}</td>
-                </tr>
-              </tbody>
-            </table>
+          <div className="stat-grid">
+            <div className="stat-card">
+              <span className="stat-card__value">{formatCents(sales.totalSalesCents)}</span>
+              <span className="stat-card__label">Ventes totales</span>
+            </div>
+            <div className="stat-card">
+              <span className="stat-card__value">{formatCents(credits.totalCents)}</span>
+              <span className="stat-card__label">Crédits générés</span>
+            </div>
+            <div className="stat-card">
+              <span className="stat-card__value">{sales.orderCount}</span>
+              <span className="stat-card__label">Nombre de commandes</span>
+            </div>
+            <div className="stat-card">
+              <span className="stat-card__value">{formatCents(sales.averageOrderCents)}</span>
+              <span className="stat-card__label">Panier moyen</span>
+            </div>
           </div>
         </section>
       </Card>

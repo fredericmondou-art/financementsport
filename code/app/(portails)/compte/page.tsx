@@ -57,6 +57,7 @@ export default async function ComptePage({ searchParams }: ComptePageProps): Pro
     <main className="page stack">
       <div className="page-header">
         <h1>Mon compte</h1>
+        <p>Vos commandes, vos reçus et l&apos;impact que vous avez généré, au même endroit.</p>
       </div>
 
       {searchParams.erreur ? <Alert variant="error">{searchParams.erreur}</Alert> : null}

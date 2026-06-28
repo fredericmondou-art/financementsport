@@ -1063,9 +1063,27 @@
   `tests/e2e/public-profile.spec.ts` n'a changé. `tsc --noEmit`/
   `npm run lint` propres ; tests unitaires ciblés 38/38 verts.
 
+## Terminé (suite 8)
+- TÂCHE V8 (refonte visuelle) — Portails et tableaux de bord. Audit complet
+  de tous les espaces connectés (`app/(portails)/*`, `app/(admin)/*`) :
+  déjà majoritairement conformes au système de design (héritage V2 + états
+  vides déjà reformulés en 1.4b.6). Changements ciblés : nouveau motif
+  `.stat-grid`/`.stat-card` (`app/globals.css`) pour les sections « en un
+  coup d'œil » des dashboards équipe (`app/(portails)/equipe/[teamId]/
+  page.tsx`) et admin (`app/(admin)/dashboard/page.tsx`, 3 sections) —
+  remplace un tableau à une colonne par des cartes de métriques mises en
+  valeur (couleur accent réutilisée de V6/V7). Correction d'un montant mal
+  formaté (`toFixed` anglais → `formatCents`) dans le récapitulatif de
+  l'assistant de création de campagne. Sous-titre ajouté à « Mon compte »
+  pour la cohérence avec les autres pages connectées. Aucune logique
+  métier modifiée ; aucune page nécessitant une refonte plus large détectée
+  (toutes les autres pages connectées déjà conformes — voir
+  `docs/DECISIONS.md` pour la liste complète). `tsc --noEmit`/
+  `npm run lint` propres ; tests unitaires ciblés 63/63 verts.
+
 ## En cours
-(aucune — Tâche V7 complétée et committée)
+(aucune — Tâche V8 complétée et committée)
 
 ## À venir
-Tâches V8-V10 de la refonte visuelle à suivre une à la fois, rapport après
+Tâches V9-V10 de la refonte visuelle à suivre une à la fois, rapport après
 chacune (`docs/prompts/07-prompts-refonte-visuelle.md`).

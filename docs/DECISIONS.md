@@ -4044,3 +4044,78 @@ modification.
    heredoc bash (pas l'outil Edit, peu fiable sur ce montage — voir entrées
    précédentes) et vérifiés (octets NUL, hunks `git diff` uniques et
    correctement bornés) : aucune corruption.
+
+## 2026-06-27 — Refonte visuelle : Tâche V8 (portails et tableaux de bord)
+
+1. Audit préalable (Section 1, V8.1) : tous les espaces connectés
+   (`app/(portails)/*`, `app/(admin)/*`) utilisaient déjà les composants du
+   système de design (`Card`, `Button`, `Badge`, `Alert`, `EmptyState`,
+   `ProgressBar`, `formatCents`) — héritage direct de la Tâche V2 (les
+   tokens/couleurs s'appliquent déjà partout via ces composants partagés) et
+   de la Tâche 1.4b.6 (états vides déjà reformulés). Décision : pas de
+   réécriture indiscriminée ; n'agir que là où un écart concret subsistait.
+2. Convention `EmptyState` vs `Alert`/texte `muted` confirmée par grep sur
+   tout `app/` : `EmptyState` n'est utilisée QUE quand une action réelle
+   existe (`actionHref` toujours renseigné dans les 3 usages existants —
+   `compte/page.tsx`, `app/(public)/trouver/page.tsx`, `app/styleguide`).
+   Les états sans action pertinente (ex. « Aucun athlète sous votre
+   responsabilité », dashboards équipe/admin « apparaîtra ici dès... »)
+   restent en `Alert`/texte `muted` — c'est la convention déjà en place,
+   pas un oubli. Décision : ne pas convertir ces cas vers `EmptyState` sans
+   action réelle à proposer (cohérence avec l'existant > nouveauté
+   cosmétique).
+3. Nouveau motif CSS `.stat-grid`/`.stat-card` (`app/globals.css`) : les
+   sections « En un coup d'œil » des dashboards équipe
+   (`app/(portails)/equipe/[teamId]/page.tsx`) et admin
+   (`app/(admin)/dashboard/page.tsx`, sections « En un coup d'œil »,
+   « Crédits », « Paiements échoués et remboursements ») affichaient leurs
+   métriques clés dans un `<table>` à une seule colonne — correct mais peu
+   "soigné" comparé aux pages publiques (critère explicite de la Tâche V8 :
+   « aussi soigné que les pages publiques »). Remplacé par une grille de
+   cartes (valeur en gros caractère accent + libellé), même rôle visuel
+   "mise en valeur" que `.cart-impact` (V6) et `.public-profile__campaign`
+   (V7) — couleur accent réutilisée, pas de nouvelle couleur inventée. Les
+   vraies LISTES de lignes (commandes à distribuer, campagnes à risque,
+   produits populaires, versements, ventes par athlète, progression dans le
+   temps) restent en `<table>` — seules les sections de métriques agrégées à
+   une seule valeur par ligne ont été converties.
+4. `app/(portails)/campagnes/nouvelle/page.tsx` (assistant de création,
+   étape récapitulative) : le montant de l'objectif y était affiché par
+   `${(data.goalCents / 100).toFixed(2)} $` (point décimal anglais) au lieu
+   de `formatCents()` (virgule française, déjà la convention partout
+   ailleurs dans le projet) — incohérence repérée par grep, corrigée en un
+   import + une ligne. Changement strictement local au fichier (pas de
+   réécriture plus large de cet assistant, hors périmètre explicite de V8 et
+   site d'un bug critique passé — Tâche 1.4b.1, voir entrées précédentes) :
+   décision autonome de limiter le risque sur ce fichier sensible à ce seul
+   correctif ponctuel.
+5. `app/(portails)/compte/page.tsx` : ajout d'une phrase d'accroche sous le
+   titre « Mon compte » (auparavant seul titre sans sous-titre), pour la
+   cohérence avec les autres pages connectées (`/campagnes`, `/equipe/...`,
+   `/compte/athletes`...) qui ont toutes un `<p>` sous leur `<h1>` dans
+   `.page-header`.
+6. Pages volontairement NON modifiées après audit (déjà conformes, aucun
+   écart trouvé) : `app/(portails)/campagnes/page.tsx` (liste, état vide
+   déjà encourageant avec CTA), `app/(portails)/compte/athletes/page.tsx`,
+   `app/(portails)/compte/athletes/[athleteId]/page.tsx`,
+   `app/(portails)/compte/athletes/[athleteId]/suivi/page.tsx`,
+   `app/(portails)/compte/commandes/[orderId]/recu/page.tsx`,
+   `app/(admin)/versements/page.tsx`,
+   `app/(admin)/versements/[campaignId]/page.tsx`,
+   `app/(admin)/commandes/export/page.tsx`, et toutes les pages
+   `app/(portails)/campagnes/[campaignId]/*` (affiches, clôturer,
+   démarrage, distribution, livraison, qr, rapport) : toutes utilisent déjà
+   `Card`/`Button`/`Alert`/`Badge`/`Field`/`ProgressBar`/`formatCents` de
+   façon cohérente, sans texte froid ni montant mal formaté détecté.
+7. État de chargement global (`app/loading.tsx`, `Spinner`) déjà conforme au
+   système de design depuis la Tâche 1.4.3 (tokens V2 déjà appliqués via
+   `.page-loading`/`.spinner`) — aucune modification nécessaire pour le
+   critère « chargements propres » de V8.
+8. Vérification : `tsc --noEmit`/`npm run lint` propres ; tests unitaires
+   ciblés (`dashboards-team.test.ts`, `dashboards-admin.test.ts`,
+   `format-cents.test.ts`) : 63/63 verts. Fichiers modifiés via script
+   Python (remplacement de chaîne exacte) exécuté en bash directement sur le
+   montage, jamais via l'outil Edit (voir
+   `docs/DECISIONS.md`/mémoire — fiabilité du montage) ; chaque écriture
+   vérifiée (longueur, octets NUL, hunks `git diff` uniques et correctement
+   bornés) : aucune corruption.
