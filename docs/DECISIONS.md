@@ -4400,3 +4400,58 @@ className="product-card">` (avec `aria-label`, comme `ProductCard`), et
 ajouté `product-card__title` au `<h3>`. Changement de présentation
 seulement, aucune logique métier ni texte affiché modifié. `tsc --noEmit`/
 `eslint` propres.
+
+## 2026-06-28 — Back-office produits (/produits)
+
+Frédéric a demandé comment mettre des produits en vente et configurer leurs
+paramètres. Question posée (via outil de question) : construire une vraie
+page admin, ou montrer un contournement Supabase Studio ? Réponse explicite :
+« Construire une page admin (recommandé) ».
+
+Décisions prises seul pendant la construction :
+
+1. **Liste admin par requête Supabase directe, pas par extension de
+   `ProductRepo`.** `lib/catalog/products.ts#listActiveProducts` ne retourne
+   que les produits `is_active = true` (corrects pour la boutique publique,
+   mais une liste admin doit aussi montrer les produits désactivés). Plutôt
+   que d'ajouter une méthode au repo pour ce seul besoin de lecture,
+   `app/(admin)/produits/page.tsx` interroge `supabase.from('products')`
+   directement — même patron déjà utilisé par `app/(admin)/versements/
+   page.tsx` pour lister les campagnes. RLS (`products_admin_all`) protège
+   déjà cette lecture, aucune policy nouvelle nécessaire.
+2. **Un seul composant de formulaire (`product-form.tsx`) partagé entre
+   création et modification.** Les deux pages ont exactement les mêmes
+   champs ; seules les valeurs par défaut et l'action diffèrent. Évite de
+   dupliquer ~80 lignes de JSX et le risque de divergence future entre les
+   deux formulaires.
+3. **Désactivation/réactivation et ajustement de stock via le même
+   formulaire de modification, pas une action séparée.** `updateProduct`
+   accepte déjà un patch partiel (`productUpdateSchema`) ; une case « Actif »
+   cochée/décochée dans le même `<form>` est plus simple pour l'admin qu'un
+   bouton dédié, et ne demande aucun nouveau code serveur.
+4. **Prix et crédit fixe saisis directement en CENTIMES, pas en dollars.**
+   Même décision et même justification que `versements/[campaignId]/
+   actions.ts` : CLAUDE.md section 4 interdit le float pour de l'argent, et
+   aucun convertisseur dollars→centimes vérifié n'existe dans le projet —
+   plus sûr de demander l'entier exact à l'admin que d'inventer une
+   conversion non testée.
+5. **Lien de navigation « Produits » ajouté pour `platform_admin`, et au
+   passage « Dashboard »/« Versements » aussi.** Ces deux dernières pages
+   existaient déjà (Tâches 1.5.7/1.5.10) mais n'avaient jamais reçu de lien
+   de navigation — incohérence devenue visible en touchant
+   `site-header.tsx` pour `/produits`. Corrigée dans la même tâche plutôt que
+   signalée et laissée de côté, puisque le risque est nul (simple ajout de
+   lien, déjà gardé par `notFound()` au niveau de chaque page).
+
+Quatrième manifestation (dans cette seule tâche) du bug de cache mount/git
+documenté en mémoire persistante, rencontrée sur `components/nav/
+site-header.tsx` après l'ajout des liens, puis à nouveau sur
+`docs/PROGRESS.md` et ce fichier lui-même — réparée par réécriture directe
+des octets manquants/tronqués + vérification (longueur exacte, zéro octet
+NUL, fin de fichier correcte), confirmée par `tsc --noEmit`/`eslint`
+propres.
+
+Suite de tests complète relancée par lots de quelques fichiers à la fois
+(le délai du bac à sable ne permet pas une seule passe `npm test` sur les
+78 fichiers du projet) : 58/58 fichiers unitaires et 20/20 fichiers
+d'intégration verts, aucune régression. `tsc --noEmit`/`eslint .` propres.

@@ -9,12 +9,11 @@
  * - connecté : + Mon compte, + Se déconnecter.
  * - responsable d'équipe/club (rôle direct OU via une adhésion `memberships`,
  *   voir lib/auth/permissions.ts) : + Campagnes.
- *
- * Le rôle `platform_admin` ne voit pas encore de lien dédié : aucune page de
- * back-office n'existe à ce jour dans `(financement)`/`(operations)` (encore
- * de simples placeholders `.gitkeep`) — voir docs/DECISIONS.md. Un lien sera
- * ajouté quand ces pages existeront, plutôt que d'anticiper (CLAUDE.md
- * section 10).
+ * - `platform_admin` : + Dashboard, Produits, Versements (back-office --
+ *   demande directe de l'utilisateur pour /produits, voir docs/DECISIONS.md ;
+ *   les pages /dashboard et /versements existaient déjà mais n'avaient encore
+ *   aucun lien de navigation, ce qui était devenu incohérent avec le
+ *   commentaire précédent de ce fichier -- corrigé dans la même tâche).
  *
  * Menu mobile (`<details>`/`<summary>` natif, pas de JS) : seul visible sous
  * 768px via CSS (voir app/globals.css), desktop nav masquée à l'inverse —
@@ -53,6 +52,13 @@ export async function SiteHeader(): Promise<JSX.Element> {
   ];
   if (isManager) {
     primaryItems.push({ href: '/campagnes', label: 'Campagnes' });
+  }
+  if (user?.role === 'platform_admin') {
+    primaryItems.push(
+      { href: '/dashboard', label: 'Dashboard' },
+      { href: '/produits', label: 'Produits' },
+      { href: '/versements', label: 'Versements' },
+    );
   }
 
   return (

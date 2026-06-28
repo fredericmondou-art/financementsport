@@ -1151,9 +1151,39 @@ pour le résumé complet et les points encore ouverts avant un lancement
 commercial réel (révision juridique des pages légales, favicon/
 opengraph-image manquants).
 
+## Terminé (suite 12)
+- [x] **Back-office produits** — demande directe de Frédéric (« Comment je
+      fais pour mettre des produits à vendre ? »), choix explicite « Construire
+      une page admin » plutôt qu'un contournement Supabase Studio. Nouvelles
+      pages `app/(admin)/produits` (liste, requête Supabase directe puisque
+      `listActiveProducts` ne retourne que les produits actifs — même patron
+      que `versements/page.tsx`), `app/(admin)/produits/nouveau` (création) et
+      `app/(admin)/produits/[productId]` (modification — désactivation/
+      réactivation et ajustement de stock via le même formulaire, pas
+      d'action séparée). Formulaire partagé `product-form.tsx` (un seul
+      composant pour création/modification). Server Actions
+      (`nouveau/actions.ts`, `[productId]/actions.ts`) délèguent intégralement
+      à `lib/catalog/products.ts` (`createProduct`/`updateProduct`/
+      `getProduct`, déjà existant et déjà testé — aucune logique dupliquée,
+      aucune nouvelle règle d'argent). Prix/crédit fixe saisis directement en
+      CENTIMES (même décision que `versements/[campaignId]/actions.ts` —
+      aucun convertisseur dollars→centimes fiable dans le projet). Lien de nav
+      « Produits » ajouté pour `platform_admin` (`components/nav/
+      site-header.tsx`) — et, au passage, les liens « Dashboard »/« Versements »
+      qui existaient déjà sans accès depuis la navigation (incohérence
+      corrigée dans la même tâche, voir docs/DECISIONS.md). Nouveau e2e
+      `tests/e2e/produits-admin.spec.ts` (création → visible en admin et en
+      boutique → désactivation → disparaît de la boutique, reste en admin),
+      non exécutable en sandbox comme les e2e précédents (limitation réseau).
+      Quatrième manifestation (dans cette tâche) du bug de cache mount/git,
+      rencontrée sur `components/nav/site-header.tsx`, réparée par
+      réécriture heredoc complète + vérification d'octets. Suite complète
+      relancée par lots pour respecter le délai du bac à sable : 58/58
+      fichiers unitaires et 20/20 fichiers d'intégration verts, aucune
+      régression. `tsc --noEmit` et `eslint .` propres.
+
 ## En cours
-(aucune — refonte visuelle V1-V10 et ménage documentaire complétés et
-committés)
+(aucune)
 
 ## À venir
 Aucune tâche en attente. Prochaines priorités à définir avec le propriétaire
