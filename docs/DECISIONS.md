@@ -4537,3 +4537,35 @@ Autocritique faite par relecture de code contre `BRIEF-REFONTE-ACCUEIL.md`
 section 12 plutôt que par capture d'écran réelle -- à refaire en local/CI
 avant mise en production (`npm run dev` + inspection visuelle desktop/mobile,
 ou aperçu Vercel).
+
+## 2026-07-10 (suite) — Icônes de sports sur l'accueil
+
+**Contexte.** Après avoir vu la refonte en ligne, Frédéric a demandé des
+« images de sports, raquette, bâton, patins, terrain de sport, soulier ».
+Question posée via `AskUserQuestion` (illustrations vs vraies photos vs
+photos produits) -- réponse : illustrations (équipement).
+
+**Décision.** Nouveau `components/sport-icons.tsx` (5 icônes SVG décoratives :
+bâton de hockey, ballon/terrain de soccer, raquette, patin, soulier de
+course), même langage visuel que `HeroAnimation`/`DecorativeMedal` (cercle
+teinté + traits aux couleurs de marque) -- choix qui règle la demande sans
+réintroduire de photo/visage (DESIGN.md §6, protection des mineurs). Section
+« Pour tous les sports, toutes les catégories » RÉINTRODUITE juste après le
+hero (elle avait été retirée dans la refonte précédente pour suivre
+strictement les 8 sections du brief) -- les classes `.sport-chip*`,
+laissées inutilisées à dessein lors du retrait, servent maintenant vraiment.
+`.sport-chip` passe de texte simple à `inline-flex` (icône + libellé) ;
+nouvelle `.sport-chip__icon` (28px, jamais plus grand que le texte).
+
+**Vérifications.** `tsc --noEmit`/`eslint .` propres. Tests ciblés relancés
+(`catalog-products`, `ui-button`, `scoreboard`, `scroll-reveal`) : 23/23
+verts. Aucun test existant ne verrouillait la section retirée puis
+réintroduite (vérifié par recherche avant de la retirer la première fois) --
+aucune mise à jour de test nécessaire.
+
+**Note technique (bac à sable) : mount/git à nouveau rencontré sur
+`app/(public)/page.tsx` et `app/globals.css` pendant cette même tâche
+(`tsc` signalait des balises JSX non fermées alors que le fichier relu était
+valide) -- réparé par réécriture heredoc complète des deux fichiers +
+vérification octets avant de recommencer `tsc`/`eslint`, comme documenté
+dans la mémoire persistante `mount-staleness-ecommerce`.**
