@@ -1309,12 +1309,22 @@ textarea {
   padding: 0;
 }
 .sport-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
   padding: var(--space-2) var(--space-4);
   border-radius: 999px;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   font-weight: 600;
   font-size: 0.9375rem;
+}
+/* Icônes de sport (demande du 2026-07-10, voir components/sport-icons.tsx) --
+   remises à l'échelle de la puce, jamais plus grandes que le texte à côté. */
+.sport-chip__icon {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
 }
 .sport-chip--more {
   color: var(--color-text-secondary);
@@ -1814,11 +1824,4 @@ textarea {
   }
 }
 
-/* Section "Produits vedettes" (brief §9.4) : réutilise .product-grid
-   existant (Tâche 1.2/V5) sans le modifier ; l'exemple chiffré conservé
-   (tests/e2e/accueil-confiance.spec.ts) est mis en avant à côté, pas en
-   remplacement. */
-.home-products__example {
-  border-color: var(--color-primary);
-  background: var(--color-primary-tint);
-}
+/* Section "Produits vedettes" (brief §9.4) :

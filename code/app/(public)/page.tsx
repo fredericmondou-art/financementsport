@@ -37,11 +37,13 @@
  *   supabase/seed.sql -- seuls des "packs" existent). Affiche les 3 VRAIS
  *   produits les plus généreux en crédit (`listPublicProducts`,
  *   `sort: 'credit_desc'`) plutôt que d'inventer un catalogue.
- * - Section "Tous les sports" (Tâche V4) retirée pour suivre strictement les
- *   8 sections proposées par le brief -- le message ("tous les sports,
- *   toutes les catégories") est conservé dans le paragraphe du hero. Les
- *   classes `.sport-chip*` restent dans app/globals.css (non supprimées,
- *   inutilisées pour l'instant).
+ * - Section "Tous les sports" (Tâche V4) retirée initialement pour suivre
+ *   strictement les 8 sections du brief, puis RÉINTRODUITE le 2026-07-10 à
+ *   la demande explicite de Frédéric ("images de sports, raquette, bâton,
+ *   patins, terrain de sport, soulier") -- juste après le hero, avec des
+ *   icônes illustrées (`components/sport-icons.tsx`) plutôt que de simples
+ *   puces texte, pour répondre à la demande sans réintroduire de photo
+ *   (voir DESIGN.md §6, imagerie/mineurs -- même logique que HeroAnimation).
  * - Ton : uniformisé en tutoiement partout (corrige une incohérence
  *   pré-existante -- l'ancien hero utilisait "vous", le bas de page "tu" --
  *   conforme à docs/DESIGN.md §7, validé 2026-06-27).
@@ -63,8 +65,24 @@ import { Card } from '@/components/ui/card';
 import { ProductCard } from '@/components/product-card';
 import { ScrollReveal } from '@/components/scroll-reveal';
 import { Scoreboard, type ScoreboardItem } from '@/components/scoreboard';
+import {
+  HockeyStickIcon,
+  RacketIcon,
+  ShoeIcon,
+  SkateIcon,
+  SoccerIcon,
+  type SportIconProps,
+} from '@/components/sport-icons';
 import { createSupabaseServerClient } from '@/lib/auth/supabase-server';
 import { createSupabaseProductRepo, listPublicProducts } from '@/lib/catalog/products';
+
+const SPORTS: Array<{ Icon: (props: SportIconProps) => JSX.Element; label: string }> = [
+  { Icon: HockeyStickIcon, label: 'Hockey' },
+  { Icon: SoccerIcon, label: 'Soccer' },
+  { Icon: RacketIcon, label: 'Tennis' },
+  { Icon: SkateIcon, label: 'Patinage' },
+  { Icon: ShoeIcon, label: 'Course à pied' },
+];
 
 const HOW_IT_WORKS = [
   {
@@ -232,6 +250,27 @@ export default async function HomePage(): Promise<JSX.Element> {
             <HeroAnimation className="home-hero__animation" />
           </div>
         </div>
+      </section>
+
+      {/* Pour tous les sports (réintroduite le 2026-07-10, icônes illustrées
+          -- voir docblock en tête de fichier). Audience : parent. */}
+      <section className="home-section">
+        <ScrollReveal className="page page--wide stack stack--sm">
+          <h2>Pour tous les sports, toutes les catégories</h2>
+          <p className="home-section__lead">
+            Ligue récréative ou compétitive, peu importe le sport pratiqué — la plateforme
+            s&apos;adapte à n&apos;importe quelle équipe, club ou athlète.
+          </p>
+          <ul className="sport-chips">
+            {SPORTS.map(({ Icon, label }) => (
+              <li key={label} className="sport-chip">
+                <Icon className="sport-chip__icon" />
+                {label}
+              </li>
+            ))}
+            <li className="sport-chip sport-chip--more">et plus encore</li>
+          </ul>
+        </ScrollReveal>
       </section>
 
       {/* 2. Comment ça fonctionne (audience : parent) */}
