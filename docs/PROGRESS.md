@@ -1221,10 +1221,55 @@ opengraph-image manquants).
   assumés (style photo vs illustration, image d'équipement sans personne).
   `tsc`/`eslint` propres, tests unitaires ciblés verts.
 
+## Terminé (suite 15)
+- [x] **Paramètres de plateforme — P.1 + P.2** (2026-07-10). Réponse à
+      `SPEC-PARAMETRES-PLATEFORME.md` (fichier reçu hors dépôt) ; plan écrit
+      avant codage : `docs/PLAN-PARAMETRES-PLATEFORME.md`. Migration
+      `supabase/migrations/0023_platform_parameters.sql` (tables
+      `parametres_plateforme` — 12 valeurs V1 seedées — et
+      `derogations_parametres`, RLS "service role uniquement" même patron
+      que `stripe_events`) + `lib/parametres.ts` (lecture typée par clé,
+      cache mémoire 5 min, `invalidateParametresCache()`, fallback à deux
+      niveaux — table inaccessible vs. clé invalide — repo injectable même
+      patron que `lib/taxes/rates.ts`). Décisions autonomes (voir
+      `docs/DECISIONS.md`) : `type_limite='dure'` pour `campagne_duree_jours`
+      (type composite de la spec non représentable en une seule colonne),
+      `derogations_parametres.admin_id` nullable (`ON DELETE SET NULL`,
+      même patron que `credit_audit_log.actor_id`), pas encore de policy
+      admin sur `derogations_parametres` (aucun écran ne la lit avant P.7).
+      Nouveau `tests/integration/platform-parameters-rls.test.ts` (8 tests,
+      Postgres embarqué, valide au passage que 0023 s'intègre proprement à
+      TOUTES les migrations existantes) + `tests/unit/parametres.test.ts`
+      (13 tests, dont une garde anti-divergence qui relit littéralement le
+      seed SQL et le compare à `PARAMETRES_DEFAUT`). Suite complète relancée
+      par lots : 61/61 fichiers unitaires + 21/21 fichiers d'intégration
+      verts, aucune régression, `tsc --noEmit`/`npm run lint` propres.
+      **P.3 à P.8 (validations serveur R1-R9, vérification pré-Stripe R4,
+      plafond annuel R8, UI assistant, mécanisme de dérogation, tests aux
+      bornes) restent à traiter, une tâche à la fois.**
+
 ## En cours
 (aucune)
 
 ## À venir
-Valider visuellement la refonte de l'accueil en local/CI (captures desktop +
-mobile, `npm run build` complet) avant de fusionner
-`docs/PLAN-DESIGN-REFONTE-ACCUEIL.md`
+- Paramètres de plateforme, P.3 à P.8 (voir `docs/PLAN-PARAMETRES-PLATEFORME.md`
+  et `SPEC-PARAMETRES-PLATEFORME.md`) : validations serveur R1/R2/R3/R5/R7/R9
+  dans les mutations de campagne existantes (P.3), vérification pré-Stripe +
+  état "campagne complète" R4 (P.4), plafond annuel R8 dans le moteur de
+  crédits (P.5), UI assistant de création -- pré-remplissages/compteurs/
+  avertissements (P.6), mécanisme de dérogation admin (P.7), tests aux
+  bornes de chaque règle (P.8). Dépendances : (P.3, P.4, P.5 en parallèle)
+  → P.6 → P.7 → P.8.
+- Valider visuellement la refonte de l'accueil en local/CI (captures desktop +
+  mobile, `npm run build` complet) avant de fusionner
+  `docs/PLAN-DESIGN-REFONTE-ACCUEIL.md` dans `docs/DESIGN.md`.
+
+(Les plans déjà traités sont archivés dans `docs/archive/prompts/`, voir
+`docs/README.md` pour l'index complet.)
+
+## Point ouvert (hors refonte visuelle)
+Aucune image `opengraph-image`/`favicon`/`icon` n'existe dans `app/` --
+à fournir par l'équipe (identité visuelle) avant le lancement public. Les
+pages légales (`/confidentialite`, `/conditions`, `/remboursement-livraison`)
+restent des gabarits portant la mention « à faire valider juridiquement » --
+révision professionnelle requise avant un lancement commercial réel.

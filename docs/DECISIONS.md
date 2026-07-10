@@ -4623,4 +4623,113 @@ octets/`postcss.parse()` avant de relancer `tsc`/`eslint` et de committer,
 comme documenté dans `mount-staleness-ecommerce`. Un délestage `.git/
 index.lock` bloqué a aussi été rencontré à nouveau (voir
 `git-lock-bypass-ecommerce`) ; contournement identique via `GIT_INDEX_FILE`.
-   
+
+## 2026-07-10 (suite 3) — Paramètres de plateforme (P.1 + P.2)
+
+**Contexte.** `SPEC-PARAMETRES-PLATEFORME.md` (fichier reçu hors dépôt,
+non copié — même convention que `BRIEF-REFONTE-ACCUEIL.md` plus tôt le même
+jour) demande de centraliser les limites opérationnelles (durées, plafonds,
+seuils) dans une table de configuration plutôt qu'en dur dans le code.
+Plan écrit avant codage : `docs/PLAN-PARAMETRES-PLATEFORME.md`. Périmètre
+traité dans cette session : **P.1 et P.2 seulement** (fondations données +
+module de lecture) — P.3 à P.8 (validations serveur R1-R9, écran assistant,
+mécanisme de dérogation) restent des tâches futures distinctes, cohérent
+avec CLAUDE.md section 9 (une tâche à la fois pour limiter le risque de
+régression sur la création de campagne/panier, déjà testées).
+
+**P.1 — Migration `0023_platform_parameters.sql`.** Tables
+`parametres_plateforme` (12 valeurs V1 seedées) et `derogations_parametres`
+(journal d'audit, pas encore écrite par du code applicatif — le mécanisme de
+dérogation est P.7). RLS : même patron que `stripe_events` (migration 0006)
+— `ENABLE ROW LEVEL SECURITY` SANS AUCUNE POLICY, donc `service_role`
+uniquement (BYPASSRLS). Trois décisions autonomes :
+1. `campagne_duree_jours` est listée dans la spec comme "DURE (max), SOUPLE
+   (défaut)" — un type composite qu'une seule colonne `type_limite` ne peut
+   pas représenter. R1 (spec §4) rejette hors de TOUT l'intervalle [min,
+   max] côté serveur, donc la règle est bloquante dans son ensemble ;
+   "defaut" ne sert qu'au pré-remplissage UI. Seedé `type_limite = 'dure'`.
+2. `derogations_parametres.admin_id` est NULLABLE avec `ON DELETE SET NULL`
+   (même patron que `credit_audit_log.actor_id`, migration 0001) plutôt que
+   `NOT NULL` — la spec ne précise pas la nullabilité, et `ON DELETE SET
+   NULL` exige une colonne nullable ; on ne veut jamais qu'une suppression
+   de compte admin soit bloquée par une ligne d'audit historique.
+3. `derogations_parametres` n'a pas encore de policy `SELECT` pour
+   `platform_admin` — aucun écran admin ne la lit pour l'instant (spec §7,
+   hors périmètre V1 : "modification directe dans Supabase suffit"). Une
+   policy additive viendra avec P.7, quand une vraie fonctionnalité
+   l'exercera (même pratique que la migration 0016 pour le dashboard
+   équipe).
+Les colonnes `description` utilisent le dollar-quoting Postgres
+(`$desc$...$desc$`) plutôt que des apostrophes classiques, pour éviter tout
+risque d'échappement manqué sur du texte français ("d'une", "l'intervalle",
+etc.) — un premier essai avec apostrophes classiques a effectivement cassé
+une chaîne (`qu'au` non doublé), détecté par relecture avant tout run, pas
+par un échec de test.
+
+**P.2 — `lib/parametres.ts`.** Types stricts par clé (`ParametresValeurs`,
+pas de `Record<string, unknown>` générique), `PARAMETRES_DEFAUT` en miroir
+du seed SQL, repo injectable (`createSupabaseParametresRepo`, même patron
+que `lib/taxes/rates.ts`), cache mémoire 5 minutes au niveau du module
+(`invalidateParametresCache()` exportée pour P.7), fallback à deux niveaux :
+table entièrement inaccessible → `PARAMETRES_DEFAUT` complet sans mise en
+cache (retente au prochain appel) ; clé absente ou de forme invalide (validée
+par un schéma zod par clé) → fallback CIBLÉ sur cette seule clé, les autres
+valeurs lues restent celles de la base. Décision autonome : `type_limite`/
+`description` ne sont PAS exposés par ce module — chaque règle R1-R9 encode
+déjà son comportement souple/dur dans le code (spec §4), `type_limite` en
+base n'est que documentation pour l'admin qui édite directement dans
+Supabase Studio. À réévaluer si P.6/P.7 en ont besoin.
+
+**Garde anti-divergence.** `tests/unit/parametres.test.ts` inclut un test qui
+relit littéralement `supabase/migrations/0023_platform_parameters.sql` par
+expression régulière et compare chaque valeur seedée à `PARAMETRES_DEFAUT`,
+plutôt qu'une copie codée en dur dans le test (qui aurait pu diverger sans
+être détectée) — si quelqu'un modifie l'un sans l'autre, ce test échoue.
+
+**Vérifications.** Migration validée par exécution réelle (pas seulement
+relecture) : `tests/integration/platform-parameters-rls.test.ts` (nouveau,
+8 tests — seed correct, RLS anon/authenticated à zéro ligne y compris en
+écriture, FK `cle_parametre`, CHECK `entite_type`) fait rejouer TOUTES les
+migrations existantes sur un Postgres embarqué, donc valide au passage que
+0023 s'intègre proprement au schéma déjà en place. `tests/unit/
+parametres.test.ts` (nouveau, 13 tests — fusion pure, cache/TTL/invalidation
+avec horloge injectée, fallback total et ciblé, garde anti-divergence).
+Suite complète relancée par lots (61 fichiers unitaires + 21 fichiers
+d'intégration, contrainte de délai du bac à sable, même pratique que les
+tâches précédentes) : aucune régression. `tsc --noEmit`/`npm run lint`
+propres. Aucun octet NUL/troncature détecté sur les 4 fichiers écrits
+(migration, module, 2 fichiers de test) — vérifié par scan Python avant
+chaque exécution de test, comme documenté dans `mount-staleness-ecommerce`.
+
+**P.3 à P.8 non traités ici** — restent à faire une tâche à la fois :
+validations serveur R1/R2/R3/R5/R7/R9 (P.3), vérification pré-Stripe R4
+(P.4), plafond annuel R8 dans le moteur de crédits (P.5), UI assistant de
+création (P.6), mécanisme de dérogation admin (P.7), tests aux bornes de
+chaque règle (P.8).
+
+**Note technique (bac à sable) : le bug de désync mount/git (voir
+`mount-staleness-ecommerce`) s'est manifesté une fois de plus pendant cette
+même tâche, cette fois sur `docs/DECISIONS.md` lui-même — un append (`cat >>`)
+en fin de fichier a introduit 3 octets NUL exactement à la jonction entre
+l'ancien contenu et le nouveau (détecté par le scan Python systématique,
+`b.count(b'\x00')` non nul), sans aucune troncature de texte visible.
+Corrigé par une passe `bytes.replace(b'\x00', b'')` directe sur le fichier
+(pas une réécriture heredoc complète cette fois, le reste du fichier étant
+intact et volumineux — 309 Ko), revérifié à zéro octet NUL avant de
+poursuivre.**
+
+**Note technique (bac à sable), suite : une seconde manifestation, plus
+sérieuse, a touché `docs/PROGRESS.md` juste après — une réécriture complète
+via script Python (insertion de la section "Terminé (suite 15)" avant "##
+En cours") a produit un fichier tronqué en pleine phrase (`...fusionner
+`docs/PLAN-DESIGN-REFONTE-ACCUEIL.md`` puis plus rien, alors que la section
+"À venir" existante et toute la section "Point ouvert" qui suivait ont
+disparu) — détecté par un scan d'octets systématique après coup, pas par une
+erreur d'exécution (le script Python s'est terminé sans erreur). Réparé en
+localisant l'offset de troncature exact (juste après `## En cours\n(aucune)\n`,
+contenu jusque-là intact et vérifié) puis en ré-écrivant uniquement la queue
+manquante à partir du texte déjà relu en amont dans cette même session,
+plutôt qu'en retentant une réécriture complète du fichier (~87 Ko) qui aurait
+pu retronquer ailleurs. Reconfirme la prudence de `mount-staleness-ecommerce` :
+même une écriture Python "réussie" (`open(..., 'w')` sans exception) doit être
+revérifiée par scan d'octets avant d'être considérée fiable sur ce mount.
