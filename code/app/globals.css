@@ -1832,3 +1832,52 @@ textarea {
   border-color: var(--color-primary);
   background: var(--color-primary-tint);
 }
+
+/* Bandeau "Pour tous les sports" (remplace les puces d'icônes le 2026-07-10
+   -- voir docblock app/(public)/page.tsx) : photo d'équipement sportif
+   pleine largeur (public/images/sports-banner.png) avec le titre/texte
+   superposés sur un scrim. Le scrim réutilise --color-text (RGB 42,38,34)
+   en dégradé plutôt qu'une teinte arbitraire, pour rester dans les tokens
+   de la marque même si l'image elle-même n'en fait pas partie. */
+.home-sports-banner {
+  position: relative;
+  overflow: hidden;
+  min-height: 420px;
+  display: flex;
+  align-items: center;
+  padding-top: var(--space-8);
+  padding-bottom: var(--space-8);
+}
+.home-sports-banner__image {
+  object-fit: cover;
+  z-index: 0;
+}
+.home-sports-banner__scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: linear-gradient(
+    90deg,
+    rgba(42, 38, 34, 0.72) 0%,
+    rgba(42, 38, 34, 0.45) 42%,
+    rgba(42, 38, 34, 0.1) 72%,
+    rgba(42, 38, 34, 0) 100%
+  );
+}
+.home-sports-banner__content {
+  position: relative;
+  z-index: 2;
+  max-width: 640px;
+}
+.home-sports-banner__content h2,
+.home-sports-banner__content p {
+  color: var(--color-bg);
+}
+@media (max-width: 640px) {
+  .home-sports-banner {
+    min-height: 320px;
+  }
+  .home-sports-banner__scrim {
+    background: rgba(42, 38, 34, 0.6);
+  }
+}
