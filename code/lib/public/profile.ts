@@ -7,10 +7,21 @@
  * `v_public_campaign`/`v_public_campaign_products` (migration 0007) ont été
  * créées À CETTE TÂCHE pour combler la lacune identifiée à la Tâche 0.4
  * (`campaigns` n'a aucune policy SELECT pour `anon`) — voir docs/DECISIONS.md.
+ *
+ * P.4 (SPEC-PARAMETRES-PLATEFORME.md, R4, docs/PLAN-PARAMETRES-PLATEFORME.md) :
+ * `PublicCampaignSection.isOrderCapReached` -- même source de vérité que la
+ * vérification pré-Stripe (`lib/checkout/create-checkout-session.ts`) :
+ * `v_campaign_paid_order_count` (migration 0025, même raison d'être qu'une
+ * vue d'agrégation plutôt qu'une lecture directe de `orders` -- voir le
+ * commentaire de cette migration) comparé à `parametres.campagne_commandes_max`
+ * via `isCampaignOrderCapReached` (lib/checkout/campaign-order-cap.ts,
+ * fonction PURE partagée -- une seule définition de « plafond atteint »,
+ * CLAUDE.md section 4).
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type {
   BeneficiaryType,
+  VCampaignPaidOrderCountView,
   VCampaignProgressView,
   VCampaignSupporterCountView,
   VPublicAthleteView,
@@ -18,6 +29,8 @@ import type {
   VPublicTeamView,
 } from '@/lib/db/types';
 import { createSupabaseProductRepo, listPublicProducts, type ProductRepo, type ProductRow } from '@/lib/catalog/products';
+import { isCampaignOrderCapReached } from '@/lib/checkout/campaign-order-cap';
+import { getParametres, type ParametresValeurs } from '@/lib/parametres';
 import {
   applyAmountsMask,
   computeCampaignProgress,
@@ -62,6 +75,17 @@ export interface PublicProfileRepo {
    * lecture brute de `order_credits` depuis une page, seulement des vues
    * d'agrégation (voir docs/DECISIONS.md). */
   getSupporterCount(campaignId: string): Promise<number>;
+  /** P.4 (R4) : nombre de commandes PAYÉES (`isOrderPaid`, lib/distribution/
+   * build-list.ts) de cette campagne -- vue `v_campaign_paid_order_count`
+   * (migration 0025), même raison d'être qu'une vue d'agrégation que
+   * `getSupporterCount` ci-dessus (jamais de lecture brute de `orders`
+   * depuis une page publique). `0` si la campagne n'a encore aucune
+   * commande payée (absente de la vue), jamais `null`. */
+  getPaidOrderCount(campaignId: string): Promise<number>;
+  /** P.4 (R4) : `parametres.campagne_commandes_max`, même source de vérité
+   * que la vérification pré-Stripe -- voir le commentaire de tête de ce
+   * fichier. */
+  getParametres(): Promise<ParametresValeurs>;
 }
 
 export function createSupabasePublicProfileRepo(supabase: SupabaseClient): PublicProfileRepo {
@@ -126,12 +150,32 @@ export function createSupabasePublicProfileRepo(supabase: SupabaseClient): Publi
       if (error) throw error;
       return (data as VCampaignSupporterCountView['Row'] | null)?.supporter_count ?? 0;
     },
+    async getPaidOrderCount(campaignId) {
+      const { data, error } = await supabase
+        .from('v_campaign_paid_order_count')
+        .select('paid_order_count')
+        .eq('campaign_id', campaignId)
+        .maybeSingle();
+      if (error) throw error;
+      return (data as VCampaignPaidOrderCountView['Row'] | null)?.paid_order_count ?? 0;
+    },
+    async getParametres() {
+      return getParametres(supabase);
+    },
   };
 }
 
 export interface PublicCampaignSection {
   campaign: PublicCampaignRow;
   progress: CampaignProgress;
+  /** P.4 (R4) : plafond de commandes payées atteint pour cette campagne --
+   * voir le commentaire de tête de ce fichier. Quand `true`, la page
+   * publique affiche l'état « Campagne complète — objectif dépassé ! »
+   * (spec R4, état valorisant) au lieu de la progression habituelle ; les
+   * CTA d'achat n'ont RIEN à changer (ils pointent déjà vers `/boutique`
+   * générique par bénéficiaire, jamais vers la campagne -- voir
+   * `encouragerHref` dans les 3 pages publiques). */
+  isOrderCapReached: boolean;
   daysRemaining: number | null;
 }
 
@@ -170,9 +214,11 @@ async function loadCampaignAndProducts(
     };
   }
 
-  const [progressRow, campaignProductIds] = await Promise.all([
+  const [progressRow, campaignProductIds, paidOrderCount, parametres] = await Promise.all([
     repo.getCampaignProgress(campaign.id),
     repo.getCampaignProductIds(campaign.id),
+    repo.getPaidOrderCount(campaign.id),
+    repo.getParametres(),
   ]);
 
   return {
@@ -180,6 +226,7 @@ async function loadCampaignAndProducts(
       campaign,
       progress: computeCampaignProgress(progressRow?.raised_cents ?? 0, campaign.goal_cents),
       daysRemaining: computeDaysRemaining(campaign.ends_at),
+      isOrderCapReached: isCampaignOrderCapReached(paidOrderCount, parametres.campagne_commandes_max),
     },
     recommendedProducts: selectRecommendedProducts(allActiveProducts, campaignProductIds),
   };

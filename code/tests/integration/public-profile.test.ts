@@ -21,6 +21,7 @@ import { loadAthleteSuivi, loadOwnerCampaignSection } from '@/lib/athletes/profi
 import type { PublicCampaignRow } from '@/lib/public/campaign-progress';
 import type { ProductRepo, ProductRow } from '@/lib/catalog/products';
 import type { BeneficiaryType, VCampaignProgressView } from '@/lib/db/types';
+import { PARAMETRES_DEFAUT, type ParametresValeurs } from '@/lib/parametres';
 
 function makeAthlete(overrides: Partial<PublicAthleteRow> = {}): PublicAthleteRow {
   return {
@@ -119,6 +120,15 @@ interface FakeProfileFixtures {
    * même convention que la vraie implémentation Supabase
    * (`PublicProfileRepo#getSupporterCount`, lib/public/profile.ts). */
   supporterCountByCampaignId?: Map<string, number>;
+  /** P.4 (R4) — nombre de commandes PAYÉES par campagne, simule
+   * `v_campaign_paid_order_count` (migration 0025). Même convention `0` par
+   * défaut (jamais `null`) que `supporterCountByCampaignId` ci-dessus. */
+  paidOrderCountByCampaignId?: Map<string, number>;
+  /** P.4 (R4) — `parametres.campagne_commandes_max` vu par le repo ; par
+   * défaut `PARAMETRES_DEFAUT` (lib/parametres.ts), la même valeur de repli
+   * que la vraie implémentation Supabase en cas d'échec de lecture de la
+   * table `parametres_plateforme`. */
+  parametres?: ParametresValeurs;
 }
 
 function createFakeProfileRepo(fixtures: FakeProfileFixtures = {}): PublicProfileRepo {
@@ -129,6 +139,8 @@ function createFakeProfileRepo(fixtures: FakeProfileFixtures = {}): PublicProfil
   const progressByCampaignId = fixtures.progressByCampaignId ?? new Map();
   const campaignProductIdsByCampaignId = fixtures.campaignProductIdsByCampaignId ?? new Map();
   const supporterCountByCampaignId = fixtures.supporterCountByCampaignId ?? new Map();
+  const paidOrderCountByCampaignId = fixtures.paidOrderCountByCampaignId ?? new Map();
+  const parametres = fixtures.parametres ?? PARAMETRES_DEFAUT;
 
   return {
     async getAthleteBySlug(slug) {
@@ -164,6 +176,12 @@ function createFakeProfileRepo(fixtures: FakeProfileFixtures = {}): PublicProfil
     },
     async getSupporterCount(campaignId) {
       return supporterCountByCampaignId.get(campaignId) ?? 0;
+    },
+    async getPaidOrderCount(campaignId) {
+      return paidOrderCountByCampaignId.get(campaignId) ?? 0;
+    },
+    async getParametres() {
+      return parametres;
     },
   };
 }
@@ -309,6 +327,64 @@ describe('loadPublicAthleteProfile', () => {
   });
 });
 
+describe('loadPublicAthleteProfile — isOrderCapReached (P.4, R4, SPEC-PARAMETRES-PLATEFORME.md)', () => {
+  it('max-1 commande payée : campagne encore active, jamais « complète »', async () => {
+    const athlete = makeAthlete();
+    const campaign = makeCampaign({ id: 'c1', beneficiary_type: 'athlete', beneficiary_id: athlete.id });
+    const repo = createFakeProfileRepo({
+      athletes: [athlete],
+      campaigns: [campaign],
+      progressByCampaignId: new Map([['c1', 0]]),
+      paidOrderCountByCampaignId: new Map([['c1', 249]]),
+      parametres: { ...PARAMETRES_DEFAUT, campagne_commandes_max: 250 },
+    });
+    const result = await loadPublicAthleteProfile(unusedSupabaseClient, athlete.slug, repo, createFakeProductRepo([]));
+    expect(result?.campaignSection?.isOrderCapReached).toBe(false);
+  });
+
+  it('max commandes payées : plafond atteint (>=, pas >) -- « Campagne complète »', async () => {
+    const athlete = makeAthlete();
+    const campaign = makeCampaign({ id: 'c1', beneficiary_type: 'athlete', beneficiary_id: athlete.id });
+    const repo = createFakeProfileRepo({
+      athletes: [athlete],
+      campaigns: [campaign],
+      progressByCampaignId: new Map([['c1', 0]]),
+      paidOrderCountByCampaignId: new Map([['c1', 250]]),
+      parametres: { ...PARAMETRES_DEFAUT, campagne_commandes_max: 250 },
+    });
+    const result = await loadPublicAthleteProfile(unusedSupabaseClient, athlete.slug, repo, createFakeProductRepo([]));
+    expect(result?.campaignSection?.isOrderCapReached).toBe(true);
+  });
+
+  it('max+1 commandes payées (défensif) : reste « complète »', async () => {
+    const athlete = makeAthlete();
+    const campaign = makeCampaign({ id: 'c1', beneficiary_type: 'athlete', beneficiary_id: athlete.id });
+    const repo = createFakeProfileRepo({
+      athletes: [athlete],
+      campaigns: [campaign],
+      progressByCampaignId: new Map([['c1', 0]]),
+      paidOrderCountByCampaignId: new Map([['c1', 251]]),
+      parametres: { ...PARAMETRES_DEFAUT, campagne_commandes_max: 250 },
+    });
+    const result = await loadPublicAthleteProfile(unusedSupabaseClient, athlete.slug, repo, createFakeProductRepo([]));
+    expect(result?.campaignSection?.isOrderCapReached).toBe(true);
+  });
+
+  it('campagne sans aucune commande payée (absente de la vue) : jamais « complète »', async () => {
+    const athlete = makeAthlete();
+    const campaign = makeCampaign({ id: 'c1', beneficiary_type: 'athlete', beneficiary_id: athlete.id });
+    const repo = createFakeProfileRepo({
+      athletes: [athlete],
+      campaigns: [campaign],
+      progressByCampaignId: new Map([['c1', 0]]),
+      // Aucune entrée dans paidOrderCountByCampaignId -- doit retomber sur 0.
+      parametres: { ...PARAMETRES_DEFAUT, campagne_commandes_max: 250 },
+    });
+    const result = await loadPublicAthleteProfile(unusedSupabaseClient, athlete.slug, repo, createFakeProductRepo([]));
+    expect(result?.campaignSection?.isOrderCapReached).toBe(false);
+  });
+});
+
 describe('loadPublicTeamProfile', () => {
   it('retourne null pour un slug inconnu', async () => {
     const repo = createFakeProfileRepo();
@@ -375,6 +451,18 @@ describe('loadOwnerCampaignSection (Tâche 1.6.C1 — vue privée du tuteur)', (
     const repo = createFakeProfileRepo();
     const result = await loadOwnerCampaignSection(unusedSupabaseClient, 'athlete-1', repo);
     expect(result).toBeNull();
+  });
+
+  it('P.4 (R4) : reflète aussi isOrderCapReached pour le tuteur, pas seulement le public', async () => {
+    const campaign = makeCampaign({ id: 'c1', beneficiary_type: 'athlete', beneficiary_id: 'athlete-1' });
+    const repo = createFakeProfileRepo({
+      campaigns: [campaign],
+      progressByCampaignId: new Map([['c1', 0]]),
+      paidOrderCountByCampaignId: new Map([['c1', 250]]),
+      parametres: { ...PARAMETRES_DEFAUT, campagne_commandes_max: 250 },
+    });
+    const result = await loadOwnerCampaignSection(unusedSupabaseClient, 'athlete-1', repo);
+    expect(result?.isOrderCapReached).toBe(true);
   });
 
   it('calcule la progression à partir de la campagne active ciblant directement l’athlète', async () => {

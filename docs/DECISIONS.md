@@ -4834,3 +4834,123 @@ annuel R8 dans le moteur de crédits (P.5), UI assistant -- compteurs/
 avertissements R5/R6 restants, au-delà du seul champ de date (P.6), mécanisme
 de dérogation admin (P.7), tests aux bornes supplémentaires (P.8, en bonne
 partie déjà couverts par les tests ci-dessus).
+
+## Terminé (suite 17) — Paramètres de plateforme, P.4 (R4)
+
+**P.4 — Vérification pré-Stripe + état « campagne complète » (R4)** (2026-07-10).
+
+**Découverte architecturale clé, avant tout code** : `app/api/webhooks/
+stripe/route.ts` relit `cart_beneficiaries` EN DIRECT à la confirmation du
+paiement (`campaignId = beneficiaries.find(...).campaign_id`), jamais les
+métadonnées de la session Stripe. Conséquence : la « bascule silencieuse
+vers la boutique permanente » exigée par R4 (« aucun message d'erreur côté
+acheteur ») ne peut PAS être une simple variable locale dans
+`createCheckoutSession` -- elle doit écrire `cart_beneficiaries.campaign_id
+= NULL` en base AVANT la création de la session Stripe, sinon le webhook
+verrait une campagne different de celle utilisée pour construire la session
+et le crédit resterait attaché à la campagne pleine.
+
+**Deuxième découverte, en cours d'implémentation (pas anticipée par le plan
+initial)** : le plan naïf (compter `orders` filtrées par
+`primary_campaign_id` avec le client de session de l'acheteur) échoue en
+silence pour un invité -- `orders` n'a que la policy `orders_select_scoped`
+(migration 0005), qui ne donne accès qu'aux commandes DONT ON EST
+PROPRIÉTAIRE. Un acheteur anonyme lisant `orders` pour compter les commandes
+payées de la campagne ne verrait donc jamais que 0 (les siennes), et R4 ne
+se déclencherait jamais. Nouvelle migration
+`supabase/migrations/0025_campaign_paid_order_count_view.sql` :
+`v_campaign_paid_order_count` (agrégat `COUNT(*)` par `primary_campaign_id`,
+mêmes statuts que `isOrderPaid`, lib/distribution/build-list.ts), GRANT
+SELECT à `anon`/`authenticated` -- même patron déjà établi par
+`v_campaign_progress` et `v_campaign_supporter_count` (migration 0011) :
+une vue d'agrégation sans PII plutôt qu'une policy RLS supplémentaire sur la
+table brute. Testé explicitement (`tests/integration/
+campaign-paid-order-count-view.test.ts`) : agrégation correcte (seuls les 7
+statuts « payés » comptent, jamais un autre `primary_campaign_id`), lisible
+par `anon`, ET contrôle négatif prouvant qu'une lecture directe de `orders`
+par `anon` retourne bien 0 ligne (justifie la vue).
+
+**`lib/checkout/create-checkout-session.ts`** : `campaignId` passe de
+`const` à `let`. À l'intérieur du bloc `if (campaignId !== null)` existant
+(clôture de campagne, Tâche 1.5.8), ajout de la vérification R4 : lit
+`parametres.campagne_commandes_max` (`getParametres`) et
+`v_campaign_paid_order_count`, compare via une nouvelle fonction PURE
+`isCampaignOrderCapReached(paidOrderCount, max)` (`lib/checkout/
+campaign-order-cap.ts`, `>=` jamais `>` -- extraite pour être testée aux
+bornes sans I/O, CLAUDE.md section 8). Au plafond : `UPDATE
+cart_beneficiaries SET campaign_id = NULL WHERE cart_id = ... AND
+campaign_id = ...` puis `campaignId = null` en mémoire (pour que les
+métadonnées Stripe reflètent aussi la bascule) -- AUCUNE `BusinessRuleError`
+levée (contrairement à la clôture de campagne juste au-dessus, qui elle
+bloque avec message) : c'est le comportement voulu par R4, pas un oubli.
+
+**Page publique — état « Campagne complète »** : `PublicCampaignSection`
+(lib/public/profile.ts) gagne un champ `isOrderCapReached: boolean`, calculé
+par `loadCampaignAndProducts` avec la MÊME fonction pure
+`isCampaignOrderCapReached` (une seule définition du « plafond atteint »,
+partagée avec le checkout). `components/public-profile-view.tsx` : nouvelle
+branche prioritaire affichant « Campagne complète — objectif dépassé ! »
+(barre à 100 %) au lieu de la progression normale quand `isOrderCapReached`
+est vrai. Texte suit la convention DÉJÀ établie dans ce fichier pour la
+ponctuation (espace avant `!`, ex. la ligne `isGoalExceeded` juste
+au-dessus) plutôt que la graphie exacte de la spec (« dépassé! » sans
+espace) -- cohérence interne au fichier jugée plus importante qu'une copie
+littérale d'un espacement qui varie déjà dans le cahier des charges
+lui-même.
+
+**CTA d'achat — AUCUN changement nécessaire, vérifié avant de coder** : R4
+exige que les CTA redirigent vers la boutique permanente au plafond. En
+lisant les 3 pages publiques (`app/(public)/{team,club}/[slug]/page.tsx`,
+`app/(public)/[athleteSlug]/page.tsx`), `encouragerHref` pointait DÉJÀ
+systématiquement vers `/boutique?beneficiaryType=...&beneficiaryId=...`
+(jamais vers la campagne) -- l'attachement à une campagne se fait plus tard,
+côté panier, pas via l'URL du bouton. Le bouton "Soutenir avec ce pack" des
+produits recommandés réutilise le même `encouragerHref`. Rien à modifier
+dans `components/public-profile-view.tsx` pour cette partie de R4.
+
+**Vue privée du tuteur (`lib/athletes/profile.ts`)** : `PublicCampaignSection`
+étant un type partagé, `loadOwnerCampaignSection` (page d'édition athlète +
+page de suivi) doit aussi fournir `isOrderCapReached` pour compiler --
+décision autonome de calculer la vraie valeur (même repo, mêmes appels)
+plutôt qu'un `false` en dur, pour que le parent voie aussi « Campagne
+complète » s'il consulte le suivi de son enfant. Aucun changement de rendu
+dans la page de suivi elle-même (hors périmètre explicite de R4, qui ne
+parle que de « la page publique ») -- seul le champ est calculé
+correctement, prêt si une page privée veut l'utiliser plus tard.
+
+**`lib/campaigns/draft-preview.ts`** : `isOrderCapReached: false` en dur --
+une campagne en brouillon n'existe pas encore en base, 0 commande possible
+par construction.
+
+**Bug d'infrastructure rencontré et contourné pendant cette tâche** (voir
+aussi les mémoires `git-lock-bypass-ecommerce`/`mount-staleness-ecommerce`) :
+plusieurs fichiers modifiés via l'outil Edit (`lib/checkout/
+create-checkout-session.ts`, `lib/db/types.ts`, `lib/public/profile.ts`,
+`lib/athletes/profile.ts`, `lib/campaigns/draft-preview.ts`, `components/
+public-profile-view.tsx`, `tests/integration/public-profile.test.ts`) sont
+apparus TRONQUÉS côté bash (`tsc`/tests) après coup, alors que l'outil Read
+montrait le contenu correct et complet -- la vue bash du montage n'était pas
+synchronisée avec les écritures Edit, de façon reproductible (même longueur
+tronquée à chaque nouvelle tentative d'Edit, y compris après une réécriture
+complète via l'outil Write). Contournement qui a fonctionné : réécrire le
+fichier entier directement depuis bash (heredoc Python, jamais l'outil Write
+côté hôte) avec le contenu exact lu via l'outil Read -- la vue bash reflète
+alors immédiatement le contenu correct. Un fichier a montré un second
+symptôme (octets `\x00` de bourrage en fin de fichier après un simple retrait
+de ligne via Edit) -- nettoyé par `.replace(b'\x00', b'')`.
+
+**Tests.** Nouveau `tests/unit/campaign-order-cap.test.ts` (6 tests,
+bornes max-1/max/max+1 + cas 0/1 de `isCampaignOrderCapReached`). Nouveau
+`tests/integration/campaign-paid-order-count-view.test.ts` (3 tests,
+Postgres embarqué, rejoue TOUTES les migrations). `tests/integration/
+public-profile.test.ts` étendu : fake repo avec `getPaidOrderCount`/
+`getParametres`, 5 nouveaux tests de bornes (max-1/max/max+1/absent pour
+`loadPublicAthleteProfile`, +1 pour `loadOwnerCampaignSection`). Suite
+complète relancée par lots : 46/46 fichiers unitaires (667 tests) + 23/23
+fichiers d'intégration (201 tests) verts, aucune régression. `tsc --noEmit`/
+`eslint` propres sur tous les fichiers touchés.
+
+**P.5 à P.8 restent à traiter, une tâche à la fois** : plafond annuel R8
+dans le moteur de crédits (P.5), UI assistant -- compteurs/avertissements
+R5/R6 restants (P.6), mécanisme de dérogation admin (P.7), tests aux bornes
+supplémentaires (P.8, en bonne partie déjà couverts par P.3/P.4).

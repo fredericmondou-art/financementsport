@@ -29,6 +29,7 @@ import {
   type PublicProfileRepo,
 } from '@/lib/public/profile';
 import { computeCampaignProgress, computeDaysRemaining, pickMostRelevantCampaign } from '@/lib/public/campaign-progress';
+import { isCampaignOrderCapReached } from '@/lib/checkout/campaign-order-cap';
 import type { AthleteRow } from '@/lib/entities/athletes';
 
 /** `repo` est injectable (même pattern que `loadPublicAthleteProfile`,
@@ -45,11 +46,19 @@ export async function loadOwnerCampaignSection(
   if (!campaign) {
     return null;
   }
-  const progressRow = await repo.getCampaignProgress(campaign.id);
+  const [progressRow, paidOrderCount, parametres] = await Promise.all([
+    repo.getCampaignProgress(campaign.id),
+    repo.getPaidOrderCount(campaign.id),
+    repo.getParametres(),
+  ]);
   return {
     campaign,
     progress: computeCampaignProgress(progressRow?.raised_cents ?? 0, campaign.goal_cents),
     daysRemaining: computeDaysRemaining(campaign.ends_at),
+    // P.4 (R4, lib/public/profile.ts) : même calcul que la page publique --
+    // le tuteur doit voir « Campagne complète » lui aussi, pas seulement le
+    // visiteur anonyme.
+    isOrderCapReached: isCampaignOrderCapReached(paidOrderCount, parametres.campagne_commandes_max),
   };
 }
 

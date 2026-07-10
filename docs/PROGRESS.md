@@ -1285,18 +1285,56 @@ opengraph-image manquants).
       régression, `tsc --noEmit`/`npm run lint` propres.
       **P.4 à P.8 restent à traiter, une tâche à la fois.**
 
+## Terminé (suite 17)
+- [x] **Paramètres de plateforme — P.4 (vérification pré-Stripe + état
+      « campagne complète » R4)** (2026-07-10). Découverte architecturale
+      clé avant de coder : le webhook Stripe (`app/api/webhooks/stripe/
+      route.ts`) relit `cart_beneficiaries` EN DIRECT, jamais les métadonnées
+      de session -- la bascule silencieuse vers la boutique permanente exigée
+      par R4 doit donc écrire `cart_beneficiaries.campaign_id = NULL` en
+      base, pas seulement une variable locale. Deuxième découverte en cours
+      d'implémentation : compter `orders` avec le client de l'acheteur (souvent
+      invité) échoue en silence (RLS `orders_select_scoped`, migration 0005,
+      ne donne accès qu'aux commandes dont on est propriétaire) -- nouvelle
+      migration `supabase/migrations/0025_campaign_paid_order_count_view.sql`
+      (`v_campaign_paid_order_count`, agrégat sans PII, GRANT `anon`/
+      `authenticated`, même patron que `v_campaign_progress`/
+      `v_campaign_supporter_count`). `lib/checkout/create-checkout-session.ts` :
+      nouvelle vérification R4 (compare `v_campaign_paid_order_count` à
+      `parametres.campagne_commandes_max` via la fonction pure
+      `isCampaignOrderCapReached`, `lib/checkout/campaign-order-cap.ts`) juste
+      après la vérification de clôture existante (Tâche 1.5.8) ; au plafond,
+      détache la campagne du panier sans lever d'erreur. Page publique :
+      `PublicCampaignSection.isOrderCapReached` (lib/public/profile.ts, aussi
+      calculé pour la vue privée du tuteur dans lib/athletes/profile.ts) ;
+      `components/public-profile-view.tsx` affiche « Campagne complète —
+      objectif dépassé ! » (barre à 100 %) au lieu de la progression normale.
+      Aucun changement de CTA nécessaire (vérifié avant de coder) : les 3
+      pages publiques pointaient déjà vers `/boutique?beneficiaryType=...`
+      générique, jamais vers la campagne. Décisions autonomes documentées
+      (voir `docs/DECISIONS.md`) : ponctuation du texte alignée sur la
+      convention déjà en place dans le fichier (espace avant `!`) plutôt que
+      la graphie exacte (et incohérente) de la spec. Nouveau
+      `tests/unit/campaign-order-cap.test.ts` (6 tests, bornes max-1/max/
+      max+1) + `tests/integration/campaign-paid-order-count-view.test.ts`
+      (3 tests, Postgres embarqué, rejoue toutes les migrations) + 5 tests
+      de bornes ajoutés à `tests/integration/public-profile.test.ts`. Suite
+      complète relancée par lots : 46/46 fichiers unitaires (667 tests) +
+      23/23 fichiers d'intégration (201 tests) verts, aucune régression,
+      `tsc --noEmit`/`eslint` propres.
+      **P.5 à P.8 restent à traiter, une tâche à la fois.**
+
 ## En cours
 (aucune)
 
 ## À venir
-- Paramètres de plateforme, P.4 à P.8 (voir `docs/PLAN-PARAMETRES-PLATEFORME.md`
-  et `SPEC-PARAMETRES-PLATEFORME.md` -- P.1/P.2/P.3 terminées) : vérification
-  pré-Stripe + état "campagne complète" R4 (P.4), plafond annuel R8 dans le
-  moteur de crédits (P.5), UI assistant de création -- compteurs/
-  avertissements R5/R6 restants au-delà du champ de date déjà ajouté (P.6),
-  mécanisme de dérogation admin (P.7), tests aux bornes supplémentaires (P.8,
-  en bonne partie déjà couverts par les tests de P.3). Dépendances : (P.4,
-  P.5 en parallèle) → P.6 → P.7 → P.8.
+- Paramètres de plateforme, P.5 à P.8 (voir `docs/PLAN-PARAMETRES-PLATEFORME.md`
+  et `SPEC-PARAMETRES-PLATEFORME.md` -- P.1/P.2/P.3/P.4 terminées) : plafond
+  annuel R8 dans le moteur de crédits (P.5), UI assistant de création --
+  compteurs/avertissements R5/R6 restants au-delà du champ de date déjà
+  ajouté (P.6), mécanisme de dérogation admin (P.7), tests aux bornes
+  supplémentaires (P.8, en bonne partie déjà couverts par les tests de
+  P.3/P.4). Dépendances : P.5 → P.6 → P.7 → P.8.
 - Valider visuellement la refonte de l'accueil en local/CI (captures desktop +
   mobile, `npm run build` complet) avant de fusionner
   `docs/PLAN-DESIGN-REFONTE-ACCUEIL.md` dans `docs/DESIGN.md`.

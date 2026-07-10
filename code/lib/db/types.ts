@@ -947,6 +947,22 @@ export interface VCampaignSupporterCountView {
   };
 }
 
+/**
+ * Ajoutée par la migration 0025 (P.4, SPEC-PARAMETRES-PLATEFORME.md, R4) :
+ * nombre de commandes payées (`isOrderPaid`, lib/distribution/build-list.ts)
+ * par campagne (`orders.primary_campaign_id`) -- même raison d'être qu'une
+ * vue plutôt qu'une lecture directe de `orders` que `VCampaignSupporterCountView`
+ * ci-dessus : le client de l'acheteur (`anon` la plupart du temps) n'a par
+ * RLS accès qu'à ses propres commandes (migration 0005, `orders_select_
+ * scoped`), voir le commentaire de la migration 0025.
+ */
+export interface VCampaignPaidOrderCountView {
+  Row: {
+    campaign_id: string;
+    paid_order_count: number;
+  };
+}
+
 export interface VPublicAthleteView {
   Row: {
     id: string;
@@ -1060,8 +1076,9 @@ export interface Database {
     };
     Views: {
       v_beneficiary_credit_totals: VBeneficiaryCreditTotalsView;
-      v_campaign_progress: VCampaignProgressView;
+   v_campaign_progress: VCampaignProgressView;
       v_campaign_supporter_count: VCampaignSupporterCountView;
+      v_campaign_paid_order_count: VCampaignPaidOrderCountView;
       v_public_athlete: VPublicAthleteView;
       v_public_team: VPublicTeamView;
       v_public_club: VPublicClubView;
