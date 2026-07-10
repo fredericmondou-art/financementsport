@@ -4569,3 +4569,58 @@ aucune mise à jour de test nécessaire.
 valide) -- réparé par réécriture heredoc complète des deux fichiers +
 vérification octets avant de recommencer `tsc`/`eslint`, comme documenté
 dans la mémoire persistante `mount-staleness-ecommerce`.**
+
+## 2026-07-10 (suite 2) — Bannière photo remplace les icônes de sports
+
+**Contexte.** Retour explicite de Frédéric sur les icônes de sports livrées
+plus tôt le même jour : « c'est réussi mais ce n'est pas ce que je voulais »
+-- il voulait « une grande image, pas des petites icônes », précisément une
+« image de fond plein écran (bandeau) ». Frédéric a généré lui-même l'image
+(outil externe « Claude design », prompt co-écrit avec l'agent), fourni en
+deux versions : la première avec des logos de marque visibles sur
+l'équipement (risque de marque de commerce, signalé), la seconde sans logo
+visible et avec une zone sombre calme à gauche pour le texte -- c'est cette
+seconde version que Frédéric a retenue et déposée dans
+`code/public/images/` (renommée `sports-banner.png`, 1774×887, ~2,2 Mo).
+
+**Décision.** Remplace le `<ul class="sport-chips">` (icônes SVG) par un
+`next/image` (`fill`, `sizes="100vw"`) en fond de la section, avec un scrim
+en dégradé (réutilise le RGB de `--color-text` plutôt qu'une teinte
+arbitraire) pour la lisibilité du titre/texte superposés en `--color-bg`.
+`components/sport-icons.tsx` reste dans le dépôt (code mort documenté, même
+logique que `.sport-chip*` laissé inutilisé plus tôt) mais n'est plus
+importé par `app/(public)/page.tsx`.
+
+**Écarts assumés, signalés à Frédéric avant qu'il ne tranche :**
+- Incohérence de style : le reste du site est en illustration SVG plate
+  (`HeroAnimation`, `DecorativeMedal`, `sport-icons.tsx`) ; cette bannière
+  est une photo réaliste. Frédéric a choisi de conserver la photo.
+- DESIGN.md §6 / BRIEF §5 imposent « illustration uniquement » pour éviter
+  tout risque lié à des photos de personnes/mineurs -- cette photo ne
+  contient ni visage ni personne (équipement seul), donc ne déclenche pas
+  le risque que ces règles visaient à prévenir ; traité comme un cas hors
+  du champ de la règle plutôt qu'une exception à celle-ci.
+- Poids de fichier (~2,2 Mo) : accepté tel quel -- `next/image` optimise/
+  redimensionne automatiquement à la volée pour chaque appareil, donc le
+  poids servi réellement sera bien inférieur.
+
+**Vérifications.** `tsc --noEmit` propre (après réparation d'une troncature
+de fichier -- voir note technique ci-dessous). `eslint` propre sur les
+fichiers modifiés. Tests unitaires ciblés (`scoreboard`, `scroll-reveal`,
+`ui-button`, `beneficiary-split`, `app-not-found`) : 24/24 verts. CSS validé
+avec `postcss.parse()` sur le fichier de travail ET sur le blob de l'arbre
+git avant de créer le commit (leçon de la régression Vercel précédente sur
+`globals.css`).
+
+**Note technique (bac à sable) : le bug de troncature mount/git a de
+nouveau touché `app/(public)/page.tsx` ET `app/globals.css` pendant cette
+tâche -- cette fois-ci une vraie troncature de fichier (pas seulement un
+retard d'affichage) : `wc -l` montrait un nombre de lignes inférieur à la
+version relue par l'outil Read, et `tsc` signalait des balises JSX non
+fermées correspondant exactement au point de troncature. Réparé par
+réécriture/complément heredoc des deux fichiers, avec vérification
+octets/`postcss.parse()` avant de relancer `tsc`/`eslint` et de committer,
+comme documenté dans `mount-staleness-ecommerce`. Un délestage `.git/
+index.lock` bloqué a aussi été rencontré à nouveau (voir
+`git-lock-bypass-ecommerce`) ; contournement identique via `GIT_INDEX_FILE`.
+   

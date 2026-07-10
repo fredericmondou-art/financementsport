@@ -1210,20 +1210,21 @@ opengraph-image manquants).
       (probablement le téléchargement des polices Google au build) -- à
       faire en local/CI avant mise en production.
 
+## Terminé (suite 14)
+- **Bannière photo "Pour tous les sports"** (2026-07-10) : remplace les
+  icônes SVG (`components/sport-icons.tsx`, laissé dans le dépôt mais plus
+  importé) par une image de fond pleine largeur
+  (`public/images/sports-banner.png`, générée par Frédéric) suite à son
+  retour explicite ("je veux une grande image, pas des petites icônes").
+  `next/image` (`fill`) + scrim en dégradé pour la lisibilité du texte
+  superposé. Voir `docs/DECISIONS.md` (2026-07-10, suite 2) pour les écarts
+  assumés (style photo vs illustration, image d'équipement sans personne).
+  `tsc`/`eslint` propres, tests unitaires ciblés verts.
+
 ## En cours
 (aucune)
 
 ## À venir
 Valider visuellement la refonte de l'accueil en local/CI (captures desktop +
 mobile, `npm run build` complet) avant de fusionner
-`docs/PLAN-DESIGN-REFONTE-ACCUEIL.md` dans `docs/DESIGN.md`. Sinon, aucune
-tâche en attente -- prochaines priorités à définir avec le propriétaire du
-produit (les plans déjà traités sont archivés dans `docs/archive/prompts/`,
-voir `docs/README.md` pour l'index complet).
-
-## Point ouvert (hors refonte visuelle)
-Aucune image `opengraph-image`/`favicon`/`icon` n'existe dans `app/` --
-à fournir par l'équipe (identité visuelle) avant le lancement public. Les
-pages légales (`/confidentialite`, `/conditions`, `/remboursement-livraison`)
-restent des gabarits portant la mention « à faire valider juridiquement » --
-révision professionnelle requise avant un lancement commercial réel.
+`docs/PLAN-DESIGN-REFONTE-ACCUEIL.md`
