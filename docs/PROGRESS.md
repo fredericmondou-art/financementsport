@@ -1182,13 +1182,44 @@ opengraph-image manquants).
       fichiers unitaires et 20/20 fichiers d'intégration verts, aucune
       régression. `tsc --noEmit` et `eslint .` propres.
 
+## Terminé (suite 13)
+- [x] **Refonte de la page d'accueil (BRIEF-REFONTE-ACCUEIL.md).** Brouillon
+      de plan produit à `docs/PLAN-DESIGN-REFONTE-ACCUEIL.md` (tokens, choix
+      typographiques, wireframe des 8 sections, élément signature),
+      autocritiqué contre le brief, puis codé -- voir docs/DECISIONS.md
+      (2026-07-10) pour le détail complet. `app/(public)/page.tsx` recodée
+      en 8 sections (hero 2 CTA max, comment ça fonctionne 3 étapes,
+      scoreboard d'impact, produits vedettes, pour les équipes, engagements,
+      appel aux clubs, FAQ). Nouveaux tokens additifs scopés `.home` dans
+      `app/globals.css` (brouillon non fusionné dans `docs/DESIGN.md` tant
+      que non validé), polices Archivo/Figtree ajoutées à `app/layout.tsx`.
+      Deux nouveaux Client Components justifiés (`components/scroll-reveal.tsx`,
+      `components/scoreboard.tsx` -- IntersectionObserver, dégradent
+      proprement sans JS, respectent `prefers-reduced-motion`). "Produits
+      vedettes" affiche les VRAIS produits du catalogue (`credit_desc`)
+      plutôt que les noms fictifs du brief (absents du seed). CTA hero
+      renommé "Trouver un athlète" → "Encourager un athlète" et CTA clubs
+      → "Devenir club partenaire" (les deux validés par Frédéric via
+      `AskUserQuestion`, avec le choix du corps de texte Figtree) --
+      `tests/e2e/accueil-confiance.spec.ts` mis à jour en conséquence.
+      2 nouveaux tests unitaires (`scroll-reveal.test.tsx`,
+      `scoreboard.test.tsx`), 60/60 fichiers unitaires verts (aucune
+      régression), `tsc --noEmit`/`eslint .` propres, `npx playwright test
+      --list` confirme 56/20 tests e2e valides. Captures d'écran (étape 4 du
+      brief) non réalisées : `npm run build` bloqué dans ce bac à sable
+      (probablement le téléchargement des polices Google au build) -- à
+      faire en local/CI avant mise en production.
+
 ## En cours
 (aucune)
 
 ## À venir
-Aucune tâche en attente. Prochaines priorités à définir avec le propriétaire
-du produit (les plans déjà traités sont archivés dans `docs/archive/
-prompts/`, voir `docs/README.md` pour l'index complet).
+Valider visuellement la refonte de l'accueil en local/CI (captures desktop +
+mobile, `npm run build` complet) avant de fusionner
+`docs/PLAN-DESIGN-REFONTE-ACCUEIL.md` dans `docs/DESIGN.md`. Sinon, aucune
+tâche en attente -- prochaines priorités à définir avec le propriétaire du
+produit (les plans déjà traités sont archivés dans `docs/archive/prompts/`,
+voir `docs/README.md` pour l'index complet).
 
 ## Point ouvert (hors refonte visuelle)
 Aucune image `opengraph-image`/`favicon`/`icon` n'existe dans `app/` --

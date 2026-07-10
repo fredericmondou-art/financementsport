@@ -4455,3 +4455,85 @@ Suite de tests complète relancée par lots de quelques fichiers à la fois
 (le délai du bac à sable ne permet pas une seule passe `npm test` sur les
 78 fichiers du projet) : 58/58 fichiers unitaires et 20/20 fichiers
 d'intégration verts, aucune régression. `tsc --noEmit`/`eslint .` propres.
+
+## 2026-07-10 — Refonte de la page d'accueil (BRIEF-REFONTE-ACCUEIL.md)
+
+**Contexte.** Implémentation du plan produit à `docs/PLAN-DESIGN-REFONTE-ACCUEIL.md`
+(lui-même issu du brief fourni par Frédéric). Deux choix avaient déjà été
+tranchés par Frédéric via `AskUserQuestion` avant le codage (voir
+`docs/QUESTIONS.md`) : corps de texte en Figtree (pas Inter), CTA clubs
+renommé « Devenir club partenaire ». Le reste ci-dessous est autonome.
+
+**Décision 1 — brouillon non fusionné dans `docs/DESIGN.md`.** Le brief
+précise lui-même qu'il complète `DESIGN.md` et devra y être fusionné APRÈS
+validation. Tous les nouveaux tokens (`--color-ink-strong`, `--color-teal-deep`,
+`--font-display`, `--font-metric`, `--font-body-alt`, `--radius-scoreboard`...)
+sont donc additifs dans `app/globals.css` et scopés à `.home` -- aucune autre
+page n'est visuellement affectée, aucun token existant n'est modifié.
+Conséquence assumée : l'accueil utilise maintenant Figtree/Archivo alors que
+le reste du site reste en Inter/Bricolage Grotesque tant que ce brief n'est
+pas fusionné -- rupture de cohérence temporaire, signalée dans le plan et
+acceptée par Frédéric en tranchant la question du corps de texte.
+
+**Décision 2 — substitution du catalogue fictif du brief par le vrai
+catalogue.** Le brief §9.4 cite des produits qui n'existent pas
+(« détergent concentré », « tablettes lave-vaisselle », « sacs
+compostables ») -- `supabase/seed.sql` ne contient que 4 "packs" (Pack
+Maison/Famille/Saison/Sport Propre). Plutôt que d'inventer des noms de
+produits, "Produits vedettes" affiche les 3 VRAIS produits les plus
+généreux en crédit (`listPublicProducts({sort:'credit_desc'})`, tronqué à 3),
+cohérent avec la discipline déjà en place sur cette page (aucune statistique
+ni témoignage inventés, voir l'ancien docblock de la Tâche V4).
+
+**Décision 3 — section "Tous les sports" retirée.** Le brief propose une
+structure stricte de 8 sections qui ne l'inclut pas. Retirée pour suivre la
+discipline demandée (« On Running : rigueur de grille ») ; le message est
+conservé dans la phrase du hero. Classes `.sport-chip*` laissées inutilisées
+dans `app/globals.css` plutôt que supprimées (aucun autre appelant, risque
+nul à les garder, coût nul à les retirer plus tard si jamais réutilisées).
+
+**Décision 4 — deux nouveaux Client Components.**
+`components/scroll-reveal.tsx` (révélation au scroll) et
+`components/scoreboard.tsx` (élément signature, décompte animé) --
+IntersectionObserver n'a pas d'équivalent Server Component, même
+justification que `components/ui/modal.tsx` (Tâche 1.4.2) et
+`components/beneficiary-split.tsx` (Tâche 1.6.A4), les seules exceptions
+précédentes du projet. Les deux dégradent proprement sans JS (contenu
+visible / valeur finale déjà affichée par le rendu serveur) et respectent
+`prefers-reduced-motion` en coupant l'animation entièrement plutôt qu'en la
+réduisant (brief §8 : « obligatoire »). Testés unitairement
+(`tests/unit/scroll-reveal.test.tsx`, `tests/unit/scoreboard.test.tsx`) avec
+`IntersectionObserver`/`matchMedia`/`requestAnimationFrame` mockés.
+
+**Décision 5 — tutoiement uniformisé.** L'ancien hero utilisait le
+vouvoiement (« vous choisissez ») alors que le bas de page utilisait déjà le
+tutoiement (« ta campagne ») -- incohérence pré-existante non liée à cette
+tâche. Corrigée au passage : tout le nouveau texte est en tutoiement,
+conforme à `docs/DESIGN.md` §7 (validé 2026-06-27).
+
+**Décision 6 — "Devenir club partenaire" pointe vers `/campagnes/nouvelle`,
+comme l'ancien CTA.** Aucun parcours d'inscription B2B séparé n'existe en V1
+(hors scope, section 63 du cahier) -- le seul chemin réel pour un club est de
+créer un compte responsable puis une campagne. Renommer le libellé sans
+changer la destination reste honnête (le parcours réel EST la création de
+campagne) et n'invente aucune fonctionnalité.
+
+**Vérifications.** `npx tsc --noEmit` propre. `npx eslint .` propre (confirmé
+en un seul passage complet, 40s). Suite `vitest` complète relancée par lots
+(contrainte de délai du bac à sable, comme documenté pour les tâches
+précédentes) : 60/60 fichiers unitaires verts, dont 2 nouveaux
+(`scroll-reveal.test.tsx`, `scoreboard.test.tsx`), aucune régression.
+`npx playwright test --list` : 56 tests / 20 fichiers toujours valides
+(`tests/e2e/accueil-confiance.spec.ts` mis à jour : lien renommé "Trouver un
+athlète" → "Encourager un athlète", même destination `/trouver`).
+
+**Limite rencontrée -- captures d'écran (étape 4 du brief) non réalisées.**
+`npm run build` reste bloqué indéfiniment dans ce bac à sable (deux tentatives,
+aucune sortie après le bandeau Next.js) -- très probablement le téléchargement
+des fichiers de police Google (Archivo/Figtree, nouvellement ajoutées) par
+`next/font/google` au moment du build, le réseau du bac à sable étant déjà
+documenté comme bloquant Chromium/Supabase pour tous les tests e2e du projet.
+Autocritique faite par relecture de code contre `BRIEF-REFONTE-ACCUEIL.md`
+section 12 plutôt que par capture d'écran réelle -- à refaire en local/CI
+avant mise en production (`npm run dev` + inspection visuelle desktop/mobile,
+ou aperçu Vercel).

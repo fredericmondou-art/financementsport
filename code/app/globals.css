@@ -88,6 +88,25 @@
 
   /* Anneau de focus (accessibilité clavier — jamais supprimé, voir règle ci-dessous) */
   --focus-ring: 0 0 0 3px rgba(180, 67, 10, 0.35);
+
+  /* --------------------------------------------------------------------
+     Refonte de l'accueil (BRIEF-REFONTE-ACCUEIL.md / PLAN-DESIGN-
+     REFONTE-ACCUEIL.md). Additifs uniquement : aucun token ci-dessus
+     n'est modifié, aucun composant hors accueil n'est affecté. Brouillon
+     non fusionné dans docs/DESIGN.md tant que non validé -- voir l'en-tête
+     du brief.
+     -------------------------------------------------------------------- */
+  --color-ink-strong: #17140f; /* titres du hero/scoreboard, plus dense que --color-text */
+  --color-teal-deep: #0b4438; /* aplat sombre "bande d'aréna", plus sombre que --color-accent */
+  --color-teal-deep-text: var(--color-bg); /* texte cream sur aplat sarcelle, contraste > 8:1 */
+
+  --font-display: var(--font-archivo), var(--font-heading); /* condensé sport, hero + scoreboard uniquement */
+  --font-body-alt: var(--font-figtree), var(--font-body); /* corps de l'accueil (brief §4) */
+  --font-metric: var(--font-archivo), var(--font-heading); /* chiffres/compteurs, tabular-nums */
+
+  --radius-scoreboard: 4px; /* anguleux par exception assumée, tranche avec le reste (12-24px) */
+  --color-scoreboard-bg: var(--color-teal-deep);
+  --color-scoreboard-digit: var(--color-primary-light); /* ton vif décoratif, pas un usage de texte AA */
 }
 
 *,
@@ -208,6 +227,12 @@ textarea {
 .btn--sm {
   padding: 6px 14px;
   font-size: 0.875rem;
+}
+/* Accueil (refonte) : CTA du hero "plus francs" (brief §2/§6) -- additif. */
+.btn--lg {
+  padding: 14px 28px;
+  font-size: 1.0625rem;
+  font-weight: 700;
 }
 .btn--full-width {
   width: 100%;
@@ -1582,4 +1607,218 @@ textarea {
 .stat-card__label {
   font-size: 0.875rem;
   color: var(--color-text-secondary);
+}
+
+/* ==========================================================================
+   Accueil — Refonte (BRIEF-REFONTE-ACCUEIL.md / PLAN-DESIGN-REFONTE-ACCUEIL.md).
+   Étend, sans les modifier, les classes .home-* de la Tâche V4 ci-dessus.
+   Scope strict à `.home` : aucune autre page n'est affectée.
+   ========================================================================== */
+
+.home {
+  font-family: var(--font-body-alt);
+}
+
+/* Titre du hero : condensé sportif, accent LOCAL (le reste des titres de la
+   page -- h2/h3 de section -- reste en --font-heading, Bricolage Grotesque,
+   voir docs/DESIGN.md). */
+.home-hero h1 {
+  font-family: var(--font-display);
+  color: var(--color-ink-strong);
+  text-transform: uppercase;
+  letter-spacing: 0.01em;
+  font-weight: 800;
+}
+
+/* Fait honnête superposé au hero (brief §6 : libellé vrai plutôt qu'une
+   statistique inventée). */
+.home-hero__fact {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  width: fit-content;
+}
+.home-hero__fact-value {
+  font-family: var(--font-metric);
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  font-size: 1.75rem;
+  color: var(--color-primary);
+  line-height: 1;
+}
+.home-hero__fact-label {
+  color: var(--color-text-secondary);
+  font-size: 0.9375rem;
+}
+
+/* Animation illustrée du hero (brief §6) : boucle CSS douce, aucune
+   dépendance JS/vidéo -- reste un Server Component. Représente le geste
+   d'achat (sac) qui se transforme en soutien (médaille/étoile). */
+.home-hero__animation {
+  width: 220px;
+  height: 220px;
+}
+.home-hero__animation-bag {
+  transform-origin: center;
+  animation: home-hero-bag-bounce 4.5s ease-in-out infinite;
+}
+.home-hero__animation-medal {
+  transform-origin: center;
+  opacity: 0;
+  animation: home-hero-medal-reveal 4.5s ease-in-out infinite;
+}
+.home-hero__animation-sparkle {
+  transform-origin: center;
+  animation: home-hero-sparkle-spin 9s linear infinite;
+}
+@keyframes home-hero-bag-bounce {
+  0%, 55% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+  70% {
+    transform: translateY(-6px) scale(1.04);
+    opacity: 1;
+  }
+  85%, 100% {
+    transform: translateY(-6px) scale(0.9);
+    opacity: 0;
+  }
+}
+@keyframes home-hero-medal-reveal {
+  0%, 70% {
+    opacity: 0;
+    transform: scale(0.7) translateY(8px);
+  }
+  88%, 100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+@keyframes home-hero-sparkle-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .home-hero__animation-bag,
+  .home-hero__animation-medal,
+  .home-hero__animation-sparkle {
+    animation: none;
+  }
+  .home-hero__animation-bag {
+    opacity: 1;
+  }
+  .home-hero__animation-medal {
+    opacity: 1;
+  }
+}
+
+/* Bande plein fond sarcelle sombre (brief §3 : "aplats sarcelle en zones
+   sombres qui rythment le scroll, façon bandes d'aréna"). Volontairement
+   limitée à 2 usages sur la page (scoreboard + section équipes, voir
+   app/(public)/page.tsx) pour ne pas fatiguer l'oeil ni banaliser l'effet. */
+.home-band--dark {
+  background: var(--color-teal-deep);
+  color: var(--color-teal-deep-text);
+}
+.home-band--dark h2,
+.home-band--dark p {
+  color: var(--color-teal-deep-text);
+}
+.home-band--dark .home-section__lead {
+  color: rgba(251, 247, 242, 0.8);
+}
+
+/* Élément signature : le scoreboard (brief §7). Anguleux par exception
+   assumée (--radius-scoreboard = 4px), tranche avec les rayons doux du
+   reste du système de design -- c'est le seul endroit qui prend ce risque. */
+.scoreboard__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--space-5);
+}
+.scoreboard__item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-5);
+  border: 1px solid rgba(251, 247, 242, 0.25);
+  border-radius: var(--radius-scoreboard);
+  background: rgba(0, 0, 0, 0.12);
+}
+.scoreboard__value {
+  font-family: var(--font-metric);
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  font-size: clamp(2.5rem, 6vw, 3.75rem);
+  line-height: 1;
+  color: var(--color-scoreboard-digit);
+}
+.scoreboard__label {
+  font-size: 0.9375rem;
+  color: rgba(251, 247, 242, 0.85);
+}
+
+/* Section "Pour les équipes" (brief §9.5) : promesse + mini-démo, sur la
+   même bande sombre que le scoreboard. */
+.home-teams__promise {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid rgba(251, 247, 242, 0.35);
+  border-radius: 999px;
+  font-weight: 700;
+  width: fit-content;
+}
+/* <ol> natif (marqueurs numérotés conservés -- pas de display:flex, qui les
+   ferait disparaître sur les enfants). */
+.home-teams__steps {
+  margin: 0;
+  padding-left: 1.25rem;
+}
+.home-teams__steps li + li {
+  margin-top: var(--space-2);
+}
+
+/* Révélations au scroll (brief §8) : par section, jamais par élément.
+   Dégrade proprement sans JS (contenu visible par défaut, voir
+   components/scroll-reveal.tsx) ; prefers-reduced-motion coupe l'effet
+   entièrement plutôt que de le réduire. */
+.reveal {
+  opacity: 1;
+  transform: none;
+}
+.reveal--pending {
+  opacity: 0;
+  transform: translateY(16px);
+}
+.reveal--visible {
+  opacity: 1;
+  transform: none;
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  .reveal--pending {
+    opacity: 1;
+    transform: none;
+  }
+  .reveal--visible {
+    transition: none;
+  }
+}
+
+/* Section "Produits vedettes" (brief §9.4) : réutilise .product-grid
+   existant (Tâche 1.2/V5) sans le modifier ; l'exemple chiffré conservé
+   (tests/e2e/accueil-confiance.spec.ts) est mis en avant à côté, pas en
+   remplacement. */
+.home-products__example {
+  border-color: var(--color-primary);
+  background: var(--color-primary-tint);
 }

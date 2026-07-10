@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
-import { Inter, Bricolage_Grotesque } from 'next/font/google';
+import { Inter, Bricolage_Grotesque, Archivo, Figtree } from 'next/font/google';
 import { SiteHeader } from '@/components/nav/site-header';
 import { SiteFooter } from '@/components/nav/site-footer';
 import { getPublicAppUrl } from '@/lib/env';
@@ -12,12 +12,32 @@ import './globals.css';
  * docs/DESIGN.md section 2. Les variables CSS qu'elles exposent sont
  * consommées par `app/globals.css` (--font-heading / --font-body), jamais
  * référencées en dur ailleurs.
+ *
+ * Archivo/Figtree (PLAN-DESIGN-REFONTE-ACCUEIL.md, brief page d'accueil) :
+ * chargées ici (racine) plutôt que localement à l'accueil, seule façon
+ * d'utiliser `next/font/google` sans requête réseau supplémentaire ; leur
+ * usage reste néanmoins SCOPÉ à `.home` dans `app/globals.css` (voir
+ * --font-display/--font-metric/--font-body-alt) -- le reste du site continue
+ * d'utiliser Bricolage Grotesque/Inter sans aucun changement, ce brief étant
+ * encore un brouillon non fusionné dans docs/DESIGN.md.
  */
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' });
 const bricolage = Bricolage_Grotesque({
   subsets: ['latin'],
   weight: ['600', '700'],
   variable: '--font-bricolage',
+  display: 'swap',
+});
+const archivo = Archivo({
+  subsets: ['latin'],
+  weight: ['700', '800'],
+  variable: '--font-archivo',
+  display: 'swap',
+});
+const figtree = Figtree({
+  subsets: ['latin'],
+  weight: ['400', '500', '600'],
+  variable: '--font-figtree',
   display: 'swap',
 });
 
@@ -64,7 +84,10 @@ export default async function RootLayout({
   children: ReactNode;
 }): Promise<JSX.Element> {
   return (
-    <html lang="fr" className={`${inter.variable} ${bricolage.variable}`}>
+    <html
+      lang="fr"
+      className={`${inter.variable} ${bricolage.variable} ${archivo.variable} ${figtree.variable}`}
+    >
       <body>
         <SiteHeader />
         {/*
