@@ -39,6 +39,7 @@ import {
   type CampaignDraftData,
 } from '@/lib/campaigns/draft';
 import { applyCampaignDefaults } from '@/lib/campaigns/defaults';
+import { getParametres } from '@/lib/parametres';
 import { formatCents } from '@/lib/format-cents';
 import {
   createSupabaseBeneficiaryPreviewRepo,
@@ -114,13 +115,24 @@ export default async function NouvelleCampagnePage({
 
   const supabase = createSupabaseServerClient();
   const draftRepo = createSupabaseCampaignDraftRepo(supabase);
-  const [draft, { teams, clubs, athletes }, products] = await Promise.all([
+  const [draft, { teams, clubs, athletes }, products, parametres] = await Promise.all([
     draftRepo.getDraft(user.id),
     loadCampaignWizardOptions(supabase, user),
     listPublicProducts({}, createSupabaseProductRepo(supabase)),
+    // P.3 (SPEC-PARAMETRES-PLATEFORME.md) : durée/délai de livraison par
+    // défaut sourcés depuis parametres_plateforme, jamais en dur (voir
+    // lib/campaigns/defaults.ts).
+    getParametres(supabase),
   ]);
 
-  const data: CampaignDraftData = applyCampaignDefaults(draft?.data ?? {}, { teams, clubs, athletes, products });
+  const data: CampaignDraftData = applyCampaignDefaults(draft?.data ?? {}, {
+    teams,
+    clubs,
+    athletes,
+    products,
+    campaignDurationDefaultDays: parametres.campagne_duree_jours.defaut,
+    deliveryDelayMaxDays: parametres.campagne_delai_livraison_jours_max,
+  });
   const stepIndex =
     searchParams.etape !== undefined
       ? clampStepQueryParam(searchParams.etape)
@@ -374,14 +386,27 @@ function ObjectifDatesStep({ data, backHref, returnTo }: StepProps): JSX.Element
             />
           </Field>
 
-          <Field label="Date de fin (optionnel)">
+          <Field label="Date de fin" required>
             <input
               type="datetime-local"
               name="endsAt"
+              required
               defaultValue={isoToDatetimeLocalValue(data.endsAt)}
             />
           </Field>
+
+          <Field label="Date de livraison" required>
+            <input
+              type="datetime-local"
+              name="deliveryDate"
+              required
+              defaultValue={isoToDatetimeLocalValue(data.deliveryDate)}
+            />
+          </Field>
         </div>
+        <p className="field__hint">
+          La date de livraison est affichée aux acheteurs et doit être respectée (obligation légale).
+        </p>
       </section>
 
       <WizardNav backHref={backHref} continueLabel={continueLabelFor(returnTo)} />
@@ -601,6 +626,9 @@ function RecapStep({
               {formatDateTime(data.startsAt) ?? '—'}
               {data.endsAt ? ` → ${formatDateTime(data.endsAt)}` : ''}
             </dd>
+
+            <dt>Livraison</dt>
+            <dd>{formatDateTime(data.deliveryDate) ?? '—'}</dd>
           </dl>
         </div>
 

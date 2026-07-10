@@ -366,6 +366,7 @@ export interface CampaignsTable {
     goal_cents: number | null;
     starts_at: string | null;
     ends_at: string | null;
+    delivery_date: string | null;
     created_by: string | null;
     approved_at: string | null;
     closed_at: string | null;
@@ -386,6 +387,7 @@ export interface CampaignsTable {
     goal_cents?: number | null;
     starts_at?: string | null;
     ends_at?: string | null;
+    delivery_date?: string | null;
     created_by?: string | null;
     approved_at?: string | null;
     closed_at?: string | null;
@@ -1006,6 +1008,7 @@ export interface VPublicCampaignView {
     goal_cents: number | null;
     starts_at: string | null;
     ends_at: string | null;
+    delivery_date: string | null;
   };
 }
 

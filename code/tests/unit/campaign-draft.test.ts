@@ -100,9 +100,26 @@ describe('parseStepInput — validation par étape (cas limites obligatoires)', 
     const valid = parseStepInput('objectif_dates', {
       goalCents: 0,
       startsAt: '2026-07-01T00:00:00.000Z',
-      endsAt: null,
+      endsAt: '2026-07-15T00:00:00.000Z',
+      deliveryDate: '2026-07-22T00:00:00.000Z',
     });
-    expect(valid).toEqual({ goalCents: 0, startsAt: '2026-07-01T00:00:00.000Z', endsAt: null });
+    expect(valid).toEqual({
+      goalCents: 0,
+      startsAt: '2026-07-01T00:00:00.000Z',
+      endsAt: '2026-07-15T00:00:00.000Z',
+      deliveryDate: '2026-07-22T00:00:00.000Z',
+    });
+  });
+
+  it('rejette une étape objectif_dates avec une date de livraison antérieure à la clôture (P.3, R2)', () => {
+    expect(() =>
+      parseStepInput('objectif_dates', {
+        goalCents: null,
+        startsAt: '2026-07-01T00:00:00.000Z',
+        endsAt: '2026-07-15T00:00:00.000Z',
+        deliveryDate: '2026-07-10T00:00:00.000Z',
+      }),
+    ).toThrow(ZodError);
   });
 
   it('valide l’étape participants (liste vide acceptée — aucun participant requis)', () => {
@@ -167,7 +184,9 @@ describe('buildCampaignInputFromDraft — Bloc B : jamais de règle de crédit',
     expect(result.clubId).toBeNull();
     expect(result.teamId).toBeNull();
     expect(result.goalCents).toBeNull();
-    expect(result.endsAt).toBeNull();
+    // endsAt/deliveryDate sont REQUIS depuis P.3 (R1/R2) -- plus des champs
+    // "optionnels remplacés par une valeur neutre", donc plus assertés ici
+    // (même statut que startsAt, déjà absent de cette liste).
     expect(result.participantAthleteIds).toEqual([]);
     expect(result.productIds).toEqual([]);
     expect(result.creditRule).toBeNull();
@@ -187,6 +206,12 @@ describe('buildCampaignInputFromDraft — Bloc B : jamais de règle de crédit',
         isQrCodeTaken: async () => false,
         getAthletesScope: async () => [],
         getActiveProductIds: async () => [],
+        getParametres: async () => {
+          throw new Error('ne devrait jamais être appelé : la validation Zod doit échouer avant');
+        },
+        countTeamCampaignsSince: async () => {
+          throw new Error('ne devrait jamais être appelé : la validation Zod doit échouer avant');
+        },
         createCampaignWithDetails: async (): Promise<CreatedCampaignResult> => {
           throw new Error('ne devrait jamais être appelé : la validation doit échouer avant');
         },

@@ -80,6 +80,7 @@ function makeCampaign(overrides: Partial<PublicCampaignRow>): PublicCampaignRow 
     goal_cents: 100000,
     starts_at: '2026-01-01T00:00:00Z',
     ends_at: '2026-12-31T00:00:00Z',
+    delivery_date: null,
     ...overrides,
   };
 }

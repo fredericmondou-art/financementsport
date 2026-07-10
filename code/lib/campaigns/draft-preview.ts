@@ -33,6 +33,7 @@ export function buildDraftPreviewCampaignSection(data: CampaignDraftData): Publi
     goal_cents: data.goalCents ?? null,
     starts_at: data.startsAt ?? null,
     ends_at: data.endsAt ?? null,
+    delivery_date: data.deliveryDate ?? null,
   };
 
   return {

@@ -4733,3 +4733,104 @@ plutôt qu'en retentant une réécriture complète du fichier (~87 Ko) qui aurai
 pu retronquer ailleurs. Reconfirme la prudence de `mount-staleness-ecommerce` :
 même une écriture Python "réussie" (`open(..., 'w')` sans exception) doit être
 revérifiée par scan d'octets avant d'être considérée fiable sur ce mount.
+
+## 2026-07-10 (suite 4) — Paramètres de plateforme, P.3 (validations serveur R1/R2/R3/R5/R7/R9)
+
+**Contexte.** Suite de P.1+P.2 (voir entrée précédente). P.3 de
+`docs/PLAN-PARAMETRES-PLATEFORME.md` : « Validations serveur R1, R2, R3, R5,
+R7, R9 dans les mutations de campagne existantes ». Avant de coder, question
+bloquante posée à Frédéric (`AskUserQuestion`, CLAUDE.md section 9(b) — deux
+lectures possibles et incompatibles) : R1 (durée 7-21 jours) et R2 (date de
+livraison obligatoire) supposent une campagne avec date de fin fixe, mais le
+schéma permet `ends_at IS NULL` et déclare des types `annual`/`reorder`
+jamais implémentés ailleurs. Réponse retenue : **R1/R2 s'appliquent à TOUS
+les types de campagne** ; `endsAt` et `deliveryDate` deviennent des champs
+REQUIS (`endsAt` ne l'était pas avant P.3).
+
+**Ampleur réelle, plus large que "validations serveur" seul.** Rendre
+`deliveryDate` obligatoire exigeait une colonne qui n'existait pas
+(`campaigns.delivery_date`, absente du cahier section 21) ET un champ dans
+l'assistant de création (sinon plus aucune campagne n'était créable — la
+Server Action aurait toujours échoué à la validation zod). P.3 a donc
+nécessairement entraîné, en plus des règles elles-mêmes :
+- **Migration 0024** : colonne `campaigns.delivery_date` (NULLABLE au niveau
+  base, même convention que `starts_at`/`ends_at` -- le caractère obligatoire
+  est appliqué par zod, jamais par une contrainte NOT NULL, pour ne jamais
+  bloquer une migration sur une campagne réelle déjà en production, voir
+  Tâche 1.4.6). `create_campaign_with_details` (migration 0008) DROP puis
+  recréée avec un 17e paramètre `p_delivery_date` (DROP explicite plutôt que
+  laisser deux signatures coexister en surcharge). `v_public_campaign`
+  (migration 0007) étendue pour exposer `delivery_date` -- R2 exige
+  explicitement un affichage public ("obligation légale de contrat à
+  distance"), pas seulement un stockage.
+- **`lib/campaigns/defaults.ts`** : `DEFAULT_CAMPAIGN_DURATION_DAYS` était à
+  **60 jours** (Tâche 1.6.B2, "tout par défaut" = campagne activable) --
+  aurait violé R1 (max 21) instantanément. Remplacé par une valeur sourcée
+  depuis `parametres.campagne_duree_jours.defaut` (14), transmise par
+  l'appelant (`app/(portails)/campagnes/nouvelle/page.tsx`, qui appelle
+  désormais `getParametres(supabase)` en parallèle des autres chargements) --
+  `defaults.ts` reste pur/synchrone, ne lit jamais `lib/parametres.ts`
+  directement. Constante repliée à 14 (au lieu de 60) pour rester cohérente
+  même sans options fournies. Nouveau `DEFAULT_DELIVERY_DELAY_DAYS = 7`
+  (aucune valeur "defaut" définie par la spec pour
+  `campagne_delai_livraison_jours_max`, seulement un maximum -- choix UX
+  autonome, borné par `Math.min(7, deliveryDelayMaxDays)` pour ne jamais
+  dépasser le plafond configuré même s'il est abaissé sous 7).
+- **Assistant** (`lib/campaigns/draft.ts`, `app/(portails)/campagnes/nouvelle/
+  {page,actions}.ts`) : champ « Date de livraison » ajouté à l'étape
+  « Objectif et dates » (requis, comme « Date de fin » qui passe d'optionnel
+  à requis) + ligne au récapitulatif. Aucune étape supplémentaire créée --
+  champ inséré dans l'étape existante, cohérent avec « une décision
+  principale par étape » (Tâche 1.6.B1) : objectif/dates/livraison forment
+  une seule décision temporelle.
+
+**Décisions autonomes sur la portée des règles** (non bloquantes, tranchées
+seule puis documentées ici, CLAUDE.md section 9) :
+- **R3** (athlètes max) : la spec la décrit "par campagne d'équipe" mais le
+  champ `participantAthleteIds` n'est pas réservé aux campagnes d'équipe
+  dans le schéma -- appliquée à TOUT type de campagne ayant des
+  participants, pas seulement `type: 'team'`.
+- **R7** (campagnes/équipe/an) : reste strictement liée à `teamId !== null`
+  (aucune variante "club" définie par la spec) -- `countTeamCampaignsSince`
+  n'est pas appelée pour une campagne de club pur (test dédié).
+- **R7, fenêtre de calcul** : compte TOUTES les campagnes de l'équipe dont
+  `starts_at` tombe dans les 12 derniers mois glissants, quel que soit leur
+  statut (y compris `cancelled`/`archived`) -- lecture la plus littérale de
+  "campagnes... lancées", évite d'ouvrir un débat sur quels statuts
+  "comptent vraiment" pour une limite qui n'est pas une règle d'argent.
+- **R9** (bénéficiaires/commande) : appliquée uniquement au point d'écriture
+  unique `setCartBeneficiarySplit` (pas dupliquée au checkout, contrairement
+  à `SUM(share_bps)=10000` qui l'est) -- une répartition invalide ne peut
+  jamais être persistée, donc le risque de contournement par une requête
+  concurrente est beaucoup plus faible que pour la somme à 100 % (règle
+  d'argent non négociable, CLAUDE.md section 4).
+- **R1/R2, bornes strictes** : durée/délai calculés en jours FRACTIONNAIRES
+  (`(finMs - débutMs) / 86400000`), sans arrondi -- une campagne d'EXACTEMENT
+  `max` jours passe, `max` jours + 1 ms échoue. Testé aux deux bornes
+  (min/min-1, max/max+1) pour R1 et à la borne max/max+1 pour R2 (pas de
+  minimum défini pour le délai de livraison).
+
+**Tests.** `tests/unit/create-campaign.test.ts` réécrit : bassins d'ids
+(`TEAM_ATHLETE_POOL`/`PRODUCT_POOL`, dimensionnés sur
+`PARAMETRES_DEFAUT.campagne_athletes_max/produits_max + 5`) pour tester les
+bornes R3/R5 sans dépendre d'une valeur codée en dur dans le test ; 16
+nouveaux tests (R1 ×4, R2 ×2, R3 ×2, R5 ×2, R7 ×3, + dates requises ×3, +
+délai < clôture ×1) en plus des tests existants adaptés (dates de fixture
+dans `[min,max]`). Nouveau `tests/integration/campaign-delivery-date.test.ts`
+(2 tests, Postgres embarqué, rejoue TOUTES les migrations -- contrairement à
+`tests/integration/create-campaign.test.ts`, Tâche 1.7, volontairement gelé
+sur les migrations 0001-0008 avec l'ANCIENNE signature à 16 paramètres,
+jamais rejoué au-delà : toujours valide tel quel, aucune modification) :
+persistance de `delivery_date` + exposition publique + preuve que l'ancienne
+signature n'existe plus après 0024. R9 testé dans
+`tests/integration/cart.test.ts` (bornes max/max+1, fake repo étendu avec
+`getParametres` retournant `PARAMETRES_DEFAUT`). Suite complète relancée par
+lots : 61/61 fichiers unitaires + 22/22 fichiers d'intégration verts, aucune
+régression. `tsc --noEmit`/`npm run lint` propres.
+
+**P.4 à P.8 non traités ici** — restent à faire une tâche à la fois :
+vérification pré-Stripe + état « campagne complète » R4 (P.4), plafond
+annuel R8 dans le moteur de crédits (P.5), UI assistant -- compteurs/
+avertissements R5/R6 restants, au-delà du seul champ de date (P.6), mécanisme
+de dérogation admin (P.7), tests aux bornes supplémentaires (P.8, en bonne
+partie déjà couverts par les tests ci-dessus).

@@ -147,10 +147,14 @@ export async function saveObjectifDatesStepAction(formData: FormData): Promise<v
   await saveStepAndAdvance('objectif_dates', 3, emptyToNull(formData.get('retour')), () => {
     const startsAtRaw = emptyToNull(formData.get('startsAt'));
     const endsAtRaw = emptyToNull(formData.get('endsAt'));
+    const deliveryDateRaw = emptyToNull(formData.get('deliveryDate'));
     return {
       goalCents: emptyToNull(formData.get('goalCents')) !== null ? Number(formData.get('goalCents')) : null,
       startsAt: toIsoOrNull(startsAtRaw),
       endsAt: toIsoOrNull(endsAtRaw),
+      // P.3 (R2) : date de livraison, désormais requise -- voir
+      // lib/campaigns/create-campaign.ts.
+      deliveryDate: toIsoOrNull(deliveryDateRaw),
     };
   });
 }

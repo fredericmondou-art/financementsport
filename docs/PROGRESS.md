@@ -1248,18 +1248,55 @@ opengraph-image manquants).
       plafond annuel R8, UI assistant, mécanisme de dérogation, tests aux
       bornes) restent à traiter, une tâche à la fois.**
 
+
+## Terminé (suite 16)
+- [x] **Paramètres de plateforme — P.3 (validations serveur R1/R2/R3/R5/R7/R9)**
+      (2026-07-10). Question bloquante posée et tranchée avec Frédéric
+      (AskUserQuestion) avant de coder : R1 (durée 7-21 jours)/R2 (date de
+      livraison obligatoire) s'appliquent à TOUS les types de campagne ;
+      `endsAt`/`deliveryDate` deviennent des champs REQUIS. Migration
+      `supabase/migrations/0024_campaign_delivery_date.sql` (colonne
+      `campaigns.delivery_date`, `create_campaign_with_details` étendue à 17
+      paramètres -- ancienne signature 16 paramètres DROP explicitement,
+      `v_public_campaign` expose `delivery_date`). `lib/campaigns/
+      create-campaign.ts` : R1/R2/R3/R5/R7 dans `assertPlatformParameterRules`
+      (toutes lues depuis `lib/parametres.ts`, jamais en dur), nouvelles
+      méthodes `CampaignRepo.getParametres`/`countTeamCampaignsSince`.
+      `lib/cart/beneficiaries.ts` : R9 dans `setCartBeneficiarySplit` (seul
+      point d'écriture de la répartition). `lib/campaigns/defaults.ts` :
+      `DEFAULT_CAMPAIGN_DURATION_DAYS` corrigé de 60 (violait R1) à 14
+      (aligné sur `PARAMETRES_DEFAUT`), défauts sourcés depuis les paramètres
+      réels via l'appelant (page Server Component). Assistant de création
+      (`app/(portails)/campagnes/nouvelle/*`) : champ « Date de livraison »
+      ajouté à l'étape « Objectif et dates » (requis), ligne au récapitulatif.
+      Décisions autonomes documentées (voir `docs/DECISIONS.md`) : R3
+      appliquée à tout type de campagne (pas seulement équipe), R7 strictement
+      liée à `teamId` sans variante club, R9 non dupliquée au checkout
+      (contrairement à la somme à 100 %), bornes R1/R2 calculées en jours
+      fractionnaires sans arrondi. Nouveau `tests/integration/
+      campaign-delivery-date.test.ts` (2 tests, Postgres embarqué, rejoue
+      TOUTES les migrations -- `tests/integration/create-campaign.test.ts`,
+      Tâche 1.7, volontairement gelé sur 0001-0008 avec l'ancienne signature,
+      inchangé et toujours vert). 16 nouveaux tests unitaires de bornes dans
+      `tests/unit/create-campaign.test.ts` (R1 ×4, R2 ×2, R3 ×2, R5 ×2, R7
+      ×3, dates requises ×3, délai<clôture ×1) + tests R9 dans
+      `tests/integration/cart.test.ts`. Suite complète relancée par lots :
+      61/61 fichiers unitaires + 22/22 fichiers d'intégration verts, aucune
+      régression, `tsc --noEmit`/`npm run lint` propres.
+      **P.4 à P.8 restent à traiter, une tâche à la fois.**
+
 ## En cours
 (aucune)
 
 ## À venir
-- Paramètres de plateforme, P.3 à P.8 (voir `docs/PLAN-PARAMETRES-PLATEFORME.md`
-  et `SPEC-PARAMETRES-PLATEFORME.md`) : validations serveur R1/R2/R3/R5/R7/R9
-  dans les mutations de campagne existantes (P.3), vérification pré-Stripe +
-  état "campagne complète" R4 (P.4), plafond annuel R8 dans le moteur de
-  crédits (P.5), UI assistant de création -- pré-remplissages/compteurs/
-  avertissements (P.6), mécanisme de dérogation admin (P.7), tests aux
-  bornes de chaque règle (P.8). Dépendances : (P.3, P.4, P.5 en parallèle)
-  → P.6 → P.7 → P.8.
+- Paramètres de plateforme, P.4 à P.8 (voir `docs/PLAN-PARAMETRES-PLATEFORME.md`
+  et `SPEC-PARAMETRES-PLATEFORME.md` -- P.1/P.2/P.3 terminées) : vérification
+  pré-Stripe + état "campagne complète" R4 (P.4), plafond annuel R8 dans le
+  moteur de crédits (P.5), UI assistant de création -- compteurs/
+  avertissements R5/R6 restants au-delà du champ de date déjà ajouté (P.6),
+  mécanisme de dérogation admin (P.7), tests aux bornes supplémentaires (P.8,
+  en bonne partie déjà couverts par les tests de P.3). Dépendances : (P.4,
+  P.5 en parallèle) → P.6 → P.7 → P.8.
 - Valider visuellement la refonte de l'accueil en local/CI (captures desktop +
   mobile, `npm run build` complet) avant de fusionner
   `docs/PLAN-DESIGN-REFONTE-ACCUEIL.md` dans `docs/DESIGN.md`.
