@@ -1824,4 +1824,11 @@ textarea {
   }
 }
 
-/* Section "Produits vedettes" (brief §9.4) :
+/* Section "Produits vedettes" (brief §9.4) : réutilise .product-grid
+   existant (Tâche 1.2/V5) sans le modifier ; l'exemple chiffré conservé
+   (tests/e2e/accueil-confiance.spec.ts) est mis en avant à côté, pas en
+   remplacement. */
+.home-products__example {
+  border-color: var(--color-primary);
+  background: var(--color-primary-tint);
+}
