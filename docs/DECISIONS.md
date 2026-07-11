@@ -4954,3 +4954,105 @@ fichiers d'intégration (201 tests) verts, aucune régression. `tsc --noEmit`/
 dans le moteur de crédits (P.5), UI assistant -- compteurs/avertissements
 R5/R6 restants (P.6), mécanisme de dérogation admin (P.7), tests aux bornes
 supplémentaires (P.8, en bonne partie déjà couverts par P.3/P.4).
+
+## 2026-07-11 — Paramètres de plateforme, P.5 (R8 : plafond annuel de crédit par athlète)
+
+**Portée confirmée dans la spec** (`SPEC-PARAMETRES-PLATEFORME.md` §4, R8) :
+« Plafond annuel de crédit PAR ATHLÈTE » -- uniquement `beneficiary_type =
+'athlete'` ; équipes et clubs ne sont jamais plafonnés par
+`athlete_credit_annuel_max` (décision directement lue dans le titre de la
+règle, aucune ambiguïté à trancher).
+
+**Migration 0026** (déjà posée avant cette session, voir entrée P.5
+précédente/tâche #16) : nouvel enum `credit_pending_reason` (`campagne_
+inactive` | `plafond_annuel`), colonne `order_credits.pending_reason`,
+`CREATE OR REPLACE create_paid_order` (signature inchangée, extension
+mécanique de l'INSERT + du snapshot `credit_audit_log`). Vérifiée via
+`tests/integration/db-migration.test.ts` (5/5).
+
+**Découpage de la logique en 3 modules, cohérent avec le reste du moteur de
+crédits (calculate.ts = pur / credit-context.ts = I/O) :**
+- `lib/credits/persist.ts` (modifié) -- `OrderCreditInsertPayload` gagne
+  `pending_reason`, posé directement par `buildOrderCreditInserts` :
+  `'campagne_inactive'` si `status === 'pending'`, sinon `null`. Décision :
+  poser ce motif ICI plutôt que d'attendre R8, pour que la distinction entre
+  les deux causes de `pending` existe dès la première écriture (jamais un
+  `pending` sans motif après cette migration, sauf lignes historiques
+  antérieures à 0026).
+- `lib/credits/annual-cap.ts` (nouveau, PUR) -- `applyAnnualCreditCap` :
+  reçoit les lignes déjà construites + une `Map` du total déjà attribué par
+  athlète cette année civile + le plafond (centimes), et scinde toute ligne
+  `athlete`/`active` qui dépasserait le plafond en 2 lignes (portion sous
+  plafond inchangée + excédent `pending`/`plafond_annuel`). Ne touche
+  JAMAIS une ligne déjà `pending` (garde-fou explicite dans le code et les
+  tests -- empêche une double application si le moteur était un jour
+  rappelé sur les mêmes données). Inclut aussi `summarizeAnnualCapExcess` et
+  `buildAnnualCapAdminNoteFr` (notification admin, voir plus bas).
+- `lib/credits/load-annual-totals.ts` (nouveau, I/O non testé
+  unitairement -- même convention que `lib/cart/credit-context.ts`) --
+  `loadAthleteAnnualCreditTotals` interroge `order_credits` par athlète,
+  bornée à l'année civile courante, ne comptant que `status='active'` OU
+  (`status='pending'` ET `pending_reason='campagne_inactive'`). Exclut
+  explicitement tout excédent déjà `plafond_annuel` du total -- sinon un
+  excédent déjà mis en attente se re-compterait indéfiniment à chaque
+  nouvel achat de l'athlète, alors que la spec dit clairement qu'il n'a PAS
+  été « attribué ». `currentCalendarYearBoundsUtc` (fonction pure séparée,
+  testée) fixe la borne à `[1er janvier 00:00:00.000 UTC, 31 décembre
+  23:59:59.999 UTC]` de l'année en cours.
+
+**Décision — définition d'« année civile ».** La spec ne précise pas le
+fuseau horaire. Choix autonome : UTC (cohérent avec `created_at
+TIMESTAMPTZ` stocké en UTC partout ailleurs dans le schéma, et avec R7 qui
+utilise déjà `now()`/`toISOString()` sans conversion de fuseau) plutôt que
+l'heure de l'Est (Québec). Impact limité : au pire un athlète proche de la
+frontière du plafond voit un achat de fin décembre/début janvier compté
+dans l'année « adjacente » de quelques heures -- un cas limite mineur, sans
+impact sur l'exactitude globale du plafond, documenté ici plutôt que bloqué
+en question (aucun choix également plausible et incompatible au sens de
+CLAUDE.md section 9 -- juste une convention à fixer).
+
+**Notification admin (§4 : « Notification interne à l'admin, traitement
+manuel, cohérent V1 »).** Convention réutilisée telle quelle plutôt
+qu'inventée : `orders.notes_internal`, déjà le mécanisme existant pour
+signaler un cas nécessitant une action admin manuelle (précédent : « stock
+insuffisant détecté » posé directement par `create_paid_order`). Aucune
+autre infrastructure de notification (courriel, table dédiée) n'existe dans
+le projet -- en ajouter une aurait été de l'anticipation hors V1 (CLAUDE.md
+section 10). Écriture faite CÔTÉ TS (pas dans la fonction SQL) via un
+`UPDATE` séparé après `createPaidOrder`, dans un `try/catch` non bloquant
+(même philosophie que `markCartConverted`/l'envoi du courriel de
+confirmation juste après dans le même fichier) -- le crédit est de toute
+façon déjà correctement écrit dans `order_credits` quoi qu'il arrive ;
+seule la note de suivi peut échouer sans conséquence financière.
+
+**Câblage dans le webhook** (`app/api/webhooks/stripe/route.ts`) : entre
+`buildOrderCreditInserts` et `createPaidOrder`. Charge les totaux annuels
+UNIQUEMENT pour les `beneficiary_id` de type `athlete`/`active` présents
+dans la commande courante (jamais un chargement large/inutile), lit
+`athlete_credit_annuel_max` via `getParametres` (déjà en cache 5 min,
+P.2), applique `applyAnnualCreditCap`, puis note l'éventuel excédent après
+la création de la commande.
+
+**Tests.** `tests/unit/credits-persist.test.ts` : 2 tests ajoutés
+(`pending_reason` posé/absent selon le statut). Nouveau
+`tests/unit/credits-annual-cap.test.ts` (16 tests) -- bornes max-1/max/
+max+1 explicites, plafond déjà consommé, total antérieur absent, exclusion
+team/club, non-réapplication sur une ligne déjà `pending`, lignes à 0
+centime ignorées, multi-bénéficiaires indépendants, conservation du total
+(aucun centime perdu/dupliqué). Nouveau
+`tests/unit/credits-load-annual-totals.test.ts` (5 tests) sur
+`currentCalendarYearBoundsUtc` (bornes de l'année civile, y compris les
+instants exacts 1er janvier 00:00:00.000/31 décembre 23:59:59.999). Suite
+complète relancée par lots : 64/64 fichiers unitaires + 23/23 fichiers
+d'intégration verts, aucune régression. `tsc --noEmit`/`eslint` propres.
+
+**Même bug d'infrastructure mount/bash rencontré à nouveau** (voir mémoire
+`mount-staleness-ecommerce`) sur `lib/credits/persist.ts`, `app/api/
+webhooks/stripe/route.ts`, `tests/unit/credits-persist.test.ts` et
+`tests/unit/credits-annual-cap.test.ts` juste après leur édition via l'outil
+Edit -- même contournement (réécriture bash intégrale via heredoc Python à
+partir du contenu confirmé par l'outil Read).
+
+**P.6 à P.8 restent à traiter** : UI assistant -- compteurs/avertissements
+R5/R6 restants (P.6), mécanisme de dérogation admin (P.7), tests aux bornes
+supplémentaires (P.8).

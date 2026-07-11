@@ -61,6 +61,11 @@ export type OrderStatus =
   | 'error';
 
 export type CreditStatus = 'pending' | 'active' | 'expired' | 'cancelled' | 'refunded';
+/** P.5 (SPEC-PARAMETRES-PLATEFORME.md, R8, migration 0026) : pourquoi un
+ * crédit est `pending` -- `campagne_inactive` (raison historique, seule
+ * possible avant P.5) ou `plafond_annuel` (R8, excédent au-delà de
+ * `athlete_credit_annuel_max`, à libérer manuellement par un admin). */
+export type CreditPendingReason = 'campagne_inactive' | 'plafond_annuel';
 
 export type PayoutStatus =
   | 'calculated'
@@ -592,6 +597,7 @@ export interface OrderCreditsTable {
     status: CreditStatus;
     applied_rule_id: string | null;
     computation_note: string | null;
+    pending_reason: CreditPendingReason | null;
     created_at: string;
     updated_at: string;
   };
@@ -605,6 +611,7 @@ export interface OrderCreditsTable {
     status?: CreditStatus;
     applied_rule_id?: string | null;
     computation_note?: string | null;
+    pending_reason?: CreditPendingReason | null;
     created_at?: string;
     updated_at?: string;
   };
@@ -1076,7 +1083,7 @@ export interface Database {
     };
     Views: {
       v_beneficiary_credit_totals: VBeneficiaryCreditTotalsView;
-   v_campaign_progress: VCampaignProgressView;
+      v_campaign_progress: VCampaignProgressView;
       v_campaign_supporter_count: VCampaignSupporterCountView;
       v_campaign_paid_order_count: VCampaignPaidOrderCountView;
       v_public_athlete: VPublicAthleteView;
@@ -1092,6 +1099,7 @@ export interface Database {
       campaign_status: CampaignStatus;
       order_status: OrderStatus;
       credit_status: CreditStatus;
+      credit_pending_reason: CreditPendingReason;
       payout_status: PayoutStatus;
       product_kind: ProductKind;
     };

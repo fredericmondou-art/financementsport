@@ -38,6 +38,7 @@ function credit(overrides: Partial<OrderCreditRow> = {}): OrderCreditRow {
     status: 'active',
     applied_rule_id: null,
     computation_note: null,
+    pending_reason: null,
     created_at: '2026-01-01T00:00:00Z',
     updated_at: '2026-01-01T00:00:00Z',
     ...overrides,

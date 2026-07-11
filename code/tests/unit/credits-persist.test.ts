@@ -126,4 +126,27 @@ describe('buildOrderCreditInserts', () => {
 
     expect(inserts[0]?.status).toBe('pending');
   });
+
+  it('pose pending_reason="campagne_inactive" quand le statut devient "pending" (migration 0026)', () => {
+    const campaignId = randomUUID();
+    const lineCredits: LineCreditResult[] = [
+      { productId: productId1, creditCents: 500, appliedRuleId: null, computationNote: 'note' },
+    ];
+    const beneficiaryCredits = [makeBeneficiaryCredit({ amountCents: 500 })];
+
+    const inserts = buildOrderCreditInserts(lineCredits, beneficiaryCredits, campaignId, false);
+
+    expect(inserts[0]?.pending_reason).toBe('campagne_inactive');
+  });
+
+  it('laisse pending_reason=null quand le statut est "active" (aucun motif -- crédit réellement attribué)', () => {
+    const lineCredits: LineCreditResult[] = [
+      { productId: productId1, creditCents: 500, appliedRuleId: null, computationNote: 'note' },
+    ];
+    const beneficiaryCredits = [makeBeneficiaryCredit({ amountCents: 500 })];
+
+    const inserts = buildOrderCreditInserts(lineCredits, beneficiaryCredits, null, false);
+
+    expect(inserts[0]?.pending_reason).toBeNull();
+  });
 });

@@ -1324,17 +1324,50 @@ opengraph-image manquants).
       `tsc --noEmit`/`eslint` propres.
       **P.5 à P.8 restent à traiter, une tâche à la fois.**
 
+## Terminé (suite 18)
+- [x] **Paramètres de plateforme — P.5 (plafond annuel de crédit par athlète
+      R8)** (2026-07-11). Migration `0026_annual_credit_cap.sql` : enum
+      `credit_pending_reason` (`campagne_inactive`/`plafond_annuel`),
+      colonne `order_credits.pending_reason`, `create_paid_order` (migration
+      0006) étendue en `CREATE OR REPLACE` (signature inchangée) pour
+      écrire ce motif. Nouveau `lib/credits/annual-cap.ts` (pur) --
+      `applyAnnualCreditCap` scinde toute ligne de crédit `athlete`/`active`
+      qui dépasserait `athlete_credit_annuel_max` (année civile) en portion
+      sous plafond (inchangée) + excédent (`pending`/`plafond_annuel`) ;
+      ne re-scinde jamais une ligne déjà `pending` ; n'affecte jamais
+      équipe/club (portée R8 = athlètes seulement, lu directement dans le
+      titre de la règle). Nouveau `lib/credits/load-annual-totals.ts` (I/O)
+      -- `loadAthleteAnnualCreditTotals` (année civile = UTC 1er janvier au
+      31 décembre, décision autonome documentée dans `docs/DECISIONS.md`),
+      ne compte que les crédits réellement « attribués » (`active` ou
+      `pending`/`campagne_inactive`), jamais un excédent déjà
+      `plafond_annuel`. `lib/credits/persist.ts` : `OrderCreditInsertPayload`
+      gagne `pending_reason`, posé directement par `buildOrderCreditInserts`.
+      Câblé dans `app/api/webhooks/stripe/route.ts` entre
+      `buildOrderCreditInserts` et `createPaidOrder`. Notification admin
+      (spec : « traitement manuel, cohérent V1 ») : convention `orders.
+      notes_internal` réutilisée telle quelle (même mécanisme que le cas
+      « stock insuffisant » existant), écrite après coup dans un `try/catch`
+      non bloquant. Nouveau `tests/unit/credits-annual-cap.test.ts` (16
+      tests, bornes max-1/max/max+1, plafond déjà consommé, exclusion
+      équipe/club, non-réapplication sur du `pending` préexistant,
+      conservation du total réparti) + `tests/unit/credits-load-annual-
+      totals.test.ts` (5 tests, bornes de l'année civile) + 2 tests ajoutés à
+      `tests/unit/credits-persist.test.ts`. Suite complète relancée par
+      lots : 64/64 fichiers unitaires + 23/23 fichiers d'intégration verts,
+      aucune régression, `tsc --noEmit`/`eslint` propres.
+      **P.6 à P.8 restent à traiter, une tâche à la fois.**
+
 ## En cours
 (aucune)
 
 ## À venir
-- Paramètres de plateforme, P.5 à P.8 (voir `docs/PLAN-PARAMETRES-PLATEFORME.md`
-  et `SPEC-PARAMETRES-PLATEFORME.md` -- P.1/P.2/P.3/P.4 terminées) : plafond
-  annuel R8 dans le moteur de crédits (P.5), UI assistant de création --
-  compteurs/avertissements R5/R6 restants au-delà du champ de date déjà
-  ajouté (P.6), mécanisme de dérogation admin (P.7), tests aux bornes
-  supplémentaires (P.8, en bonne partie déjà couverts par les tests de
-  P.3/P.4). Dépendances : P.5 → P.6 → P.7 → P.8.
+- Paramètres de plateforme, P.6 à P.8 (voir `docs/PLAN-PARAMETRES-PLATEFORME.md`
+  et `SPEC-PARAMETRES-PLATEFORME.md` -- P.1/P.2/P.3/P.4/P.5 terminées) : UI
+  assistant de création -- compteurs/avertissements R5/R6 restants au-delà
+  du champ de date déjà ajouté (P.6), mécanisme de dérogation admin (P.7),
+  tests aux bornes supplémentaires (P.8, en bonne partie déjà couverts par
+  les tests de P.3/P.4/P.5). Dépendances : P.6 → P.7 → P.8.
 - Valider visuellement la refonte de l'accueil en local/CI (captures desktop +
   mobile, `npm run build` complet) avant de fusionner
   `docs/PLAN-DESIGN-REFONTE-ACCUEIL.md` dans `docs/DESIGN.md`.
