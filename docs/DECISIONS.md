@@ -5352,3 +5352,57 @@ terminées.** Points ouverts restants (spec §8, hors code) : validation
 juridique de `athlete_credit_annuel_max`/`campagne_duree_jours` avant tout
 relèvement, valeur définitive de `campagne_commandes_max` après le pilote,
 politique de communication « campagne complète ».
+
+## 2026-07-13 (suite) — Rangement de la Phase C.10 (tirage) et de son règlement
+
+Deux fichiers reçus : `PHASE_C10_TIRAGE.md` (plan de tâche, développement
+autorisé derrière flag) et `REGLEMENT_TIRAGE_MODELE.md` (modèle de règlement
+de concours, destiné à l'avocat). Décision autonome de rangement (CLAUDE.md
+section 9(b) -- pas une question bloquante, juste un choix d'emplacement) :
+
+- **`PHASE_C10_TIRAGE.md` → `docs/prompts/phase-c10-tirage.md`.** Convention
+  déjà en place pour les plans de tâches en cours (voir historique git de
+  `docs/archive/prompts/07-prompts-refonte-visuelle.md`, initialement créé à
+  `docs/prompts/` avant d'être archivé une fois terminé). Le dossier
+  `docs/prompts/` était vide depuis le dernier archivage -- recréé pour
+  l'occasion. Renommé en kebab-case pour rester cohérent avec les autres
+  fichiers de ce dossier (`phase-0-et-1.md`, `phase-1-6.md`, etc.).
+- **`REGLEMENT_TIRAGE_MODELE.md` → `docs/dossier-avocat/reglement-tirage-
+  modele.md`.** Le fichier C.10 (section C.10.10) indique que ce règlement
+  doit rejoindre un dossier juridique existant « C.1–C.9 » avant remise à
+  l'avocat. **Recherche exhaustive dans le dépôt** (contenu de `docs/`,
+  noms de fichiers/dossiers, historique git, mentions de « avocat »,
+  « juridique », « bloquant # », « Loi 25 », « RACJ », « 248-249 ») :
+  **aucune trace d'un tel dossier C.1–C.9**. Conclusion : ce dossier est
+  tenu hors dépôt (probablement papier, courriel, ou outil externe avec
+  Frédéric/l'avocat). `docs/dossier-avocat/` créé comme point d'atterrissage
+  **local** pour les pièces produites côté code en attente de révision
+  juridique (voir `docs/dossier-avocat/README.md`, qui documente
+  explicitement cette limite). Aucune tentative de fabriquer ou de deviner
+  le contenu de C.1–C.9.
+
+**Aucun code touché.** Cette tâche est un classement de documents, pas un
+début d'implémentation de C.10.1. `docs/PROGRESS.md` mis à jour (nouvelle
+section « En file d'attente ») pour refléter les deux statuts distincts :
+développement de C.10 débloqué (flag faux par défaut) vs activation bloquée
+(gate juridique). `docs/README.md` mis à jour pour indexer les deux nouveaux
+dossiers (`prompts/`, `dossier-avocat/`).
+
+**Piège de troncature en écrivant cette entrée** (voir
+`[[mount-staleness-ecommerce]]` en mémoire) : `git show HEAD:docs/PROGRESS.md`
+et `wc -l` via le bac à sable rapportaient tous deux 1430 lignes se terminant
+mi-phrase sur « ... entre l'ancien » -- ce chiffre a été pris pour argent
+comptant et a borné une première lecture via l'outil `Read` (offset+limit
+choisis en fonction de ce total supposé). En réalité le fichier réel en fait
+1479 (les lignes 1431 à 1478, jamais lues, existaient bel et bien -- fin de la
+tâche P.8, sections `## En cours`/`## À venir`/`## Point ouvert`) : `git show`
+lu via le bac à sable est donc lui aussi sujet à la staleness de ce montage,
+pas seulement `cat`/`tail`. Un premier ajout de section a atterri au milieu du
+document (juste après « l'ancien », coupant la vraie suite). Corrigé par deux
+`Edit` ciblés : restauration du paragraphe P.8 original intact, et
+déplacement de la section sur C.10/le règlement dans `## À venir` (fin réelle
+du document). Reconfirmé par une lecture `Read` complète de la zone (offset
+1425, limite 100) après correction -- plus aucune coupure. Leçon : sur ce
+projet, ne jamais borner une lecture `Read` sur la base d'un total obtenu via
+le bac à sable (`wc -l`, `git show | wc -l`, etc.) -- lire au-delà du total
+annoncé, ou lire par blocs jusqu'à obtenir une ligne vide en fin de fichier.

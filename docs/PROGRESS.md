@@ -1428,4 +1428,51 @@ opengraph-image manquants).
       exact utilisé par `create-checkout-session.ts`) -- chaque fonction
       n'était testée qu'isolément. Comblée par 5 nouveaux tests dans
       `tests/unit/campaign-order-cap.test.ts` (sans dérogation ; entre
-      l'ancien 
+      l'ancien et le nouveau max ; borne exacte du nouveau max ; nouveau
+      max + 1 ; dérogation corrompue). Aucun nouveau code de production
+      (les deux fonctions composées sont déjà pures et déjà testées
+      séparément ; `create-checkout-session.ts` n'est pas repo-injectable,
+      donc cette composition ne peut être vérifiée qu'ainsi). Suite
+      complète relancée par lots : 66/66 fichiers unitaires + 23/23
+      fichiers d'intégration verts, aucune régression. `tsc --noEmit`/
+      `eslint` propres. Détails complets dans `docs/DECISIONS.md`.
+      **Paramètres de plateforme (P.1 à P.8) : plan terminé.**
+
+## En cours
+(aucune)
+
+## À venir
+- Valider visuellement la refonte de l'accueil en local/CI (captures desktop +
+  mobile, `npm run build` complet) avant de fusionner
+  `docs/PLAN-DESIGN-REFONTE-ACCUEIL.md` dans `docs/DESIGN.md`.
+- **Phase C.10 (module tirage/billets)** : plan reçu le 2026-07-13, rangé à
+  `docs/prompts/phase-c10-tirage.md`. Développement autorisé derrière feature
+  flag `RAFFLE_ENABLED=false` (aucune UI, aucune attribution tant que le flag
+  est faux) ; activation bloquée tant qu'un feu vert juridique écrit n'a pas
+  été obtenu (règlement de concours, entrée sans achat art. 206 C.cr.,
+  publicité <13 ans art. 248-249 LPC, divulgation art. 74.06 Loi sur la
+  concurrence, Loi 25). Portée : schéma `raffle_draws`/`raffle_tickets`/
+  `raffle_free_entries`/`raffle_audit_log` + RLS, attribution au webhook
+  Stripe (idempotente), révocation au remboursement, formulaire entrée sans
+  achat, outil admin de tirage (seed auditable, re-tirage), UI parent
+  derrière flag, bannière publique `RaffleBanner` (montant jamais codé en
+  dur, jamais affichée à une session athlète). Pas encore commencée --
+  prochaine sous-tâche logique : C.10.1 (migrations SQL + RLS).
+- **Règlement de tirage (juridique)** : modèle de travail reçu le
+  2026-07-13, rangé à `docs/dossier-avocat/reglement-tirage-modele.md` (voir
+  `docs/dossier-avocat/README.md`). Destiné à rejoindre le dossier juridique
+  existant « C.1–C.9 » avant remise à l'avocat -- ce dossier C.1–C.9 n'a pas
+  été trouvé dans le dépôt (probablement externe, papier/courriel/outil non
+  connecté) ; à combiner manuellement côté Frédéric. Aucune action côté code
+  tant que le feu vert n'est pas obtenu : ce fichier ne bloque ni ne débloque
+  le développement de C.10, seulement son activation (`RAFFLE_ENABLED`).
+
+(Les plans déjà traités sont archivés dans `docs/archive/prompts/`, voir
+`docs/README.md` pour l'index complet.)
+
+## Point ouvert (hors refonte visuelle)
+Aucune image `opengraph-image`/`favicon`/`icon` n'existe dans `app/` --
+à fournir par l'équipe (identité visuelle) avant le lancement public. Les
+pages légales (`/confidentialite`, `/conditions`, `/remboursement-livraison`)
+restent des gabarits portant la mention « à faire valider juridiquement » --
+révision professionnelle requise avant un lancement commercial réel.
