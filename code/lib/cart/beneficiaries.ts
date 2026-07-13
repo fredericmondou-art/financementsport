@@ -21,7 +21,6 @@ import { z } from 'zod';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { BeneficiaryType, CartBeneficiariesTable } from '@/lib/db/types';
 import { BusinessRuleError } from '@/lib/entities/errors';
-import { getParametres } from '@/lib/parametres';
 import { assertCartOwnership, type CartRow } from './cart';
 import type { CartIdentity } from './types';
 
@@ -58,9 +57,6 @@ export interface CartBeneficiariesRepo {
       shareBps: number;
     }>,
   ): Promise<CartBeneficiaryRow[]>;
-  /** P.3, R9 (SPEC-PARAMETRES-PLATEFORME.md) : `panier_multi_beneficiaires_max`,
-   * toujours via `lib/parametres.ts` -- jamais en dur. */
-  getParametres(): ReturnType<typeof getParametres>;
 }
 
 export function createSupabaseCartBeneficiariesRepo(supabase: SupabaseClient): CartBeneficiariesRepo {
@@ -98,9 +94,6 @@ export function createSupabaseCartBeneficiariesRepo(supabase: SupabaseClient): C
         .select();
       if (error) throw error;
       return (data as CartBeneficiaryRow[]) ?? [];
-    },
-    async getParametres() {
-      return getParametres(supabase);
     },
   };
 }
@@ -160,22 +153,6 @@ export async function setCartBeneficiarySplit(
   assertCartOwnership(cart, identity);
   const split = beneficiarySplitInputSchema.parse(rawSplit);
   assertSplitTotals10000(split);
-
-  // P.3, R9 : nombre de bénéficiaires distincts par commande, plafonné et
-  // configurable (spec §4, R9 : "le sélecteur de répartition limite à {max}
-  // bénéficiaires ; SRV : rejet au-delà"). Compte les bénéficiaires DISTINCTS
-  // (type + id), pas les lignes brutes -- même sémantique que
-  // panier_multi_beneficiaires_max ("bénéficiaires max par commande").
-  const parametres = await repo.getParametres();
-  const distinctBeneficiaryCount = new Set(
-    split.map((b) => `${b.beneficiaryType}:${b.beneficiaryId}`),
-  ).size;
-  if (distinctBeneficiaryCount > parametres.panier_multi_beneficiaires_max) {
-    throw new BusinessRuleError(
-      `Maximum ${parametres.panier_multi_beneficiaires_max} bénéficiaires par commande ` +
-        `(${distinctBeneficiaryCount} fournis).`,
-    );
-  }
 
   return repo.replaceBeneficiaries(
     cart.id,

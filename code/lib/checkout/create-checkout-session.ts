@@ -43,26 +43,6 @@
  *     paiement confirmé) -- la seule chose à bloquer est le DÉMARRAGE d'un
  *     nouveau paiement pour une campagne qui n'est plus active. Voir
  *     docs/DECISIONS.md, Tâche 1.5.8.
- *   - P.4 (SPEC-PARAMETRES-PLATEFORME.md, R4) : plafond de commandes payées
- *     par campagne (`parametres.campagne_commandes_max`). Vérifié ICI, AVANT
- *     la création de session Stripe (jamais faire échouer un paiement déjà
- *     capturé). Comptage = commandes `primary_campaign_id = campaignId` dont
- *     le statut satisfait `isOrderPaid` (lib/distribution/build-list.ts,
- *     même définition que les rapports -- CLAUDE.md section 4 : une seule
- *     source de vérité). Au plafond : AUCUNE erreur affichée à l'acheteur
- *     (spec R4, « aucun message d'erreur côté acheteur ») -- on bascule
- *     silencieusement vers la boutique permanente en détachant la campagne
- *     du panier (`cart_beneficiaries.campaign_id = NULL`, crédit permanent
- *     au même bénéficiaire). Ce détachement DOIT être écrit en base (pas
- *     seulement une variable locale `campaignId`) car le webhook Stripe
- *     (app/api/webhooks/stripe/route.ts) relit `cart_beneficiaries` EN
- *     DIRECT à la confirmation du paiement, jamais les métadonnées de la
- *     session -- une bascule seulement locale à cette fonction serait
- *     invisible du webhook et le crédit resterait lié à la campagne pleine.
- *   - P.7 (mécanisme de dérogation) : le plafond R4 ci-dessus consulte
- *     désormais la dérogation active de CETTE campagne (`entite_type =
- *     'campagne'`, id déjà connu ici) avant de comparer -- voir
- *     `lib/derogations/derogations.ts`.
  */
 import { createSupabaseServerClient } from '@/lib/auth/supabase-server';
 import { getCurrentUser } from '@/lib/auth/session';
@@ -76,10 +56,7 @@ import {
   validateCheckoutLines,
   type CheckoutLineInput,
 } from '@/lib/checkout/prepare-checkout';
-import { isCampaignOrderCapReached } from '@/lib/checkout/campaign-order-cap';
 import { BusinessRuleError } from '@/lib/entities/errors';
-import { getParametres } from '@/lib/parametres';
-import { createSupabaseDerogationsRepo, resolveEffectiveLimit } from '@/lib/derogations/derogations';
 import { getStripeClient } from '@/lib/payments/stripe-client';
 import { createSupabaseTaxRatesRepo } from '@/lib/taxes/rates';
 
@@ -150,7 +127,7 @@ export async function createCheckoutSession(): Promise<CheckoutSessionResult> {
   }
   const totals = computeCheckoutTotals(lines, taxRate.rate_bps);
 
-  let campaignId = beneficiaries.find((b) => b.campaign_id !== null)?.campaign_id ?? null;
+  const campaignId = beneficiaries.find((b) => b.campaign_id !== null)?.campaign_id ?? null;
   const teamId =
     beneficiaries.length === 1 && beneficiaries[0]!.beneficiary_type === 'team'
       ? beneficiaries[0]!.beneficiary_id
@@ -168,45 +145,6 @@ export async function createCheckoutSession(): Promise<CheckoutSessionResult> {
     if (campaignError) throw campaignError;
     if (campaign && campaign.status !== 'active') {
       throw new BusinessRuleError('Cette campagne n’accepte plus de nouveaux achats.');
-    }
-
-    // P.4 (R4) : plafond de commandes payées -- voir le commentaire de tête
-    // de ce fichier. Lu depuis `v_campaign_paid_order_count` (migration
-    // 0025), PAS directement `orders` : le client de l'acheteur (souvent
-    // `anon`) n'a par RLS accès qu'à SES PROPRES commandes sur `orders`
-    // (migration 0005, `orders_select_scoped`) -- une lecture brute
-    // sous-compterait silencieusement pour quiconque n'est pas déjà
-    // propriétaire de toutes les commandes de la campagne.
-    const parametres = await getParametres(supabase);
-    // P.7 : dérogation active pour CETTE campagne (« relèvement possible par
-    // dérogation en cours de campagne », spec R4) -- id déjà connu ici,
-    // contrairement à R1/R3/R5 (voir lib/derogations/derogations.ts, en-tête
-    // de fichier, pour la distinction de portée).
-    const derogation = await createSupabaseDerogationsRepo(supabase).findActive(
-      'campagne_commandes_max',
-      'campagne',
-      campaignId,
-    );
-    const commandesMaxEffectif = resolveEffectiveLimit(parametres.campagne_commandes_max, derogation);
-    const { data: countRow, error: countError } = await supabase
-      .from('v_campaign_paid_order_count')
-      .select('paid_order_count')
-      .eq('campaign_id', campaignId)
-      .maybeSingle();
-    if (countError) throw countError;
-    const paidOrderCount = countRow?.paid_order_count ?? 0;
-    if (isCampaignOrderCapReached(paidOrderCount, commandesMaxEffectif)) {
-      // Bascule silencieuse vers la boutique permanente (spec R4 : « aucun
-      // message d'erreur côté acheteur »). Écrit en base -- le webhook Stripe
-      // relit `cart_beneficiaries` EN DIRECT, jamais les métadonnées de la
-      // session (voir commentaire de tête).
-      const { error: unlinkError } = await supabase
-        .from('cart_beneficiaries')
-        .update({ campaign_id: null })
-        .eq('cart_id', cart.id)
-        .eq('campaign_id', campaignId);
-      if (unlinkError) throw unlinkError;
-      campaignId = null;
     }
   }
 

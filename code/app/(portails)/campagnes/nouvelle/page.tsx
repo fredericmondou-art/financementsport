@@ -39,7 +39,6 @@ import {
   type CampaignDraftData,
 } from '@/lib/campaigns/draft';
 import { applyCampaignDefaults } from '@/lib/campaigns/defaults';
-import { getParametres, type ParametresValeurs } from '@/lib/parametres';
 import { formatCents } from '@/lib/format-cents';
 import {
   createSupabaseBeneficiaryPreviewRepo,
@@ -115,26 +114,13 @@ export default async function NouvelleCampagnePage({
 
   const supabase = createSupabaseServerClient();
   const draftRepo = createSupabaseCampaignDraftRepo(supabase);
-  const [draft, { teams, clubs, athletes }, products, parametres] = await Promise.all([
+  const [draft, { teams, clubs, athletes }, products] = await Promise.all([
     draftRepo.getDraft(user.id),
     loadCampaignWizardOptions(supabase, user),
     listPublicProducts({}, createSupabaseProductRepo(supabase)),
-    // P.3 (SPEC-PARAMETRES-PLATEFORME.md) : durée/délai de livraison par
-    // défaut sourcés depuis parametres_plateforme, jamais en dur (voir
-    // lib/campaigns/defaults.ts).
-    getParametres(supabase),
   ]);
 
-  const data: CampaignDraftData = applyCampaignDefaults(draft?.data ?? {}, {
-    teams,
-    clubs,
-    athletes,
-    products,
-    campaignDurationDefaultDays: parametres.campagne_duree_jours.defaut,
-    deliveryDelayMaxDays: parametres.campagne_delai_livraison_jours_max,
-    // P.6 (R6) : pré-remplit l'objectif au montant suggéré par défaut.
-    objectifSuggereDefautCents: parametres.campagne_objectif_athlete_suggere.defaut,
-  });
+  const data: CampaignDraftData = applyCampaignDefaults(draft?.data ?? {}, { teams, clubs, athletes, products });
   const stepIndex =
     searchParams.etape !== undefined
       ? clampStepQueryParam(searchParams.etape)
@@ -191,13 +177,13 @@ export default async function NouvelleCampagnePage({
           <BeneficiaireStep data={data} teams={teams} clubs={clubs} backHref={backHref} returnTo={returnTo} />
         ) : null}
         {stepId === 'objectif_dates' ? (
-          <ObjectifDatesStep data={data} parametres={parametres} backHref={backHref} returnTo={returnTo} />
+          <ObjectifDatesStep data={data} backHref={backHref} returnTo={returnTo} />
         ) : null}
         {stepId === 'participants' ? (
           <ParticipantsStep data={data} athletes={athletes} backHref={backHref} returnTo={returnTo} />
         ) : null}
         {stepId === 'packs' ? (
-          <PacksStep data={data} products={products} parametres={parametres} backHref={backHref} returnTo={returnTo} />
+          <PacksStep data={data} products={products} backHref={backHref} returnTo={returnTo} />
         ) : null}
         {stepId === 'recap' ? (
           <RecapStep
@@ -367,15 +353,7 @@ function BeneficiaireStep({ data, teams, clubs, backHref, returnTo }: Beneficiai
   );
 }
 
-interface ObjectifDatesStepProps extends StepProps {
-  /** P.6 (R6) : seule la plage suggérée est nécessaire ici (pré-remplissage
-   * déjà fait en amont par `applyCampaignDefaults` ; le seuil d'avertissement
-   * lui-même est vérifié côté serveur, voir `actions.ts`). */
-  parametres: Pick<ParametresValeurs, 'campagne_objectif_athlete_suggere'>;
-}
-
-function ObjectifDatesStep({ data, parametres, backHref, returnTo }: ObjectifDatesStepProps): JSX.Element {
-  const { min, max } = parametres.campagne_objectif_athlete_suggere;
+function ObjectifDatesStep({ data, backHref, returnTo }: StepProps): JSX.Element {
   return (
     <form action={saveObjectifDatesStepAction} className="form form--wide stack">
       <ReturnToField returnTo={returnTo} />
@@ -383,10 +361,7 @@ function ObjectifDatesStep({ data, parametres, backHref, returnTo }: ObjectifDat
         <h2>{CAMPAIGN_DRAFT_STEP_LABELS.objectif_dates}</h2>
 
         <div className="form__row">
-          <Field
-            label="Objectif (en cents, optionnel)"
-            hint={`Objectif suggéré : entre ${formatCents(min)} et ${formatCents(max)} par athlète.`}
-          >
+          <Field label="Objectif (en cents, optionnel)">
             <input type="number" name="goalCents" min={0} step={1} defaultValue={data.goalCents ?? ''} />
           </Field>
 
@@ -399,27 +374,14 @@ function ObjectifDatesStep({ data, parametres, backHref, returnTo }: ObjectifDat
             />
           </Field>
 
-          <Field label="Date de fin" required>
+          <Field label="Date de fin (optionnel)">
             <input
               type="datetime-local"
               name="endsAt"
-              required
               defaultValue={isoToDatetimeLocalValue(data.endsAt)}
             />
           </Field>
-
-          <Field label="Date de livraison" required>
-            <input
-              type="datetime-local"
-              name="deliveryDate"
-              required
-              defaultValue={isoToDatetimeLocalValue(data.deliveryDate)}
-            />
-          </Field>
         </div>
-        <p className="field__hint">
-          La date de livraison est affichée aux acheteurs et doit être respectée (obligation légale).
-        </p>
       </section>
 
       <WizardNav backHref={backHref} continueLabel={continueLabelFor(returnTo)} />
@@ -491,23 +453,15 @@ function ParticipantsStep({ data, athletes, backHref, returnTo }: ParticipantsSt
 
 interface PacksStepProps extends StepProps {
   products: Array<{ id: string; name: string }>;
-  /** P.6 (R5) : limite dure + seuil recommandé, affichés en indice sous le
-   * titre de l'étape (le blocage dur lui-même reste vérifié à la soumission
-   * finale du récapitulatif, voir `assertPlatformParameterRules`). */
-  parametres: Pick<ParametresValeurs, 'campagne_produits_max' | 'campagne_produits_recommande'>;
 }
 
-function PacksStep({ data, products, parametres, backHref, returnTo }: PacksStepProps): JSX.Element {
+function PacksStep({ data, products, backHref, returnTo }: PacksStepProps): JSX.Element {
   const selected = new Set(data.productIds ?? []);
   return (
     <form action={savePacksStepAction} className="form form--wide stack">
       <ReturnToField returnTo={returnTo} />
       <section className="stack stack--sm">
         <h2>{CAMPAIGN_DRAFT_STEP_LABELS.packs}</h2>
-        <p className="field__hint">
-          {selected.size} produit(s) sélectionné(s) — maximum {parametres.campagne_produits_max}, dont{' '}
-          {parametres.campagne_produits_recommande} recommandés pour simplifier le tri à la livraison.
-        </p>
         {products.length === 0 ? (
           <Alert variant="info">Aucun pack actif au catalogue.</Alert>
         ) : (
@@ -647,9 +601,6 @@ function RecapStep({
               {formatDateTime(data.startsAt) ?? '—'}
               {data.endsAt ? ` → ${formatDateTime(data.endsAt)}` : ''}
             </dd>
-
-            <dt>Livraison</dt>
-            <dd>{formatDateTime(data.deliveryDate) ?? '—'}</dd>
           </dl>
         </div>
 

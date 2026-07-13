@@ -8,9 +8,7 @@ import type { AnchorHTMLAttributes, ButtonHTMLAttributes, ReactNode } from 'reac
 import { Spinner } from './spinner';
 
 export type ButtonVariant = 'primary' | 'accent' | 'outline' | 'danger';
-// 'lg' ajouté pour les CTA du hero de l'accueil (PLAN-DESIGN-REFONTE-ACCUEIL.md
-// §1, « CTA plus francs ») -- additif, aucun point d'appel existant modifié.
-export type ButtonSize = 'sm' | 'md' | 'lg';
+export type ButtonSize = 'sm' | 'md';
 
 interface ButtonOwnProps {
   variant?: ButtonVariant;

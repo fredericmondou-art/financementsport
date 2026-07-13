@@ -118,18 +118,7 @@ export function PublicProfileView({
           <section className="stack stack--sm">
             <h2>{campaignSection.campaign.name}</h2>
             {campaignSection.campaign.public_message ? <p>{campaignSection.campaign.public_message}</p> : null}
-            {campaignSection.isOrderCapReached ? (
-              // P.4 (SPEC-PARAMETRES-PLATEFORME.md, R4) : plafond de
-              // commandes atteint -- état VALORISANT (pas une erreur), texte
-              // exact de la spec. Aucun changement de CTA nécessaire ici :
-              // `encouragerHref`/le bouton "Soutenir avec ce pack"
-              // pointent déjà vers `/boutique` (générique par bénéficiaire,
-              // jamais la campagne) -- voir lib/public/profile.ts.
-              <div className="public-profile__progress">
-                <p className="public-profile__raised">Campagne complète — objectif dépassé !</p>
-                <ProgressBar percent={100} label="Progression de la campagne" />
-              </div>
-            ) : campaignSection.progress.goalCents !== null ? (
+            {campaignSection.progress.goalCents !== null ? (
               <div className="public-profile__progress">
                 <p className="public-profile__raised">
                   {formatCents(campaignSection.progress.raisedCents)} amassés sur un objectif de{' '}

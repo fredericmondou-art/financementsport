@@ -8,9 +8,8 @@
  * participants + packs + règle de crédit optionnelle + QR codes) et doit
  * donc être ATOMIQUE (CLAUDE.md section 4) — `repo.createCampaignWithDetails`
  * délègue à la fonction Postgres `create_campaign_with_details`
- * (`supabase/migrations/0008_campaign_creation_assistant.sql`, étendue en
- * migration 0024 avec `delivery_date`), une seule transaction, pas de
- * rollback manuel à gérer ici.
+ * (`supabase/migrations/0008_campaign_creation_assistant.sql`), une seule
+ * transaction, pas de rollback manuel à gérer ici.
  *
  * Statut à la création : toujours `'active'` directement (pas de brouillon ni
  * d'étape d'approbation séparée — décision autonome, voir docs/DECISIONS.md,
@@ -25,29 +24,6 @@
  * ICI avec un message clair, AVANT même d'atteindre la policy RLS
  * `credit_rules_campaign_manager_insert` (migration 0008) qui impose le même
  * plafond comme filet de sécurité final.
- *
- * P.3 (SPEC-PARAMETRES-PLATEFORME.md, voir docs/PLAN-PARAMETRES-PLATEFORME.md) :
- * règles R1/R2/R3/R5/R7 ajoutées ici, toutes lues depuis `lib/parametres.ts`
- * (jamais en dur) via `repo.getParametres()`. Décision confirmée avec
- * Frédéric (AskUserQuestion) : R1 (durée 7-21 jours) et R2 (date de livraison
- * obligatoire) s'appliquent à TOUS les types de campagne — `endsAt` et
- * `deliveryDate` deviennent donc des champs REQUIS (ils ne l'étaient pas
- * avant P.3), y compris pour les types `annual`/`reorder` déclarés dans le
- * schéma mais jamais implémentés ailleurs dans le code. R3 (athlètes max) est
- * appliquée à tout type de campagne ayant des participants (la spec la
- * décrit « par campagne d'équipe » mais le champ `participantAthleteIds`
- * n'est pas réservé aux campagnes d'équipe dans le schéma — décision
- * autonome, voir docs/DECISIONS.md). R7 (campagnes/équipe/an) reste, elle,
- * strictement liée à `teamId` (aucune variante club définie par la spec).
- *
- * P.7 (SPEC-PARAMETRES-PLATEFORME.md, mécanisme de dérogation) : R1/R3/R5
- * consultent désormais la dérogation active de l'équipe (ou du club, si pas
- * d'équipe) porteur de la future campagne AVANT de comparer au plafond —
- * voir `lib/derogations/derogations.ts` (en-tête de fichier) pour la
- * décision de portée détaillée (aucun id de campagne n'existe encore à ce
- * stade, donc la dérogation ne peut pas cibler `'campagne'` pour ces trois
- * règles). R7 fait de même, scopée équipe. R2 n'admet toujours aucune
- * dérogation (obligation légale, inchangé).
  */
 import { z } from 'zod';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -56,14 +32,6 @@ import { pickUniqueSlug } from '@/lib/slug';
 import { pickUniqueQrCode } from './qr-codes';
 import type { CampaignsTable } from '@/lib/db/types';
 import { BusinessRuleError, PermissionError } from '@/lib/entities/errors';
-import { getParametres, type ParametresValeurs } from '@/lib/parametres';
-import {
-  createSupabaseDerogationsRepo,
-  resolveEffectiveLimit,
-  type CleDerogeable,
-  type DerogationRow,
-  type EntiteDerogation,
-} from '@/lib/derogations/derogations';
 
 /** Plafonds du self-service (voir migration 0008 — DOIVENT rester identiques
  * aux valeurs codées dans la policy RLS `credit_rules_campaign_manager_*`). */
@@ -112,10 +80,6 @@ export type CreditRuleInput = z.infer<typeof creditRuleInputSchema>;
  * campagne (`createCampaign` ci-dessous) ; les schémas par étape de
  * `draft.ts` ne valident que des sous-ensembles de champs et ne remplacent
  * jamais cette validation finale.
- *
- * `endsAt`/`deliveryDate` sont REQUIS depuis P.3 (R1/R2, voir en-tête de
- * fichier) — avant P.3, `endsAt` était nullable et `deliveryDate` n'existait
- * pas.
  */
 export const campaignBaseSchema = z.object({
   type: z.enum(['team', 'club', 'athlete', 'event', 'annual', 'reorder']),
@@ -127,10 +91,7 @@ export const campaignBaseSchema = z.object({
   teamId: z.string().uuid().nullable().optional(),
   goalCents: z.number().int().min(0).nullable().optional(),
   startsAt: z.string().datetime({ message: 'La date de début est requise et doit être une date valide.' }),
-  endsAt: z.string().datetime({ message: 'La date de fin est requise et doit être une date valide.' }),
-  deliveryDate: z.string().datetime({
-    message: 'La date de livraison est requise et doit être une date valide (obligation légale, R2).',
-  }),
+  endsAt: z.string().datetime().nullable().optional(),
   participantAthleteIds: z.array(z.string().uuid()).max(500).optional().default([]),
   productIds: z
     .array(z.string().uuid())
@@ -143,14 +104,10 @@ export const campaignInputSchema = campaignBaseSchema
     message: 'Une campagne doit être rattachée à au moins une équipe ou un club.',
     path: ['teamId'],
   })
-  .refine((v) => new Date(v.endsAt).getTime() >= new Date(v.startsAt).getTime(), {
-    message: 'La date de fin doit être postérieure ou égale à la date de début.',
-    path: ['endsAt'],
-  })
-  .refine((v) => new Date(v.deliveryDate).getTime() >= new Date(v.endsAt).getTime(), {
-    message: 'La date de livraison doit être postérieure ou égale à la date de clôture de la campagne.',
-    path: ['deliveryDate'],
-  });
+  .refine(
+    (v) => v.endsAt == null || new Date(v.endsAt).getTime() >= new Date(v.startsAt).getTime(),
+    { message: 'La date de fin doit être postérieure ou égale à la date de début.', path: ['endsAt'] },
+  );
 export type CampaignInput = z.infer<typeof campaignInputSchema>;
 
 export type CampaignRow = CampaignsTable['Row'];
@@ -181,23 +138,6 @@ export interface CampaignRepo {
   /** Sous-ensemble de `ids` correspondant à des produits EXISTANTS et ACTIFS
    * (même condition que `lib/catalog/products.ts#listPublicProducts`). */
   getActiveProductIds(ids: string[]): Promise<string[]>;
-  /** P.3 (SPEC-PARAMETRES-PLATEFORME.md) : lecture des paramètres de
-   * plateforme (R1/R2/R3/R5/R7), toujours via `lib/parametres.ts` — jamais
-   * d'accès direct à `parametres_plateforme` ailleurs (spec §2). */
-  getParametres(): Promise<ParametresValeurs>;
-  /** P.3, R7 : nombre de campagnes de CETTE équipe déjà lancées dans les 12
-   * derniers mois glissants (fenêtre calculée par l'implémentation, pas par
-   * l'appelant — voir `createSupabaseCampaignRepo`). Non appelée si
-   * `teamId === null` (R7 ne définit aucune variante « club »). */
-  countTeamCampaignsSince(teamId: string): Promise<number>;
-  /** P.7 : dérogation active pour une portée (équipe/club), ou `null`.
-   * Déléguée à `lib/derogations/derogations.ts` — jamais d'accès direct à
-   * `derogations_parametres` ailleurs (même règle que `getParametres()`). */
-  getActiveDerogation(
-    cle: CleDerogeable,
-    entiteType: EntiteDerogation,
-    entiteId: string,
-  ): Promise<DerogationRow | null>;
   createCampaignWithDetails(args: {
     type: CampaignInput['type'];
     name: string;
@@ -209,8 +149,7 @@ export interface CampaignRepo {
     teamId: string | null;
     goalCents: number | null;
     startsAt: string;
-    endsAt: string;
-    deliveryDate: string;
+    endsAt: string | null;
     status: 'active';
     participantAthleteIds: string[];
     productIds: string[];
@@ -274,23 +213,6 @@ export function createSupabaseCampaignRepo(supabase: SupabaseClient): CampaignRe
       if (error) throw error;
       return ((data as Array<{ id: string }>) ?? []).map((row) => row.id);
     },
-    async getParametres() {
-      return getParametres(supabase);
-    },
-    async countTeamCampaignsSince(teamId) {
-      const since = new Date();
-      since.setUTCFullYear(since.getUTCFullYear() - 1);
-      const { count, error } = await supabase
-        .from('campaigns')
-        .select('id', { count: 'exact', head: true })
-        .eq('team_id', teamId)
-        .gte('starts_at', since.toISOString());
-      if (error) throw error;
-      return count ?? 0;
-    },
-    async getActiveDerogation(cle, entiteType, entiteId) {
-      return createSupabaseDerogationsRepo(supabase).findActive(cle, entiteType, entiteId);
-    },
     async createCampaignWithDetails(args) {
       const { data, error } = await supabase.rpc('create_campaign_with_details', {
         p_type: args.type,
@@ -304,7 +226,6 @@ export function createSupabaseCampaignRepo(supabase: SupabaseClient): CampaignRe
         p_goal_cents: args.goalCents,
         p_starts_at: args.startsAt,
         p_ends_at: args.endsAt,
-        p_delivery_date: args.deliveryDate,
         p_status: args.status,
         p_participant_athlete_ids: args.participantAthleteIds,
         p_product_ids: args.productIds,
@@ -366,118 +287,6 @@ function assertAthleteInScope(
   );
 }
 
-/** Nombre de jours (fraction incluse, non arrondi) entre deux dates ISO —
- * fonction PURE, utilisée par R1/R2. Pas d'arrondi volontairement : une
- * campagne d'EXACTEMENT `max` jours doit passer, une campagne à `max` jours
- * + 1ms doit échouer (bornes strictes, testées aux limites — CLAUDE.md
- * section 8). */
-function daysBetweenIso(startIso: string, endIso: string): number {
-  return (new Date(endIso).getTime() - new Date(startIso).getTime()) / (24 * 60 * 60 * 1000);
-}
-
-/**
- * Règles R1/R2/R3/R5/R7 (P.3, SPEC-PARAMETRES-PLATEFORME.md §4) — toutes
- * DURES, donc bloquantes ici. Regroupées dans une seule fonction pour que
- * `createCampaign` reste lisible ; chaque règle reste indépendante (une
- * violation interrompt immédiatement, message dédié par règle).
- *
- * P.7 : R1/R3/R5 consultent la dérogation active de la portée équipe/club
- * (`scopeEntity`, résolue une seule fois ci-dessous : équipe si `teamId` est
- * fourni, club sinon — `campaignInputSchema` garantit qu'au moins l'un des
- * deux est non nul). R7 consulte sa propre dérogation, scopée équipe. R2
- * reste sans dérogation possible (obligation légale, inchangé).
- */
-async function assertPlatformParameterRules(
-  input: Pick<
-    CampaignInput,
-    'startsAt' | 'endsAt' | 'deliveryDate' | 'participantAthleteIds' | 'productIds' | 'teamId'
-  > & { clubId: string | null },
-  uniqueParticipantCount: number,
-  uniqueProductCount: number,
-  repo: CampaignRepo,
-): Promise<void> {
-  const parametres = await repo.getParametres();
-
-  // P.7 — portée équipe/club pour les dérogations R1/R3/R5 (voir en-tête de
-  // fonction). `scopeEntity` reste `null` seulement en théorie (le schéma
-  // garantit déjà clubId != null || teamId != null) ; dans ce cas les
-  // dérogations sont simplement absentes (repli sur la limite de base).
-  const scopeEntity: { type: EntiteDerogation; id: string } | null =
-    input.teamId != null
-      ? { type: 'equipe', id: input.teamId }
-      : input.clubId != null
-        ? { type: 'club', id: input.clubId }
-        : null;
-
-  async function derogationPour(cle: CleDerogeable): Promise<DerogationRow | null> {
-    if (!scopeEntity) return null;
-    return repo.getActiveDerogation(cle, scopeEntity.type, scopeEntity.id);
-  }
-
-  // R1 — Durée de campagne (bloquant sur TOUT l'intervalle [min, max]). Seul
-  // le MAX est dérogeable (voir lib/derogations/derogations.ts) ; le MIN
-  // reste fixe, aucun cas d'usage ne motive une campagne plus courte.
-  const durationDays = daysBetweenIso(input.startsAt, input.endsAt);
-  const { min: minDays, max: maxDays } = parametres.campagne_duree_jours;
-  const maxDaysEffectif = resolveEffectiveLimit(maxDays, await derogationPour('campagne_duree_jours'));
-  if (durationDays < minDays || durationDays > maxDaysEffectif) {
-    throw new BusinessRuleError(
-      `La durée maximale d'une campagne est de ${maxDaysEffectif} jours (minimum ${minDays} jours). ` +
-        'Les campagnes courtes vendent mieux : l\'urgence motive les acheteurs.',
-    );
-  }
-
-  // R2 — Délai de livraison après clôture (obligation légale, aucune
-  // dérogation possible — voir spec §4, R2).
-  const deliveryDelayDays = daysBetweenIso(input.endsAt, input.deliveryDate);
-  if (deliveryDelayDays > parametres.campagne_delai_livraison_jours_max) {
-    throw new BusinessRuleError(
-      `Indiquez une date de livraison au plus tard ${parametres.campagne_delai_livraison_jours_max} jours ` +
-        'après la clôture. Cette date sera affichée aux acheteurs et doit être respectée.',
-    );
-  }
-
-  // R3 — Nombre d'athlètes participants.
-  const athletesMaxEffectif = resolveEffectiveLimit(
-    parametres.campagne_athletes_max,
-    await derogationPour('campagne_athletes_max'),
-  );
-  if (uniqueParticipantCount > athletesMaxEffectif) {
-    throw new BusinessRuleError(
-      `Maximum ${athletesMaxEffectif} athlètes par campagne. Pour un club de plusieurs ` +
-        'équipes, créez une campagne par équipe — la distribution des produits reste gérable.',
-    );
-  }
-
-  // R5 — Produits/packs distincts.
-  const produitsMaxEffectif = resolveEffectiveLimit(
-    parametres.campagne_produits_max,
-    await derogationPour('campagne_produits_max'),
-  );
-  if (uniqueProductCount > produitsMaxEffectif) {
-    throw new BusinessRuleError(
-      `Maximum ${produitsMaxEffectif} produits par campagne. Plus de produits complique ` +
-        'le tri à la livraison — les campagnes simples performent mieux.',
-    );
-  }
-
-  // R7 — Campagnes par équipe par année glissante (aucune variante club).
-  if (input.teamId != null) {
-    const count = await repo.countTeamCampaignsSince(input.teamId);
-    const campagnesParAnMaxEffectif = resolveEffectiveLimit(
-      parametres.equipe_campagnes_par_an_max,
-      await repo.getActiveDerogation('equipe_campagnes_par_an_max', 'equipe', input.teamId),
-    );
-    if (count >= campagnesParAnMaxEffectif) {
-      throw new BusinessRuleError(
-        `Cette équipe a déjà lancé ${campagnesParAnMaxEffectif} campagnes cette année. ` +
-          'Solliciter le même réseau trop souvent épuise les acheteurs — la boutique permanente et les ' +
-          'abonnements continuent de générer des crédits entre les campagnes.',
-      );
-    }
-  }
-}
-
 export async function createCampaign(
   user: AuthUser,
   rawInput: unknown,
@@ -537,22 +346,6 @@ export async function createCampaign(
     assertAthleteInScope(athlete, { clubId, teamId });
   }
 
-  // P.3/P.7 — règles R1/R2/R3/R5/R7 (voir assertPlatformParameterRules).
-  await assertPlatformParameterRules(
-    {
-      startsAt: input.startsAt,
-      endsAt: input.endsAt,
-      deliveryDate: input.deliveryDate,
-      participantAthleteIds: input.participantAthleteIds,
-      productIds: input.productIds,
-      teamId,
-      clubId,
-    },
-    uniqueParticipantIds.length,
-    uniqueProductIds.length,
-    repo,
-  );
-
   const slug = await pickUniqueSlug(input.name, (candidate) => repo.isSlugTaken(candidate));
 
   // Un code QR n'a pas besoin de connaître l'id de sa cible à l'avance (seul
@@ -590,8 +383,7 @@ export async function createCampaign(
     teamId,
     goalCents: input.goalCents ?? null,
     startsAt: input.startsAt,
-    endsAt: input.endsAt,
-    deliveryDate: input.deliveryDate,
+    endsAt: input.endsAt ?? null,
     status: 'active',
     participantAthleteIds: uniqueParticipantIds,
     productIds: uniqueProductIds,

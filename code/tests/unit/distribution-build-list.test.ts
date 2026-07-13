@@ -78,7 +78,6 @@ function makeCredit(orderId: string, beneficiaryId: string, overrides: Partial<O
     status: 'active',
     applied_rule_id: null,
     computation_note: null,
-    pending_reason: null,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
     ...overrides,

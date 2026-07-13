@@ -9,7 +9,7 @@
  * dans une fonction plpgsql non testable.
  */
 import type { BeneficiaryCreditResult, LineCreditResult } from './calculate';
-import type { CreditPendingReason, CreditStatus } from '@/lib/db/types';
+import type { CreditStatus } from '@/lib/db/types';
 
 export interface OrderCreditInsertPayload {
   beneficiary_type: BeneficiaryCreditResult['beneficiaryType'];
@@ -19,13 +19,6 @@ export interface OrderCreditInsertPayload {
   status: CreditStatus;
   applied_rule_id: string | null;
   computation_note: string;
-  /** Pourquoi ce crédit est `pending` (migration 0026) -- `null` si
-   * `status !== 'pending'`. `'campagne_inactive'` est posé ici directement
-   * (seule raison connue à ce stade) ; `'plafond_annuel'` (R8) n'est décidé
-   * que plus tard, par `applyAnnualCreditCap` (lib/credits/annual-cap.ts),
-   * qui peut RE-scinder une ligne déjà 'active' -- jamais une ligne déjà
-   * 'pending' ici (voir le commentaire de la migration 0026). */
-  pending_reason: CreditPendingReason | null;
 }
 
 /**
@@ -84,6 +77,5 @@ export function buildOrderCreditInserts(
     status,
     applied_rule_id: appliedRuleId,
     computation_note: note,
-    pending_reason: status === 'pending' ? 'campagne_inactive' : null,
   }));
 }

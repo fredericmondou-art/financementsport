@@ -145,3 +145,11 @@ Marketplace ouverte, app native, multi-entrepôts, IA de recommandation,
 multilingue complet, comptabilité complète, abonnements très flexibles,
 remboursement automatisé complexe. Ne pas anticiper ces fonctions : elles
 viendront après la V1.
+
+## Routine de fin de session
+
+À la fin de chaque session de travail, mets à jour CLAUDE.md (section État
+actuel et Prochaines étapes), mets à jour TODO.md, ajoute une entrée au
+JOURNAL.md avec la date, ce qui a été fait, les décisions prises et les
+blocages, puis fais un commit avec un message descriptif. Propose-le
+toi-même si l'utilisateur ne le demande pas.

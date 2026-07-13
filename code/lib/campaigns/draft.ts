@@ -97,11 +97,7 @@ export interface CampaignDraftData {
   beneficiaryId?: string;
   goalCents?: number | null;
   startsAt?: string;
-  endsAt?: string;
-  /** P.3 (R2, SPEC-PARAMETRES-PLATEFORME.md) : date de livraison, requise à
-   * la création réelle -- absente tant que l'étape "objectif_dates" n'a pas
-   * été soumise, comme les autres champs de brouillon. */
-  deliveryDate?: string;
+  endsAt?: string | null;
   participantAthleteIds?: string[];
   productIds?: string[];
 }
@@ -137,16 +133,11 @@ const stepSchemas = {
       goalCents: campaignBaseSchema.shape.goalCents,
       startsAt: campaignBaseSchema.shape.startsAt,
       endsAt: campaignBaseSchema.shape.endsAt,
-      deliveryDate: campaignBaseSchema.shape.deliveryDate,
     })
-    .refine((v) => new Date(v.endsAt).getTime() >= new Date(v.startsAt).getTime(), {
-      message: 'La date de fin doit être postérieure ou égale à la date de début.',
-      path: ['endsAt'],
-    })
-    .refine((v) => new Date(v.deliveryDate).getTime() >= new Date(v.endsAt).getTime(), {
-      message: 'La date de livraison doit être postérieure ou égale à la date de clôture de la campagne.',
-      path: ['deliveryDate'],
-    }),
+    .refine(
+      (v) => v.endsAt == null || new Date(v.endsAt).getTime() >= new Date(v.startsAt).getTime(),
+      { message: 'La date de fin doit être postérieure ou égale à la date de début.', path: ['endsAt'] },
+    ),
   participants: z.object({
     participantAthleteIds: campaignBaseSchema.shape.participantAthleteIds,
   }),
@@ -200,8 +191,7 @@ export function buildCampaignInputFromDraft(data: CampaignDraftData): unknown {
     teamId: data.teamId ?? null,
     goalCents: data.goalCents ?? null,
     startsAt: data.startsAt,
-    endsAt: data.endsAt,
-    deliveryDate: data.deliveryDate,
+    endsAt: data.endsAt ?? null,
     participantAthleteIds: data.participantAthleteIds ?? [],
     productIds: data.productIds ?? [],
     creditRule: null,

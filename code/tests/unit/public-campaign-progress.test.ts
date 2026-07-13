@@ -24,7 +24,6 @@ function makeCampaign(overrides: Partial<PublicCampaignRow>): PublicCampaignRow 
     goal_cents: null,
     starts_at: null,
     ends_at: null,
-    delivery_date: null,
     ...overrides,
   };
 }

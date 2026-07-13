@@ -59,28 +59,6 @@ describe('applyCampaignDefaults — ne touche jamais un champ déjà présent', 
   });
 });
 
-describe('applyCampaignDefaults — objectif suggéré (P.6, R6)', () => {
-  it('pré-remplit l’objectif au montant suggéré quand aucun n’a encore été saisi', () => {
-    const result = applyCampaignDefaults({}, baseOptions({ objectifSuggereDefautCents: 15000 }));
-    expect(result.goalCents).toBe(15000);
-  });
-
-  it('ne touche jamais un objectif déjà choisi par le gestionnaire', () => {
-    const result = applyCampaignDefaults({ goalCents: 99999 }, baseOptions({ objectifSuggereDefautCents: 15000 }));
-    expect(result.goalCents).toBe(99999);
-  });
-
-  it('respecte un objectif explicitement effacé (`null` -- « aucun objectif fixé », pas un oubli)', () => {
-    const result = applyCampaignDefaults({ goalCents: null }, baseOptions({ objectifSuggereDefautCents: 15000 }));
-    expect(result.goalCents).toBeNull();
-  });
-
-  it('laisse le champ vide si aucune option n’est fournie (comportement inchangé avant P.6)', () => {
-    const result = applyCampaignDefaults({}, baseOptions());
-    expect(result.goalCents).toBeUndefined();
-  });
-});
-
 describe('applyCampaignDefaults — priorité équipe sur club', () => {
   it('choisit l’équipe quand le gestionnaire gère une équipe ET un club', () => {
     const options = baseOptions({

@@ -50,10 +50,6 @@ export type Resource =
   | { type: 'product' }
   | { type: 'credit_rule' }
   | { type: 'payout' }
-  // P.7 (SPEC-PARAMETRES-PLATEFORME.md) — poser une dérogation admin
-  // (`derogations_parametres`) : réservé à `platform_admin`, même patron que
-  // 'product' (aucune autre combinaison rôle/action n'est jamais autorisée).
-  | { type: 'derogation' }
   // Tâche 1.1 — `id: null` signifie "pas encore créé" (vérification au
   // moment du `create`, avant qu'un id existe).
   | { type: 'club'; id: string | null }
@@ -125,11 +121,6 @@ export function can(user: AuthUser | null, action: Action, resource: Resource): 
       // Seul platform_admin écrit ou lit les produits via ce système de
       // permissions (la lecture publique du catalogue passe par une vue
       // publique, pas par ce contrôle — voir Tâche 1.2).
-      return false;
-
-    case 'derogation':
-      // Seul platform_admin (déjà court-circuité ci-dessus) pose une
-      // dérogation — aucun autre rôle, quelle que soit l'action (P.7).
       return false;
 
     case 'credit_rule':

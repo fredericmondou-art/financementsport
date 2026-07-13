@@ -26,12 +26,10 @@ import {
 } from '@/lib/cart/items';
 import {
   setCartBeneficiarySplit,
-  splitBpsEqually,
   type CartBeneficiaryRow,
   type CartBeneficiariesRepo,
 } from '@/lib/cart/beneficiaries';
 import { attachGuestCartToUser } from '@/lib/cart/attach-guest-cart';
-import { PARAMETRES_DEFAUT } from '@/lib/parametres';
 import { BusinessRuleError, NotFoundError, PermissionError } from '@/lib/entities/errors';
 import type { CartIdentity } from '@/lib/cart/types';
 
@@ -150,9 +148,6 @@ function createFakeCartBeneficiariesRepo(): CartBeneficiariesRepo {
         return newRow;
       });
       return inserted;
-    },
-    async getParametres() {
-      return PARAMETRES_DEFAUT;
     },
   };
 }
@@ -388,37 +383,6 @@ describe('setCartBeneficiarySplit — règle "SUM(share_bps) = 10000"', () => {
         beneficiariesRepo,
       ),
     ).rejects.toThrow(PermissionError);
-  });
-});
-
-describe('setCartBeneficiarySplit — P.3, R9 (panier_multi_beneficiaires_max, SPEC-PARAMETRES-PLATEFORME.md)', () => {
-  function equalSplitOf(count: number): Array<{ beneficiaryType: 'athlete'; beneficiaryId: string; shareBps: number }> {
-    return splitBpsEqually(10000, count).map((shareBps) => ({
-      beneficiaryType: 'athlete' as const,
-      beneficiaryId: randomUUID(),
-      shareBps,
-    }));
-  }
-
-  it('accepte EXACTEMENT le maximum de bénéficiaires (4)', async () => {
-    const cartRepo = createFakeCartRepo();
-    const beneficiariesRepo = createFakeCartBeneficiariesRepo();
-    const cart = await getOrCreateCart(guestA, cartRepo);
-    const max = PARAMETRES_DEFAUT.panier_multi_beneficiaires_max;
-
-    const result = await setCartBeneficiarySplit(cart, guestA, equalSplitOf(max), beneficiariesRepo);
-    expect(result).toHaveLength(max);
-  });
-
-  it('refuse max + 1 bénéficiaires (BusinessRuleError)', async () => {
-    const cartRepo = createFakeCartRepo();
-    const beneficiariesRepo = createFakeCartBeneficiariesRepo();
-    const cart = await getOrCreateCart(guestA, cartRepo);
-    const max = PARAMETRES_DEFAUT.panier_multi_beneficiaires_max;
-
-    await expect(
-      setCartBeneficiarySplit(cart, guestA, equalSplitOf(max + 1), beneficiariesRepo),
-    ).rejects.toThrow(BusinessRuleError);
   });
 });
 
