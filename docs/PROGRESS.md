@@ -1411,26 +1411,21 @@ opengraph-image manquants).
       deux pièges RLS rencontrés et corrigés) dans `docs/DECISIONS.md`.
       **P.8 reste à traiter.**
 
-## En cours
-(aucune)
-
-## À venir
-- Paramètres de plateforme, P.8 (voir `docs/PLAN-PARAMETRES-PLATEFORME.md`
-  et `SPEC-PARAMETRES-PLATEFORME.md` -- P.1 à P.7 terminées) : tests aux
-  bornes supplémentaires, en bonne partie déjà couverts par les tests de
-  P.3 à P.7 (à vérifier/compléter spécifiquement contre le tableau des cas
-  de la spec : égal au max, max+1, dérogation active, fallback table
-  absente, pour CHAQUE règle R1-R9).
-- Valider visuellement la refonte de l'accueil en local/CI (captures desktop +
-  mobile, `npm run build` complet) avant de fusionner
-  `docs/PLAN-DESIGN-REFONTE-ACCUEIL.md` dans `docs/DESIGN.md`.
-
-(Les plans déjà traités sont archivés dans `docs/archive/prompts/`, voir
-`docs/README.md` pour l'index complet.)
-
-## Point ouvert (hors refonte visuelle)
-Aucune image `opengraph-image`/`favicon`/`icon` n'existe dans `app/` --
-à fournir par l'équipe (identité visuelle) avant le lancement public. Les
-pages légales (`/confidentialite`, `/conditions`, `/remboursement-livraison`)
-restent des gabarits portant la mention « à faire valider juridiquement » --
-révision professionnelle requise avant un lancement commercial réel.
+## Terminé (suite 21)
+- [x] **Paramètres de plateforme — P.8 (tests aux bornes supplémentaires)**
+      (2026-07-13). Audit préalable de la couverture réelle par règle
+      (R1-R9) contre le critère d'acceptation spec §6 (« égal au max,
+      max+1, dérogation active, fallback table absente ») : R1/R2/R3/R5/
+      R6/R7/R8 déjà couverts (P.3 à P.7) ; R9 confirmé déjà couvert, mais
+      en intégration (`tests/integration/cart.test.ts`) plutôt qu'en
+      unitaire -- pas une lacune. Fallback « table absente » non dupliqué
+      par règle : déjà prouvé une seule fois à la source
+      (`tests/unit/parametres.test.ts`, P.2), chaque règle passant
+      systématiquement par ce module unique. **Une seule lacune réelle
+      trouvée** : R4 (plafond commandes) n'avait jamais testé sa
+      composition RÉELLE avec une dérogation active
+      (`resolveEffectiveLimit` puis `isCampaignOrderCapReached`, l'ordre
+      exact utilisé par `create-checkout-session.ts`) -- chaque fonction
+      n'était testée qu'isolément. Comblée par 5 nouveaux tests dans
+      `tests/unit/campaign-order-cap.test.ts` (sans dérogation ; entre
+      l'ancien 

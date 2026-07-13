@@ -5291,3 +5291,64 @@ fichiers unitaires + 23/23 fichiers d'intégration verts, aucune régression.
 
 **P.8 reste à traiter** (tests aux bornes supplémentaires, en bonne partie
 déjà couverts par les tests de P.3 à P.7).
+
+## 2026-07-13 (suite) — Paramètres de plateforme, P.8 (tests aux bornes supplémentaires)
+
+**Audit préalable** (avant d'écrire du code, CLAUDE.md section 9) de la
+couverture réelle par règle, contre le critère d'acceptation spec §6 :
+« chaque règle testée aux bornes (égal au max, max+1, dérogation active,
+fallback table absente) ».
+
+- R1 (durée) : min/min-1/max/max+1 + dérogation -- déjà couverts (P.3/P.7).
+- R2 (livraison) : max/max+1 -- déjà couvert (P.3). Aucune dérogation
+  possible (obligation légale, spec §4) -- rien à ajouter.
+- R3 (athlètes) : max/max+1 + dérogation (équipe ET club) -- déjà couverts
+  (P.3/P.7).
+- R4 (commandes) : max-1/max/max+1 déjà couverts (P.4,
+  `tests/unit/campaign-order-cap.test.ts`) MAIS la composition réelle avec
+  une dérogation active (`resolveEffectiveLimit` puis
+  `isCampaignOrderCapReached`, exactement l'ordre utilisé par
+  `create-checkout-session.ts`) n'était testée nulle part -- SEULE lacune
+  réelle trouvée par cet audit. `create-checkout-session.ts` n'étant pas
+  repo-injectable (I/O Stripe direct, pas de `CheckoutRepo`), impossible de
+  la tester unitairement autrement qu'en composant les deux fonctions déjà
+  pures et déjà testées séparément -- 5 tests ajoutés à
+  `tests/unit/campaign-order-cap.test.ts` (sans dérogation ; entre l'ancien
+  et le nouveau max ; borne exacte du nouveau max ; nouveau max + 1 ;
+  dérogation corrompue retombant sur le plafond de base).
+- R5 (produits) : max/max+1 + dérogation (relevée ET toujours bloquée
+  au-delà de la limite dérogée) -- déjà couverts (P.3/P.7).
+- R6 (objectif, souple) : seuil/seuil+1 -- déjà couverts (P.6). Aucune
+  dérogation prévue par la spec pour une règle souple -- rien à ajouter.
+- R7 (campagnes/équipe/an) : max-1/max + dérogation -- déjà couverts
+  (P.3/P.7).
+- R8 (crédit annuel) : max-1/max/max+1 -- déjà couverts (P.5, 16 tests).
+  Son ADM (« libération manuelle des crédits en attente ») est un
+  mécanisme distinct de `derogations_parametres` (voir docs/DECISIONS.md,
+  P.7) -- pas de « dérogation active » à tester ici au sens de ce module.
+- R9 (bénéficiaires/commande) : max/max+1 -- déjà couverts, mais
+  uniquement en INTÉGRATION (`tests/integration/cart.test.ts`,
+  `setCartBeneficiarySplit` a besoin d'un repo réel/simulé complexe) plutôt
+  qu'en unitaire -- cohérent avec le reste du projet (pas une lacune).
+  Aucune dérogation prévue par la spec pour R9 (§4 ne liste aucun ADM pour
+  cette règle, contrairement à R1/R3/R4/R5/R7).
+
+**Fallback « table absente ».** Non dupliqué par règle : chaque règle lit
+systématiquement via `repo.getParametres()` / `getParametres(supabase)`
+(`lib/parametres.ts`), qui NE LÈVE JAMAIS d'exception -- une table
+inaccessible retombe silencieusement sur `PARAMETRES_DEFAUT` au niveau du
+module unique (déjà testé exhaustivement, `tests/unit/parametres.test.ts`,
+P.2). Dupliquer ce test dans les 9 modules de règles n'aurait vérifié que
+la même garantie déjà prouvée à sa source -- décision délibérée de ne pas
+le faire (CLAUDE.md section 8 : cas limites couverts, pas dupliqués).
+
+**Tests.** 5 tests ajoutés à `tests/unit/campaign-order-cap.test.ts` (11
+tests au total dans ce fichier désormais). Suite complète relancée par
+lots : 66/66 fichiers unitaires + 23/23 fichiers d'intégration verts,
+aucune régression. `tsc --noEmit`/`eslint` propres.
+
+**Paramètres de plateforme (SPEC-PARAMETRES-PLATEFORME.md) : P.1 à P.8
+terminées.** Points ouverts restants (spec §8, hors code) : validation
+juridique de `athlete_credit_annuel_max`/`campagne_duree_jours` avant tout
+relèvement, valeur définitive de `campagne_commandes_max` après le pilote,
+politique de communication « campagne complète ».
