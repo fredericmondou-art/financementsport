@@ -39,6 +39,15 @@
  * n'est pas réservé aux campagnes d'équipe dans le schéma — décision
  * autonome, voir docs/DECISIONS.md). R7 (campagnes/équipe/an) reste, elle,
  * strictement liée à `teamId` (aucune variante club définie par la spec).
+ *
+ * P.7 (SPEC-PARAMETRES-PLATEFORME.md, mécanisme de dérogation) : R1/R3/R5
+ * consultent désormais la dérogation active de l'équipe (ou du club, si pas
+ * d'équipe) porteur de la future campagne AVANT de comparer au plafond —
+ * voir `lib/derogations/derogations.ts` (en-tête de fichier) pour la
+ * décision de portée détaillée (aucun id de campagne n'existe encore à ce
+ * stade, donc la dérogation ne peut pas cibler `'campagne'` pour ces trois
+ * règles). R7 fait de même, scopée équipe. R2 n'admet toujours aucune
+ * dérogation (obligation légale, inchangé).
  */
 import { z } from 'zod';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -48,6 +57,13 @@ import { pickUniqueQrCode } from './qr-codes';
 import type { CampaignsTable } from '@/lib/db/types';
 import { BusinessRuleError, PermissionError } from '@/lib/entities/errors';
 import { getParametres, type ParametresValeurs } from '@/lib/parametres';
+import {
+  createSupabaseDerogationsRepo,
+  resolveEffectiveLimit,
+  type CleDerogeable,
+  type DerogationRow,
+  type EntiteDerogation,
+} from '@/lib/derogations/derogations';
 
 /** Plafonds du self-service (voir migration 0008 — DOIVENT rester identiques
  * aux valeurs codées dans la policy RLS `credit_rules_campaign_manager_*`). */
@@ -174,6 +190,14 @@ export interface CampaignRepo {
    * l'appelant — voir `createSupabaseCampaignRepo`). Non appelée si
    * `teamId === null` (R7 ne définit aucune variante « club »). */
   countTeamCampaignsSince(teamId: string): Promise<number>;
+  /** P.7 : dérogation active pour une portée (équipe/club), ou `null`.
+   * Déléguée à `lib/derogations/derogations.ts` — jamais d'accès direct à
+   * `derogations_parametres` ailleurs (même règle que `getParametres()`). */
+  getActiveDerogation(
+    cle: CleDerogeable,
+    entiteType: EntiteDerogation,
+    entiteId: string,
+  ): Promise<DerogationRow | null>;
   createCampaignWithDetails(args: {
     type: CampaignInput['type'];
     name: string;
@@ -264,6 +288,9 @@ export function createSupabaseCampaignRepo(supabase: SupabaseClient): CampaignRe
       if (error) throw error;
       return count ?? 0;
     },
+    async getActiveDerogation(cle, entiteType, entiteId) {
+      return createSupabaseDerogationsRepo(supabase).findActive(cle, entiteType, entiteId);
+    },
     async createCampaignWithDetails(args) {
       const { data, error } = await supabase.rpc('create_campaign_with_details', {
         p_type: args.type,
@@ -353,21 +380,49 @@ function daysBetweenIso(startIso: string, endIso: string): number {
  * DURES, donc bloquantes ici. Regroupées dans une seule fonction pour que
  * `createCampaign` reste lisible ; chaque règle reste indépendante (une
  * violation interrompt immédiatement, message dédié par règle).
+ *
+ * P.7 : R1/R3/R5 consultent la dérogation active de la portée équipe/club
+ * (`scopeEntity`, résolue une seule fois ci-dessous : équipe si `teamId` est
+ * fourni, club sinon — `campaignInputSchema` garantit qu'au moins l'un des
+ * deux est non nul). R7 consulte sa propre dérogation, scopée équipe. R2
+ * reste sans dérogation possible (obligation légale, inchangé).
  */
 async function assertPlatformParameterRules(
-  input: Pick<CampaignInput, 'startsAt' | 'endsAt' | 'deliveryDate' | 'participantAthleteIds' | 'productIds' | 'teamId'>,
+  input: Pick<
+    CampaignInput,
+    'startsAt' | 'endsAt' | 'deliveryDate' | 'participantAthleteIds' | 'productIds' | 'teamId'
+  > & { clubId: string | null },
   uniqueParticipantCount: number,
   uniqueProductCount: number,
   repo: CampaignRepo,
 ): Promise<void> {
   const parametres = await repo.getParametres();
 
-  // R1 — Durée de campagne (bloquant sur TOUT l'intervalle [min, max]).
+  // P.7 — portée équipe/club pour les dérogations R1/R3/R5 (voir en-tête de
+  // fonction). `scopeEntity` reste `null` seulement en théorie (le schéma
+  // garantit déjà clubId != null || teamId != null) ; dans ce cas les
+  // dérogations sont simplement absentes (repli sur la limite de base).
+  const scopeEntity: { type: EntiteDerogation; id: string } | null =
+    input.teamId != null
+      ? { type: 'equipe', id: input.teamId }
+      : input.clubId != null
+        ? { type: 'club', id: input.clubId }
+        : null;
+
+  async function derogationPour(cle: CleDerogeable): Promise<DerogationRow | null> {
+    if (!scopeEntity) return null;
+    return repo.getActiveDerogation(cle, scopeEntity.type, scopeEntity.id);
+  }
+
+  // R1 — Durée de campagne (bloquant sur TOUT l'intervalle [min, max]). Seul
+  // le MAX est dérogeable (voir lib/derogations/derogations.ts) ; le MIN
+  // reste fixe, aucun cas d'usage ne motive une campagne plus courte.
   const durationDays = daysBetweenIso(input.startsAt, input.endsAt);
   const { min: minDays, max: maxDays } = parametres.campagne_duree_jours;
-  if (durationDays < minDays || durationDays > maxDays) {
+  const maxDaysEffectif = resolveEffectiveLimit(maxDays, await derogationPour('campagne_duree_jours'));
+  if (durationDays < minDays || durationDays > maxDaysEffectif) {
     throw new BusinessRuleError(
-      `La durée maximale d'une campagne est de ${maxDays} jours (minimum ${minDays} jours). ` +
+      `La durée maximale d'une campagne est de ${maxDaysEffectif} jours (minimum ${minDays} jours). ` +
         'Les campagnes courtes vendent mieux : l\'urgence motive les acheteurs.',
     );
   }
@@ -383,17 +438,25 @@ async function assertPlatformParameterRules(
   }
 
   // R3 — Nombre d'athlètes participants.
-  if (uniqueParticipantCount > parametres.campagne_athletes_max) {
+  const athletesMaxEffectif = resolveEffectiveLimit(
+    parametres.campagne_athletes_max,
+    await derogationPour('campagne_athletes_max'),
+  );
+  if (uniqueParticipantCount > athletesMaxEffectif) {
     throw new BusinessRuleError(
-      `Maximum ${parametres.campagne_athletes_max} athlètes par campagne. Pour un club de plusieurs ` +
+      `Maximum ${athletesMaxEffectif} athlètes par campagne. Pour un club de plusieurs ` +
         'équipes, créez une campagne par équipe — la distribution des produits reste gérable.',
     );
   }
 
   // R5 — Produits/packs distincts.
-  if (uniqueProductCount > parametres.campagne_produits_max) {
+  const produitsMaxEffectif = resolveEffectiveLimit(
+    parametres.campagne_produits_max,
+    await derogationPour('campagne_produits_max'),
+  );
+  if (uniqueProductCount > produitsMaxEffectif) {
     throw new BusinessRuleError(
-      `Maximum ${parametres.campagne_produits_max} produits par campagne. Plus de produits complique ` +
+      `Maximum ${produitsMaxEffectif} produits par campagne. Plus de produits complique ` +
         'le tri à la livraison — les campagnes simples performent mieux.',
     );
   }
@@ -401,9 +464,13 @@ async function assertPlatformParameterRules(
   // R7 — Campagnes par équipe par année glissante (aucune variante club).
   if (input.teamId != null) {
     const count = await repo.countTeamCampaignsSince(input.teamId);
-    if (count >= parametres.equipe_campagnes_par_an_max) {
+    const campagnesParAnMaxEffectif = resolveEffectiveLimit(
+      parametres.equipe_campagnes_par_an_max,
+      await repo.getActiveDerogation('equipe_campagnes_par_an_max', 'equipe', input.teamId),
+    );
+    if (count >= campagnesParAnMaxEffectif) {
       throw new BusinessRuleError(
-        `Cette équipe a déjà lancé ${parametres.equipe_campagnes_par_an_max} campagnes cette année. ` +
+        `Cette équipe a déjà lancé ${campagnesParAnMaxEffectif} campagnes cette année. ` +
           'Solliciter le même réseau trop souvent épuise les acheteurs — la boutique permanente et les ' +
           'abonnements continuent de générer des crédits entre les campagnes.',
       );
@@ -470,9 +537,17 @@ export async function createCampaign(
     assertAthleteInScope(athlete, { clubId, teamId });
   }
 
-  // P.3 — règles R1/R2/R3/R5/R7 (voir assertPlatformParameterRules).
+  // P.3/P.7 — règles R1/R2/R3/R5/R7 (voir assertPlatformParameterRules).
   await assertPlatformParameterRules(
-    { startsAt: input.startsAt, endsAt: input.endsAt, deliveryDate: input.deliveryDate, participantAthleteIds: input.participantAthleteIds, productIds: input.productIds, teamId },
+    {
+      startsAt: input.startsAt,
+      endsAt: input.endsAt,
+      deliveryDate: input.deliveryDate,
+      participantAthleteIds: input.participantAthleteIds,
+      productIds: input.productIds,
+      teamId,
+      clubId,
+    },
     uniqueParticipantIds.length,
     uniqueProductIds.length,
     repo,

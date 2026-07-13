@@ -72,6 +72,10 @@ function fakeRepo(overrides: Partial<CampaignRepo> = {}): CampaignRepo {
     getActiveProductIds: async (ids) => ids.filter((id) => PRODUCT_POOL.includes(id)),
     getParametres: async () => PARAMETRES_DEFAUT,
     countTeamCampaignsSince: async () => 0,
+    // P.7 : aucune dérogation active par défaut -- surchargeable via
+    // `overrides` pour les tests dédiés ci-dessous (describe('P.7 —
+    // dérogations ...')).
+    getActiveDerogation: async () => null,
     createCampaignWithDetails: async (args): Promise<CreatedCampaignResult> => ({
       campaign: {
         id: randomUUID(),
@@ -355,6 +359,174 @@ describe('createCampaign — P.3, règles de paramètres de plateforme (SPEC-PAR
       }
       await createCampaign(clubAdmin(), input, repo);
       expect(called).toBe(false);
+    });
+  });
+
+  describe('P.7 — dérogations (mécanisme admin, relève R1/R3/R5/R7 quand une dérogation active existe)', () => {
+    it("R1 : une dérogation active sur l'équipe relève le maximum de durée (max+1 accepté)", async () => {
+      const repo = fakeRepo({
+        getActiveDerogation: async (cle) =>
+          cle === 'campagne_duree_jours'
+            ? {
+                id: randomUUID(),
+                cleParametre: cle,
+                entiteType: 'equipe',
+                entiteId: TEAM_ID,
+                valeurAppliquee: 30,
+                justification: 'Campagne annuelle',
+                adminId: randomUUID(),
+                creeLe: new Date().toISOString(),
+              }
+            : null,
+      });
+      // 22 jours -- refusé sans dérogation (max défaut = 21), accepté ici.
+      const input = baseInput({
+        startsAt: '2026-07-01T00:00:00.000Z',
+        endsAt: '2026-07-23T00:00:00.000Z',
+        deliveryDate: '2026-07-30T00:00:00.000Z',
+      });
+      await expect(createCampaign(teamManager(), input, repo)).resolves.toBeDefined();
+    });
+
+    it("R1 : une dérogation active ne relève PAS le minimum -- une durée trop courte reste refusée", async () => {
+      const repo = fakeRepo({
+        getActiveDerogation: async () => ({
+          id: randomUUID(),
+          cleParametre: 'campagne_duree_jours',
+          entiteType: 'equipe',
+          entiteId: TEAM_ID,
+          valeurAppliquee: 30,
+          justification: 'Campagne annuelle',
+          adminId: randomUUID(),
+          creeLe: new Date().toISOString(),
+        }),
+      });
+      const input = baseInput({
+        startsAt: '2026-07-01T00:00:00.000Z',
+        endsAt: '2026-07-05T00:00:00.000Z', // 4 jours, sous le minimum (7)
+      });
+      await expect(createCampaign(teamManager(), input, repo)).rejects.toThrow(BusinessRuleError);
+    });
+
+    it('R3 : une dérogation active sur le club (campagne sans équipe) relève le maximum d’athlètes', async () => {
+      const max = PARAMETRES_DEFAUT.campagne_athletes_max;
+      function clubAdmin(): AuthUser {
+        return {
+          id: randomUUID(),
+          role: 'club_admin',
+          memberships: [{ role: 'club_admin', teamId: null, clubId: CLUB_ID }],
+        };
+      }
+      const repo = fakeRepo({
+        getAthletesScope: async (ids) =>
+          ids.map((id) => ({ id, teamId: null, clubId: CLUB_ID })),
+        getActiveDerogation: async (cle, entiteType, entiteId) =>
+          cle === 'campagne_athletes_max' && entiteType === 'club' && entiteId === CLUB_ID
+            ? {
+                id: randomUUID(),
+                cleParametre: cle,
+                entiteType,
+                entiteId,
+                valeurAppliquee: max + 5,
+                justification: 'Gros club, effectif exceptionnel',
+                adminId: randomUUID(),
+                creeLe: new Date().toISOString(),
+              }
+            : null,
+      });
+      const extraAthletes = Array.from({ length: max + 5 }, () => randomUUID());
+      const input = baseInput({
+        teamId: null,
+        clubId: CLUB_ID,
+        beneficiaryType: 'club',
+        beneficiaryId: CLUB_ID,
+        participantAthleteIds: extraAthletes,
+      });
+      await expect(createCampaign(clubAdmin(), input, repo)).resolves.toBeDefined();
+    });
+
+    it('R5 : une dérogation active sur l’équipe relève le maximum de produits (max+1 accepté)', async () => {
+      const max = PARAMETRES_DEFAUT.campagne_produits_max;
+      const repo = fakeRepo({
+        getActiveDerogation: async (cle) =>
+          cle === 'campagne_produits_max'
+            ? {
+                id: randomUUID(),
+                cleParametre: cle,
+                entiteType: 'equipe',
+                entiteId: TEAM_ID,
+                valeurAppliquee: max + 1,
+                justification: 'Catalogue élargi ponctuel',
+                adminId: randomUUID(),
+                creeLe: new Date().toISOString(),
+              }
+            : null,
+      });
+      const input = baseInput({ productIds: PRODUCT_POOL.slice(0, max + 1) });
+      await expect(createCampaign(teamManager(), input, repo)).resolves.toBeDefined();
+    });
+
+    it('R5 : reste refusé au-delà de la limite dérogée (max dérogé + 1)', async () => {
+      const max = PARAMETRES_DEFAUT.campagne_produits_max;
+      const repo = fakeRepo({
+        getActiveDerogation: async (cle) =>
+          cle === 'campagne_produits_max'
+            ? {
+                id: randomUUID(),
+                cleParametre: cle,
+                entiteType: 'equipe',
+                entiteId: TEAM_ID,
+                valeurAppliquee: max + 1,
+                justification: 'Catalogue élargi ponctuel',
+                adminId: randomUUID(),
+                creeLe: new Date().toISOString(),
+              }
+            : null,
+      });
+      const input = baseInput({ productIds: PRODUCT_POOL.slice(0, max + 2) });
+      await expect(createCampaign(teamManager(), input, repo)).rejects.toThrow(BusinessRuleError);
+    });
+
+    it('R7 : une dérogation active sur l’équipe relève le maximum de campagnes/an', async () => {
+      const max = PARAMETRES_DEFAUT.equipe_campagnes_par_an_max;
+      const repo = fakeRepo({
+        countTeamCampaignsSince: async () => max, // déjà au plafond de base
+        getActiveDerogation: async (cle) =>
+          cle === 'equipe_campagnes_par_an_max'
+            ? {
+                id: randomUUID(),
+                cleParametre: cle,
+                entiteType: 'equipe',
+                entiteId: TEAM_ID,
+                valeurAppliquee: max + 1,
+                justification: 'Campagne supplémentaire exceptionnelle',
+                adminId: randomUUID(),
+                creeLe: new Date().toISOString(),
+              }
+            : null,
+      });
+      await expect(createCampaign(teamManager(), baseInput(), repo)).resolves.toBeDefined();
+    });
+
+    it('une dérogation avec une valeur_appliquee corrompue retombe silencieusement sur la limite de base (défense en profondeur)', async () => {
+      const repo = fakeRepo({
+        getActiveDerogation: async (cle) =>
+          cle === 'campagne_produits_max'
+            ? {
+                id: randomUUID(),
+                cleParametre: cle,
+                entiteType: 'equipe',
+                entiteId: TEAM_ID,
+                valeurAppliquee: -1, // invalide -- resolveEffectiveLimit doit ignorer
+                justification: 'Donnée corrompue simulée',
+                adminId: randomUUID(),
+                creeLe: new Date().toISOString(),
+              }
+            : null,
+      });
+      const max = PARAMETRES_DEFAUT.campagne_produits_max;
+      const input = baseInput({ productIds: PRODUCT_POOL.slice(0, max + 1) });
+      await expect(createCampaign(teamManager(), input, repo)).rejects.toThrow(BusinessRuleError);
     });
   });
 });

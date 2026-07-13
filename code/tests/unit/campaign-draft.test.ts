@@ -212,6 +212,9 @@ describe('buildCampaignInputFromDraft — Bloc B : jamais de règle de crédit',
         countTeamCampaignsSince: async () => {
           throw new Error('ne devrait jamais être appelé : la validation Zod doit échouer avant');
         },
+        getActiveDerogation: async () => {
+          throw new Error('ne devrait jamais être appelé : la validation Zod doit échouer avant');
+        },
         createCampaignWithDetails: async (): Promise<CreatedCampaignResult> => {
           throw new Error('ne devrait jamais être appelé : la validation doit échouer avant');
         },

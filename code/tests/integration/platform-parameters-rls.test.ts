@@ -21,16 +21,27 @@
  *      appliquée (clé inexistante rejetée).
  *   6. La contrainte CHECK `entite_type` est appliquée (valeur hors énum
  *      rejetée).
+ *   7. (P.7, migration 0027) `entite_type = 'club'` est désormais accepté
+ *      (correctif de la lacune découverte en concevant le mécanisme de
+ *      dérogation -- R1 cite explicitement un exemple « campagne club
+ *      annuelle », voir docs/DECISIONS.md, P.7) ; `platform_admin` peut lire
+ *      ET écrire `derogations_parametres` (policies additives 0027), tandis
+ *      qu'`anon`/`authenticated` restent à zéro ligne comme avant.
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import EmbeddedPostgres from 'embedded-postgres';
 import { Client } from 'pg';
+import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import net from 'node:net';
 
 const MIGRATIONS_DIR = path.resolve(__dirname, '../../supabase/migrations');
+
+// P.7 (migration 0027) : nécessaire aux nouveaux tests de policy
+// platform_admin sur `derogations_parametres`.
+const PLATFORM_ADMIN = randomUUID();
 
 async function getFreePort(): Promise<number> {
   return new Promise((resolve, reject) => {
@@ -136,6 +147,21 @@ describe('parametres_plateforme + derogations_parametres (migration 0023, P.1)',
     );
     await client.query('GRANT ALL ON ALL TABLES IN SCHEMA public TO service_role;');
     await client.query('GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated, service_role;');
+
+    // P.7 : un profil platform_admin pour les tests de policy sur
+    // `derogations_parametres` (migration 0027) -- `on_auth_user_created`
+    // (migration 0002) crée déjà une ligne `profiles` par trigger dès
+    // l'insertion dans `auth.users`, d'où l'ON CONFLICT DO UPDATE pour fixer
+    // le rôle (même patron que admin-dashboard-rls.test.ts).
+    await client.query('INSERT INTO auth.users (id, email) VALUES ($1, $2)', [
+      PLATFORM_ADMIN,
+      'admin-p7@example.com',
+    ]);
+    await client.query(
+      `INSERT INTO profiles (id, email, full_name, role) VALUES ($1, 'admin-p7@example.com', 'Admin Plateforme', 'platform_admin')
+       ON CONFLICT (id) DO UPDATE SET role = EXCLUDED.role`,
+      [PLATFORM_ADMIN],
+    );
   });
 
   afterAll(async () => {
@@ -231,9 +257,78 @@ describe('parametres_plateforme + derogations_parametres (migration 0023, P.1)',
     await expect(
       client.query(
         `INSERT INTO derogations_parametres (cle_parametre, entite_type, entite_id, valeur_appliquee, justification)
-         VALUES ('campagne_athletes_max', 'club', gen_random_uuid(), '1', 'test')`,
+         VALUES ('campagne_athletes_max', 'ligue', gen_random_uuid(), '1', 'test')`,
       ),
     ).rejects.toThrow(/violates check constraint/i);
     await client.query('RESET ROLE');
+  });
+
+  // ---------------------------------------------------------------------
+  // P.7 (migration 0027) : entite_type = 'club' accepté + policies admin.
+  // ---------------------------------------------------------------------
+
+  it("accepte désormais entite_type = 'club' (migration 0027 -- R1 cite explicitement un exemple club, voir docs/DECISIONS.md P.7)", async () => {
+    await client.query('SET ROLE service_role');
+    const result = await client.query<{ id: string }>(
+      `INSERT INTO derogations_parametres (cle_parametre, entite_type, entite_id, valeur_appliquee, justification)
+       VALUES ('campagne_duree_jours', 'club', gen_random_uuid(), '30', 'Campagne club annuelle, exemple spec R1')
+       RETURNING id`,
+    );
+    await client.query('RESET ROLE');
+    expect(result.rows).toHaveLength(1);
+  });
+
+  it('platform_admin lit les lignes de derogations_parametres (policy additive 0027)', async () => {
+    const rows = await asRole(
+      client,
+      'authenticated',
+      PLATFORM_ADMIN,
+      'SELECT * FROM derogations_parametres',
+    );
+    expect(rows.length).toBeGreaterThan(0);
+  });
+
+  it("authenticated non-admin ne lit toujours aucune ligne de derogations_parametres", async () => {
+    const rows = await asRole(
+      client,
+      'authenticated',
+      '88888888-8888-8888-8888-888888888888',
+      'SELECT * FROM derogations_parametres',
+    );
+    expect(rows).toHaveLength(0);
+  });
+
+  it('platform_admin peut écrire une dérogation (policy INSERT additive 0027)', async () => {
+    const rows = await asRole<{ id: string }>(
+      client,
+      'authenticated',
+      PLATFORM_ADMIN,
+      `INSERT INTO derogations_parametres (cle_parametre, entite_type, entite_id, valeur_appliquee, justification, admin_id)
+       VALUES ('equipe_campagnes_par_an_max', 'equipe', gen_random_uuid(), '5', 'Test policy INSERT platform_admin (P.7)', $1)
+       RETURNING id`,
+      [PLATFORM_ADMIN],
+    );
+    expect(rows).toHaveLength(1);
+  });
+
+  it("anon ne peut toujours pas écrire dans derogations_parametres malgré le GRANT de table", async () => {
+    // `asRole` (et non un `SET ROLE anon` brut) : réinitialise EXPLICITEMENT
+    // `request.jwt.claim.sub` à vide -- indispensable ici, ce test s'exécute
+    // APRÈS les tests platform_admin ci-dessus qui laissent ce paramètre de
+    // session (non local, `set_config(..., false)`) positionné sur
+    // PLATFORM_ADMIN sur cette même connexion. Sans cette remise à zéro,
+    // `private.is_platform_admin()` verrait à tort l'admin des tests
+    // précédents au travers de `auth.uid()`, et la policy INSERT laisserait
+    // passer -- piège détecté par un premier run de ce test (INSERT
+    // silencieusement accepté), pas une faille RLS réelle.
+    await expect(
+      asRole(
+        client,
+        'anon',
+        null,
+        `INSERT INTO derogations_parametres (cle_parametre, entite_type, entite_id, valeur_appliquee, justification)
+         VALUES ('campagne_athletes_max', 'equipe', gen_random_uuid(), '35', 'test anon')`,
+      ),
+    ).rejects.toThrow(/row-level security/i);
   });
 });

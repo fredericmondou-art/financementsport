@@ -1382,15 +1382,45 @@ opengraph-image manquants).
       aucune régression. `tsc --noEmit`/`eslint` propres.
       **P.7 et P.8 restent à traiter, une tâche à la fois.**
 
+## Terminé (suite 20)
+- [x] **Paramètres de plateforme — P.7 (mécanisme de dérogation admin)**
+      (2026-07-13). Nouveau `lib/derogations/derogations.ts` : lecture de la
+      dérogation active par portée (`findActive`) + écriture réservée
+      `platform_admin` avec justification obligatoire (`createDerogation`).
+      5 clés dérogeables (R1/R3/R4/R5/R7) ; R2 jamais dérogeable (obligation
+      légale) ; R8 hors périmètre (mécanisme distinct de libération
+      manuelle des crédits en attente, voir P.5). Portée équipe/club pour
+      R1/R3/R5 (validées avant la création de la campagne, aucun id
+      disponible) ; portée campagne pour R4 (vérifiée au paiement, id déjà
+      connu) ; portée équipe pour R7 (inchangé). Migration 0027 : corrige
+      `entite_type` pour admettre `'club'` (lacune de la migration 0023) et
+      pose les policies SELECT/INSERT `platform_admin` sur
+      `derogations_parametres` (jamais UPDATE/DELETE -- journal d'audit
+      append-only, dérogation active = ligne la plus récente pour une
+      portée). Branché dans `create-campaign.ts` (R1/R3/R5/R7) et
+      `create-checkout-session.ts` (R4) via `resolveEffectiveLimit`
+      (fonction pure, repli défensif sur la limite de base si valeur
+      corrompue). Nouvelle route admin minimale `app/(admin)/derogations/`
+      (formulaire + historique des 20 dernières). Nouveau
+      `tests/unit/derogations.test.ts` (18 tests) + bloc P.7 dans
+      `tests/unit/create-campaign.test.ts` (8 tests) +
+      `tests/integration/platform-parameters-rls.test.ts` étendu (7
+      nouveaux tests policies 0027). Suite complète relancée par lots :
+      66/66 fichiers unitaires + 23/23 fichiers d'intégration verts, aucune
+      régression. `tsc --noEmit`/`eslint` propres. Détails complets (dont
+      deux pièges RLS rencontrés et corrigés) dans `docs/DECISIONS.md`.
+      **P.8 reste à traiter.**
+
 ## En cours
 (aucune)
 
 ## À venir
-- Paramètres de plateforme, P.7 à P.8 (voir `docs/PLAN-PARAMETRES-PLATEFORME.md`
-  et `SPEC-PARAMETRES-PLATEFORME.md` -- P.1/P.2/P.3/P.4/P.5/P.6 terminées) :
-  mécanisme de dérogation admin (P.7), tests aux bornes supplémentaires
-  (P.8, en bonne partie déjà couverts par les tests de P.3/P.4/P.5/P.6).
-  Dépendances : P.7 → P.8.
+- Paramètres de plateforme, P.8 (voir `docs/PLAN-PARAMETRES-PLATEFORME.md`
+  et `SPEC-PARAMETRES-PLATEFORME.md` -- P.1 à P.7 terminées) : tests aux
+  bornes supplémentaires, en bonne partie déjà couverts par les tests de
+  P.3 à P.7 (à vérifier/compléter spécifiquement contre le tableau des cas
+  de la spec : égal au max, max+1, dérogation active, fallback table
+  absente, pour CHAQUE règle R1-R9).
 - Valider visuellement la refonte de l'accueil en local/CI (captures desktop +
   mobile, `npm run build` complet) avant de fusionner
   `docs/PLAN-DESIGN-REFONTE-ACCUEIL.md` dans `docs/DESIGN.md`.

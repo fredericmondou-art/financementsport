@@ -5158,3 +5158,136 @@ message). 4 tests ajoutés à `tests/unit/campaign-defaults.test.ts`
 
 **P.7 et P.8 restent à traiter** : mécanisme de dérogation admin (P.7),
 tests aux bornes supplémentaires (P.8).
+
+## 2026-07-13 — Paramètres de plateforme, P.7 (mécanisme de dérogation admin)
+
+Nouveau `lib/derogations/derogations.ts` : lecture de la dérogation ACTIVE
+pour une portée (`findActive`) + écriture (`createDerogation`, réservée à
+`platform_admin`, justification obligatoire >= 10 caractères). Portée
+limitée aux 5 clés dérogeables explicitement prévues par la spec §4 : R1
+(`campagne_duree_jours`), R3 (`campagne_athletes_max`), R4
+(`campagne_commandes_max`), R5 (`campagne_produits_max`), R7
+(`equipe_campagnes_par_an_max`). R2 reste sans dérogation possible
+(obligation légale, spec §4) -- rejetée explicitement par le schéma zod. R8
+(`athlete_credit_annuel_max`) est HORS PÉRIMÈTRE de ce module : son propre
+ADM (« libération manuelle des crédits en attente après validation ») est
+un changement de statut sur des lignes `order_credits` déjà écrites (P.5,
+`credit_pending_reason = 'plafond_annuel'`), pas un relèvement prospectif
+d'un plafond -- deux mécanismes différents, volontairement non unifiés.
+
+**Décision autonome majeure -- portée (entité) de la dérogation par règle.**
+R1/R3/R5 sont validées à la CRÉATION d'une campagne
+(`assertPlatformParameterRules`, `lib/campaigns/create-campaign.ts`), donc
+AVANT qu'un id de campagne n'existe -- une dérogation pour ces trois règles
+ne peut donc PAS cibler `entite_type = 'campagne'` (aucun id disponible à ce
+stade). Décision : elle cible l'ÉQUIPE (ou le CLUB, si la campagne n'a pas
+d'équipe) porteur de la future campagne -- `entite_type = 'equipe' | 'club'`,
+`entite_id = teamId | clubId`. R7 était déjà nativement scopée équipe
+(aucune variante club, décision antérieure de P.3) : même patron. R4, à
+l'inverse, se vérifie AU PAIEMENT d'une campagne déjà EXISTANTE
+(`create-checkout-session.ts`) -- sa dérogation cible donc directement
+`entite_type = 'campagne'`, cohérent avec le libellé spec R4 (« relèvement
+possible par dérogation EN COURS de campagne »). C'était l'un des deux
+points où deux interprétations semblaient possibles (portée équipe/club vs
+attendre qu'une campagne existe pour permettre toute dérogation) ; la
+seconde aurait rendu R1/R3/R5 non dérogeables en pratique (la validation
+bloque AVANT la création), donc rejetée comme non-conforme à l'intention de
+la spec (« dérogation possible » signifie forcément « avant blocage »).
+
+**Décision autonome -- lacune de schéma corrigée (migration 0027).**
+`derogations_parametres.entite_type` (migration 0023, P.1) n'admettait que
+`'campagne' | 'equipe' | 'athlete'` -- `'club'` manquait, alors que R1 cite
+son propre exemple avec un club (spec §4 : « ex. campagne club annuelle »)
+et que la décision de portée ci-dessus en a explicitement besoin. Corrigé
+par un `DROP CONSTRAINT` / `ADD CONSTRAINT` dans la nouvelle migration 0027.
+
+**Décision autonome -- « dérogation active ».** La table est un journal
+d'audit append-only (aucune colonne de statut/expiration en base, spec §2,
+et migration 0027 ne pose QUE des policies SELECT/INSERT -- jamais
+UPDATE/DELETE). La dérogation ACTIVE pour une portée (clé + entité) est
+donc simplement la ligne la plus RÉCENTE enregistrée pour cette portée
+(`cree_le DESC LIMIT 1`) -- une nouvelle dérogation remplace implicitement
+la précédente sans jamais l'effacer, l'historique complet reste
+consultable. Documenté en tête de `lib/derogations/derogations.ts`.
+
+**Décision autonome -- forme de `valeur_appliquee`.** Un simple entier
+positif (le nouveau plafond), jamais l'objet composite `{min,max,defaut}`
+de `campagne_duree_jours` -- seul le MAX est bloquant (R1), `defaut` n'est
+qu'un confort de pré-remplissage UI sans lien avec la dérogation. Le MIN de
+`campagne_duree_jours` n'est jamais dérogeable non plus (aucun cas d'usage
+de la spec ne motive une campagne plus courte que le minimum) --
+`resolveEffectiveLimit` (pure, avec repli défensif sur la limite de base si
+la valeur stockée est corrompue/invalide, jamais d'exception) n'est
+appliquée qu'au MAX dans `assertPlatformParameterRules` (R1/R3/R5/R7) et
+dans `create-checkout-session.ts` (R4).
+
+**Piège RLS rencontré et corrigé pendant l'écriture des tests
+d'intégration.** La policy INSERT de la migration 0027 utilisait d'abord
+`public.is_platform_admin()` -- cette fonction a été déplacée dans le
+schéma `private` par la migration 0022 (« optimize_rls_and_harden_grants »,
+durcissement des fonctions SECURITY DEFINER hors de `public` pour ne plus
+être exposées à l'API REST), donc `public.is_platform_admin()` n'existe
+plus depuis. Détecté immédiatement par
+`tests/integration/platform-parameters-rls.test.ts`, qui rejoue
+RÉELLEMENT toutes les migrations (pas seulement une relecture visuelle) --
+corrigé en `private.is_platform_admin()`. Deuxième piège, dans le test
+lui-même cette fois : un test « anon ne peut pas écrire » utilisait un
+`SET ROLE anon` brut sans réinitialiser `request.jwt.claim.sub`, laissé à
+l'uuid de l'admin par un test précédent sur la MÊME connexion Postgres
+(`set_config(..., false)` = non local, persiste au-delà de la transaction)
+-- l'INSERT anon passait donc à tort. Corrigé en réutilisant le helper
+`asRole(client, 'anon', null, ...)` du fichier, qui réinitialise
+explicitement le claim à vide avant chaque requête.
+
+**Branchement dans les validations existantes.**
+`lib/campaigns/create-campaign.ts` (`CampaignRepo.getActiveDerogation`,
+implémentée via `createSupabaseDerogationsRepo(supabase).findActive`) : R1
+compare à `resolveEffectiveLimit(maxDays, dérogation équipe/club)`, R3 et
+R5 de même, R7 compare à sa propre dérogation équipe. R2 inchangé (aucune
+dérogation consultée). `lib/checkout/create-checkout-session.ts` : R4
+consulte `findActive('campagne_commandes_max', 'campagne', campaignId)`
+juste avant `isCampaignOrderCapReached` (fonction pure elle-même
+inchangée, seule la limite passée en argument devient « effective »).
+
+**Interface admin minimale** (spec §6, hors périmètre : uniquement l'écran
+de dérogation, PAS un écran d'administration de `parametres_plateforme`
+lui-même -- modification directe dans Supabase Studio, comme prévu).
+Nouvelle route `app/(admin)/derogations/` : `page.tsx` (garde `can(user,
+'create', { type: 'derogation' })`, formulaire de création + liste des 20
+dernières dérogations comme journal d'audit consultable) + `actions.ts`
+(`createDerogationAction`, même patron que
+`app/(admin)/produits/nouveau/actions.ts`). Nouvelle ressource
+`{ type: 'derogation' }` dans `lib/auth/permissions.ts` (réservée à
+`platform_admin`, même patron que `'product'`).
+
+**Bug d'infrastructure mount/bash rencontré encore une fois, sur presque
+tous les fichiers touchés** (`lib/auth/permissions.ts`,
+`lib/campaigns/create-campaign.ts`, `lib/checkout/create-checkout-session.ts`,
+`tests/unit/create-campaign.test.ts`, `tests/unit/campaign-draft.test.ts`,
+`tests/unit/derogations.test.ts`,
+`tests/integration/platform-parameters-rls.test.ts`,
+`supabase/migrations/0027_derogations_admin.sql`) -- même contournement
+habituel (réécriture bash intégrale via heredoc Python à partir du contenu
+confirmé par l'outil Read). Plusieurs fichiers ont nécessité DEUX
+réécritures (une correction post-Edit se retrouvant elle-même tronquée
+côté bash immédiatement après).
+
+**Tests.** Nouveau `tests/unit/derogations.test.ts` (18 tests : clés
+dérogeables/non dérogeables, portée valide par clé, `resolveEffectiveLimit`
+pure avec défense en profondeur, permissions, validations zod, écriture
+réussie). Nouveau bloc « P.7 — dérogations » dans
+`tests/unit/create-campaign.test.ts` (8 tests : R1/R3/R5/R7 relevés par une
+dérogation active, R1 min non affecté, R5 toujours bloqué au-delà de la
+limite dérogée, valeur corrompue ignorée). `tests/unit/campaign-draft.test.ts`
+mis à jour (nouvelle méthode `getActiveDerogation` du `CampaignRepo` simulé).
+`tests/integration/platform-parameters-rls.test.ts` étendu (7 nouveaux
+tests P.7 : `entite_type = 'club'` accepté, policies SELECT/INSERT
+`platform_admin` sur `derogations_parametres`, `authenticated` non-admin et
+`anon` toujours bloqués ; test préexistant « rejette un entite_type hors
+énumération » adapté pour utiliser une valeur réellement invalide, `'club'`
+étant désormais légitime). Suite complète relancée par lots : 66/66
+fichiers unitaires + 23/23 fichiers d'intégration verts, aucune régression.
+`tsc --noEmit`/`eslint` propres.
+
+**P.8 reste à traiter** (tests aux bornes supplémentaires, en bonne partie
+déjà couverts par les tests de P.3 à P.7).

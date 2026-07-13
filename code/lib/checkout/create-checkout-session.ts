@@ -59,6 +59,10 @@
  *     DIRECT à la confirmation du paiement, jamais les métadonnées de la
  *     session -- une bascule seulement locale à cette fonction serait
  *     invisible du webhook et le crédit resterait lié à la campagne pleine.
+ *   - P.7 (mécanisme de dérogation) : le plafond R4 ci-dessus consulte
+ *     désormais la dérogation active de CETTE campagne (`entite_type =
+ *     'campagne'`, id déjà connu ici) avant de comparer -- voir
+ *     `lib/derogations/derogations.ts`.
  */
 import { createSupabaseServerClient } from '@/lib/auth/supabase-server';
 import { getCurrentUser } from '@/lib/auth/session';
@@ -75,6 +79,7 @@ import {
 import { isCampaignOrderCapReached } from '@/lib/checkout/campaign-order-cap';
 import { BusinessRuleError } from '@/lib/entities/errors';
 import { getParametres } from '@/lib/parametres';
+import { createSupabaseDerogationsRepo, resolveEffectiveLimit } from '@/lib/derogations/derogations';
 import { getStripeClient } from '@/lib/payments/stripe-client';
 import { createSupabaseTaxRatesRepo } from '@/lib/taxes/rates';
 
@@ -173,6 +178,16 @@ export async function createCheckoutSession(): Promise<CheckoutSessionResult> {
     // sous-compterait silencieusement pour quiconque n'est pas déjà
     // propriétaire de toutes les commandes de la campagne.
     const parametres = await getParametres(supabase);
+    // P.7 : dérogation active pour CETTE campagne (« relèvement possible par
+    // dérogation en cours de campagne », spec R4) -- id déjà connu ici,
+    // contrairement à R1/R3/R5 (voir lib/derogations/derogations.ts, en-tête
+    // de fichier, pour la distinction de portée).
+    const derogation = await createSupabaseDerogationsRepo(supabase).findActive(
+      'campagne_commandes_max',
+      'campagne',
+      campaignId,
+    );
+    const commandesMaxEffectif = resolveEffectiveLimit(parametres.campagne_commandes_max, derogation);
     const { data: countRow, error: countError } = await supabase
       .from('v_campaign_paid_order_count')
       .select('paid_order_count')
@@ -180,7 +195,7 @@ export async function createCheckoutSession(): Promise<CheckoutSessionResult> {
       .maybeSingle();
     if (countError) throw countError;
     const paidOrderCount = countRow?.paid_order_count ?? 0;
-    if (isCampaignOrderCapReached(paidOrderCount, parametres.campagne_commandes_max)) {
+    if (isCampaignOrderCapReached(paidOrderCount, commandesMaxEffectif)) {
       // Bascule silencieuse vers la boutique permanente (spec R4 : « aucun
       // message d'erreur côté acheteur »). Écrit en base -- le webhook Stripe
       // relit `cart_beneficiaries` EN DIRECT, jamais les métadonnées de la
