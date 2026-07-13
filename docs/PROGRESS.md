@@ -1358,16 +1358,39 @@ opengraph-image manquants).
       aucune régression, `tsc --noEmit`/`eslint` propres.
       **P.6 à P.8 restent à traiter, une tâche à la fois.**
 
+## Terminé (suite 19)
+- [x] **Paramètres de plateforme — P.6 (assistant de création : avertissements
+      R5/R6)** (2026-07-11). Portée : uniquement R5/R6 (R1/R2 avaient déjà
+      leur pré-remplissage depuis P.3 ; R3 reste hors scope, documenté comme
+      tel dans docs/DECISIONS.md). `lib/campaigns/defaults.ts` :
+      pré-remplit l'objectif au montant suggéré
+      (`campagne_objectif_athlete_suggere.defaut`) -- piège `??` rencontré
+      et corrigé en cours de route (`null` explicite écrasé à tort par le
+      défaut, corrigé avec `!== undefined`, voir docs/DECISIONS.md).
+      Nouveau `lib/campaigns/wizard-warnings.ts` (pur) :
+      `buildObjectifAmbitieuxMessage` (R6) / `buildProduitsRecommandeMessage`
+      (R5), avertissements NON bloquants affichés via le paramètre `?info=`
+      déjà existant (Tâche 1.6.B2). `saveStepAndAdvance` (actions.ts)
+      étendu avec un `buildInfoMessage` optionnel. Hints statiques ajoutés
+      aux étapes « Objectif et dates » (plage suggérée) et « Packs »
+      (compteur + limite + recommandation). Blocage dur R5 reste
+      exclusivement au récapitulatif (cohérent avec R1/R2/R3/R7/R9,
+      inchangé). Nouveau `tests/unit/campaign-wizard-warnings.test.ts` (11
+      tests, bornes seuil/seuil+1) + 4 tests ajoutés à
+      `tests/unit/campaign-defaults.test.ts`. Suite complète relancée par
+      lots : 65/65 fichiers unitaires + 23/23 fichiers d'intégration verts,
+      aucune régression. `tsc --noEmit`/`eslint` propres.
+      **P.7 et P.8 restent à traiter, une tâche à la fois.**
+
 ## En cours
 (aucune)
 
 ## À venir
-- Paramètres de plateforme, P.6 à P.8 (voir `docs/PLAN-PARAMETRES-PLATEFORME.md`
-  et `SPEC-PARAMETRES-PLATEFORME.md` -- P.1/P.2/P.3/P.4/P.5 terminées) : UI
-  assistant de création -- compteurs/avertissements R5/R6 restants au-delà
-  du champ de date déjà ajouté (P.6), mécanisme de dérogation admin (P.7),
-  tests aux bornes supplémentaires (P.8, en bonne partie déjà couverts par
-  les tests de P.3/P.4/P.5). Dépendances : P.6 → P.7 → P.8.
+- Paramètres de plateforme, P.7 à P.8 (voir `docs/PLAN-PARAMETRES-PLATEFORME.md`
+  et `SPEC-PARAMETRES-PLATEFORME.md` -- P.1/P.2/P.3/P.4/P.5/P.6 terminées) :
+  mécanisme de dérogation admin (P.7), tests aux bornes supplémentaires
+  (P.8, en bonne partie déjà couverts par les tests de P.3/P.4/P.5/P.6).
+  Dépendances : P.7 → P.8.
 - Valider visuellement la refonte de l'accueil en local/CI (captures desktop +
   mobile, `npm run build` complet) avant de fusionner
   `docs/PLAN-DESIGN-REFONTE-ACCUEIL.md` dans `docs/DESIGN.md`.

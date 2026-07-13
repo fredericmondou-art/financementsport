@@ -5056,3 +5056,105 @@ partir du contenu confirmé par l'outil Read).
 **P.6 à P.8 restent à traiter** : UI assistant -- compteurs/avertissements
 R5/R6 restants (P.6), mécanisme de dérogation admin (P.7), tests aux bornes
 supplémentaires (P.8).
+
+## 2026-07-11 (suite) — Paramètres de plateforme, P.6 (UI assistant : avertissements R5/R6)
+
+**Portée retenue, tranchée en autonomie** (CLAUDE.md section 9 : ni argent,
+ni sécurité, ni mineurs -- pas de question bloquante nécessaire). Le
+découpage §6 de la spec dit « P.6 — UI assistant de création :
+pré-remplissages, compteurs, avertissements R5/R6, messages §4 », ce qui
+pourrait aussi couvrir R1/R2/R3. Vérifié avant de coder : R1 (durée) et R2
+(date de livraison) ont déjà leur pré-remplissage/champ dans l'assistant
+depuis P.3 (`applyCampaignDefaults`, voir entrée P.3 plus haut) ; R3
+(compteur d'athlètes) n'a AUCUNE UI et reste un blocage dur validé
+uniquement à la soumission finale du récapitulatif -- mais ce fichier
+(`docs/PROGRESS.md`) documentait déjà, sur DEUX sessions consécutives
+(entrées P.4 et P.5), le reste de P.6 comme « R5/R6 restants au-delà du
+champ de date déjà ajouté » : cette interprétation déjà écrite et jamais
+corrigée par Frédéric entre-temps est retenue comme la portée réelle de
+P.6. R3 (compteur/blocage athlètes) n'est donc PAS traité ici -- resterait
+à faire dans un futur P.6bis si jugé utile, non documenté comme dette pour
+l'instant (hors scope explicite).
+
+**R6 — Objectif par athlète (pré-remplissage + avertissement souple).**
+- `lib/campaigns/defaults.ts` (`defaultObjectifDates`) : nouveau champ
+  d'options `objectifSuggereDefautCents`
+  (`parametres.campagne_objectif_athlete_suggere.defaut`). **Piège réel
+  rencontré et corrigé** : la première version utilisait
+  `data.goalCents ?? options.objectifSuggereDefautCents ?? undefined` --
+  `??` traite `null` ET `undefined` comme « absent », ce qui écrasait à
+  tort un objectif EXPLICITEMENT effacé par le gestionnaire (`goalCents:
+  null`, qui signifie « aucun objectif fixé », spec §4 : « optionnel ») en
+  le remplaçant par le défaut suggéré à chaque rendu -- régression
+  détectée par le test « respecte un objectif explicitement effacé »
+  (tests/unit/campaign-defaults.test.ts), qui a échoué avec la première
+  implémentation. Corrigé avec un test explicite `data.goalCents !==
+  undefined ? data.goalCents : options.objectifSuggereDefautCents`, qui
+  distingue correctement les deux états. Bon rappel que `??` n'est PAS un
+  substitut sûr à une vérification explicite quand `null` a un sens métier
+  propre, distinct de « absent » -- à surveiller dans tout futur champ
+  optionnel avec état « explicitement vide » significatif.
+- Avertissement (non bloquant, spec §4 : « aucune validation bloquante ») :
+  fonction pure `buildObjectifAmbitieuxMessage` (nouveau
+  `lib/campaigns/wizard-warnings.ts`), appelée après sauvegarde de l'étape
+  (`objectifAmbitieuxWarning`, `actions.ts`) si l'objectif dépasse
+  `campagne_objectif_athlete_avertissement`. Affiché via le paramètre
+  `?info=` déjà existant (Tâche 1.6.B2, `addAthletesBulkAction`) --
+  réutilisation d'un mécanisme déjà en place plutôt qu'une nouvelle
+  infrastructure d'avertissement.
+
+**R5 — Produits distincts (compteur + avertissement souple).**
+- Le blocage DUR au-delà de `campagne_produits_max` reste exclusivement
+  vérifié à la soumission finale du récapitulatif
+  (`assertPlatformParameterRules`, P.3, inchangé) -- décision délibérée de
+  NE PAS dupliquer ce blocage au niveau de l'étape « Packs » elle-même,
+  pour rester cohérent avec R1/R2/R3/R7/R9 qui suivent tous la même
+  architecture « toutes les règles dures se vérifient au récapitulatif,
+  jamais avant » dans cet assistant (aucune exception introduite pour R5).
+- Compteur statique (`{n} produit(s) sélectionné(s) — maximum {max}, dont
+  {recommande} recommandés...`) affiché sous le titre de l'étape --
+  reflète le DERNIER état sauvegardé (pas de mise à jour live au clic, cet
+  assistant n'utilise volontairement aucun Client Component/JS, principe
+  déjà établi CLAUDE.md section 6 -- cohérent avec le reste de l'assistant).
+- Avertissement (non bloquant) dès `campagne_produits_recommande + 1` :
+  fonction pure `buildProduitsRecommandeMessage`, même mécanisme `?info=`
+  que R6 ci-dessus.
+
+**Refactorisation de `saveStepAndAdvance`** (`actions.ts`) : nouveau
+paramètre optionnel `buildInfoMessage`, appelé APRÈS la sauvegarde de
+l'étape avec les données fusionnées, à l'intérieur du même `try/catch` que
+`buildRawInput` -- choix délibéré : ni R5 ni R6 ne doivent jamais faire
+échouer la sauvegarde elle-même (règles « souples »), et `getParametres`
+(lib/parametres.ts) ne lève de toute façon jamais d'exception (repli sur
+`PARAMETRES_DEFAUT`), donc aucun risque réel de blocage introduit.
+
+**Séparation pure/I-O respectée** (CLAUDE.md section 6) :
+`lib/campaigns/wizard-warnings.ts` ne contient que les DEUX fonctions de
+décision pures (aucune I/O, aucun accès Supabase) ; la lecture des
+paramètres reste dans `actions.ts` (`objectifAmbitieuxWarning`/
+`produitsRecommandeWarning`), même patron que `lib/checkout/
+campaign-order-cap.ts` (pur, R4) + son point d'appel I/O dans
+`lib/checkout/create-checkout-session.ts`.
+
+**Bug d'infrastructure mount/bash rencontré à nouveau, plusieurs fois** :
+`lib/campaigns/defaults.ts`, `app/(portails)/campagnes/nouvelle/
+actions.ts`, `app/(portails)/campagnes/nouvelle/page.tsx`,
+`tests/unit/campaign-wizard-warnings.test.ts` et
+`tests/unit/campaign-defaults.test.ts` tous tronqués côté bash après
+édition via l'outil Edit -- même contournement habituel (réécriture bash
+intégrale via heredoc Python à partir du contenu confirmé par l'outil
+Read). `lib/campaigns/defaults.ts` a même nécessité DEUX réécritures
+successives (la première correction du piège `??` ci-dessus s'est
+elle-même retrouvée tronquée côté bash immédiatement après l'avoir
+corrigée).
+
+**Tests.** Nouveau `tests/unit/campaign-wizard-warnings.test.ts` (11 tests,
+bornes seuil/seuil+1 pour R5 et R6, jamais d'exception, contenu du
+message). 4 tests ajoutés à `tests/unit/campaign-defaults.test.ts`
+(pré-remplissage/préservation/`null` explicite/absence d'option pour
+`goalCents`). Suite complète relancée par lots : 65/65 fichiers unitaires +
+23/23 fichiers d'intégration verts, aucune régression. `tsc --noEmit`/
+`eslint` propres.
+
+**P.7 et P.8 restent à traiter** : mécanisme de dérogation admin (P.7),
+tests aux bornes supplémentaires (P.8).

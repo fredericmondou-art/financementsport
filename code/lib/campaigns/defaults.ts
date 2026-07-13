@@ -50,6 +50,12 @@ export interface CampaignDefaultsOptions {
    * borner (jamais dépasser) le délai de livraison par défaut proposé.
    * Repli : voir `DEFAULT_DELIVERY_DELAY_DAYS`. */
   deliveryDelayMaxDays?: number;
+  /** P.6 (SPEC-PARAMETRES-PLATEFORME.md, R6) :
+   * `parametres.campagne_objectif_athlete_suggere.defaut` -- objectif
+   * pré-rempli quand le gestionnaire n'en a pas encore choisi un. Absent en
+   * environnement de test qui ne fournit pas cette option : le champ reste
+   * alors vide comme avant P.6 (règle "souple", aucune valeur imposée). */
+  objectifSuggereDefautCents?: number;
 }
 
 /** Repli si `options.campaignDurationDefaultDays` est absent -- aligné sur
@@ -120,7 +126,13 @@ function defaultObjectifDates(
   const endsAt = data.endsAt ?? end.toISOString();
   const delivery = new Date(new Date(endsAt).getTime() + deliveryDelayDays * 24 * 60 * 60 * 1000);
   return {
-    goalCents: data.goalCents,
+    // P.6 (R6) : pré-rempli au montant suggéré si le gestionnaire n'a pas
+    // encore choisi d'objectif -- `null` (objectif explicitement effacé par
+    // le gestionnaire) reste `null`, seul `undefined` (jamais saisi) reçoit
+    // le défaut. Piège évité ici : `??` traite `null` ET `undefined` comme
+    // "absent", ce qui écraserait à tort un objectif volontairement effacé
+    // -- on distingue donc explicitement les deux avec `!== undefined`.
+    goalCents: data.goalCents !== undefined ? data.goalCents : options.objectifSuggereDefautCents,
     startsAt: data.startsAt ?? now.toISOString(),
     endsAt,
     deliveryDate: data.deliveryDate ?? delivery.toISOString(),
