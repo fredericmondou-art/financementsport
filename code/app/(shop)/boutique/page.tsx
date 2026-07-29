@@ -83,7 +83,7 @@ export default async function BoutiquePage({ searchParams }: BoutiquePageProps):
   return (
     <main className="page page--wide stack boutique">
       <div className="page-header boutique__header">
-        <span className="section-eyebrow">Boutique</span>
+        <span className="section-eyebrow">Catalogue</span>
         <h1>Boutique</h1>
         <p>Achetez vos essentiels. Financez le sport des jeunes.</p>
       </div>
