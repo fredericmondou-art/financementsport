@@ -2318,3 +2318,56 @@ textarea {
   border-top: 1px solid rgba(251, 247, 242, 0.14);
   color: rgba(251, 247, 242, 0.5);
 }
+
+/* ==========================================================================
+   Eyebrow réutilisable hors accueil (même repère typographique que
+   .home-eyebrow, pour propager la direction premium page par page).
+   ========================================================================== */
+.section-eyebrow {
+  display: block;
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--color-primary);
+  margin-bottom: var(--space-2);
+}
+
+/* ==========================================================================
+   Boutique — Élévation "firme pro" (2026-07-29). En-tête contenu premium +
+   barre de tri posée. Scopé `.boutique` : n'affecte aucune autre page.
+   ========================================================================== */
+.boutique__header {
+  display: block;
+  position: relative;
+  overflow: hidden;
+  padding: var(--space-8) var(--space-7);
+  margin-bottom: var(--space-7);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  background:
+    radial-gradient(60% 120% at 90% 0, rgba(244, 115, 43, 0.1), transparent 60%),
+    var(--color-primary-tint);
+}
+.boutique__header h1 {
+  font-family: var(--font-display);
+  font-size: clamp(2.25rem, 4vw, 3.25rem);
+  letter-spacing: -0.02em;
+  line-height: 1.02;
+  color: var(--color-ink-strong);
+  margin: 0;
+}
+.boutique__header p {
+  font-size: 1.125rem;
+  color: var(--color-text-secondary);
+  margin: var(--space-3) 0 0;
+  max-width: 48ch;
+}
+.boutique .shop-toolbar {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3) var(--space-4);
+  box-shadow: var(--shadow-sm);
+}

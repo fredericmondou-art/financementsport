@@ -81,8 +81,9 @@ export default async function BoutiquePage({ searchParams }: BoutiquePageProps):
   const activeSort: ProductSort = (searchParams.sort as ProductSort | undefined) ?? 'price_asc';
 
   return (
-    <main className="page page--wide stack">
-      <div className="page-header">
+    <main className="page page--wide stack boutique">
+      <div className="page-header boutique__header">
+        <span className="section-eyebrow">Boutique</span>
         <h1>Boutique</h1>
         <p>Achetez vos essentiels. Financez le sport des jeunes.</p>
       </div>
