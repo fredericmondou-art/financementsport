@@ -2068,24 +2068,25 @@ textarea {
   display: grid;
   place-items: center;
 }
+/* Les badges chevauchent les bords HAUT et BAS de la carte (décalage vertical
+   seulement), calés horizontalement à l'intérieur des bords gauche/droit :
+   ils ne recouvrent plus le contenu (en-tête, libellés) et ne dépassent pas
+   latéralement, donc ne sont plus rognés par l'overflow du hero. */
+.home-impact {
+  margin-block: 22px;
+}
 .home-impact__badge--a {
-  top: -18px;
-  left: -18px;
+  top: -22px;
+  left: 14px;
 }
 .home-impact__badge--b {
-  bottom: -18px;
-  right: -14px;
+  bottom: -22px;
+  right: 14px;
 }
 @media (max-width: 900px) {
   .home-hero__inner {
     flex-direction: column;
     align-items: stretch;
-  }
-  .home-impact__badge--a {
-    left: 0;
-  }
-  .home-impact__badge--b {
-    right: 0;
   }
 }
 
@@ -2130,9 +2131,21 @@ textarea {
 .feature-card__icon {
   width: 46px;
   height: 46px;
-  padding: 8px;
+  padding: 10px;
+  color: var(--color-primary);
   background: var(--color-primary-tint);
   border-radius: var(--radius-md);
+}
+/* Icônes (jeu maison, components/icons.tsx) dans les badges du hero et la
+   promesse "15 minutes" : taille alignée sur le texte à côté. */
+.home-impact__badge-ic svg {
+  width: 18px;
+  height: 18px;
+}
+.home-teams__promise svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
 }
 @media (prefers-reduced-motion: reduce) {
   .home .feature-card:hover {
@@ -2231,4 +2244,74 @@ textarea {
 }
 .home-cta .btn--primary:hover:not(:disabled) {
   background: var(--color-bg);
+}
+
+/* ==========================================================================
+   Nav + footer partagés — Élévation "firme pro" (2026-07-29). Additif et
+   par cascade (mêmes sélecteurs, placés plus bas). CSS seulement : aucune
+   structure ni libellé de lien modifié, donc aucun test e2e affecté.
+   ========================================================================== */
+
+/* --- En-tête : barre translucide avec flou, marque en condensé --- */
+.site-header {
+  background: rgba(251, 247, 242, 0.82);
+  -webkit-backdrop-filter: saturate(180%) blur(12px);
+  backdrop-filter: saturate(180%) blur(12px);
+  border-bottom: 1px solid var(--color-border);
+  box-shadow: none;
+}
+.site-header__bar {
+  max-width: 1200px;
+  padding-top: var(--space-4);
+  padding-bottom: var(--space-4);
+}
+.site-header__brand {
+  font-family: var(--font-display);
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  font-size: 1.125rem;
+  color: var(--color-ink-strong);
+}
+.site-header__mark {
+  width: 30px;
+  height: 30px;
+}
+.nav-link {
+  font-weight: 500;
+}
+
+/* --- Pied de page : sombre, premium, aligné sur l'accueil --- */
+.site-footer {
+  background: var(--color-ink-strong);
+  border-top: none;
+  margin-top: var(--space-9);
+}
+.site-footer__top {
+  max-width: 1200px;
+  padding-top: var(--space-9);
+  padding-bottom: var(--space-7);
+}
+.site-footer__brand-name {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.375rem;
+  color: var(--color-bg);
+}
+.site-footer__tagline,
+.site-footer__locale {
+  color: rgba(251, 247, 242, 0.62);
+}
+.site-footer__col-title {
+  color: var(--color-bg);
+}
+.site-footer__links a {
+  color: rgba(251, 247, 242, 0.72);
+}
+.site-footer__links a:hover {
+  color: var(--color-primary-light);
+}
+.site-footer__bottom {
+  max-width: 1200px;
+  border-top: 1px solid rgba(251, 247, 242, 0.14);
+  color: rgba(251, 247, 242, 0.5);
 }

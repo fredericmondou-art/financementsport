@@ -77,17 +77,33 @@ import { ScrollReveal } from '@/components/scroll-reveal';
 import { Scoreboard, type ScoreboardItem } from '@/components/scoreboard';
 import { createSupabaseServerClient } from '@/lib/auth/supabase-server';
 import { createSupabaseProductRepo, listPublicProducts } from '@/lib/catalog/products';
+import {
+  IconShoppingBag,
+  IconCoins,
+  IconTrophy,
+  IconLeaf,
+  IconBadgePercent,
+  IconTruck,
+  IconShieldCheck,
+  IconCheck,
+  IconZap,
+} from '@/components/icons';
 
-const HOW_IT_WORKS = [
+type IconComponent = (props: { className?: string }) => JSX.Element;
+
+const HOW_IT_WORKS: { title: string; text: string; icon: IconComponent }[] = [
   {
+    icon: IconShoppingBag,
     title: 'Achète dans la boutique',
     text: "Choisis un produit ou un pack, puis l'athlète, l'équipe ou le club que tu veux encourager.",
   },
   {
+    icon: IconCoins,
     title: 'Le crédit est calculé',
     text: 'Une fois ton paiement confirmé, le crédit de financement est calculé automatiquement selon le produit.',
   },
   {
+    icon: IconTrophy,
     title: "L'athlète est financé",
     text: 'Le crédit est attribué et visible directement sur le profil public du bénéficiaire.',
   },
@@ -99,20 +115,24 @@ const SCOREBOARD_ITEMS: ScoreboardItem[] = [
   { target: 0, suffix: ' $', label: 'de frais cachés — le pourcentage annoncé est le pourcentage versé' },
 ];
 
-const ENGAGEMENTS = [
+const ENGAGEMENTS: { title: string; text: string; icon: IconComponent }[] = [
   {
+    icon: IconLeaf,
     title: 'Produits québécois',
     text: 'Nos produits ménagers écoresponsables sont fabriqués au Québec.',
   },
   {
+    icon: IconBadgePercent,
     title: 'Le pourcentage annoncé, toujours',
     text: 'Le crédit affiché sur chaque produit est versé intégralement, sans exception.',
   },
   {
+    icon: IconTruck,
     title: 'Livraison groupée',
     text: "Les commandes d'une même campagne sont regroupées pour simplifier la distribution à l'équipe.",
   },
   {
+    icon: IconShieldCheck,
     title: 'Protection des données des mineurs',
     text: "Les profils d'athlètes mineurs respectent des règles de confidentialité strictes, dès la conception.",
   },
@@ -146,20 +166,6 @@ const FAQ = [
       'Crée un compte responsable, puis lance une campagne en quelques étapes depuis « Lancer une campagne ».',
   },
 ];
-
-/** Médaillon décoratif réutilisé pour "Comment ça fonctionne" et "Engagements". */
-function DecorativeMedal({ className }: { className?: string }): JSX.Element {
-  return (
-    <svg className={className} viewBox="0 0 48 48" aria-hidden="true" focusable="false">
-      <circle cx="24" cy="20" r="14" fill="var(--color-primary-tint)" stroke="var(--color-primary)" strokeWidth="2" />
-      <path
-        d="M24 12.5l2.6 5.2 5.7.8-4.1 4 1 5.7-5.2-2.7-5.2 2.7 1-5.7-4.1-4 5.7-.8z"
-        fill="var(--color-primary)"
-      />
-      <path d="M17 31l-4 12 11-4 11 4-4-12" fill="none" stroke="var(--color-accent)" strokeWidth="2" strokeLinejoin="round" />
-    </svg>
-  );
-}
 
 export default async function HomePage(): Promise<JSX.Element> {
   const supabase = createSupabaseServerClient();
@@ -225,7 +231,7 @@ export default async function HomePage(): Promise<JSX.Element> {
                   className="home-impact__badge-ic"
                   style={{ background: 'var(--color-primary-tint)', color: 'var(--color-primary)' }}
                 >
-                  <DecorativeMedal className="feature-card__icon" />
+                  <IconShoppingBag />
                 </span>
                 <span>
                   <small>Achat confirmé</small>
@@ -237,7 +243,7 @@ export default async function HomePage(): Promise<JSX.Element> {
                   className="home-impact__badge-ic"
                   style={{ background: 'var(--color-accent-tint)', color: 'var(--color-accent)' }}
                 >
-                  ✓
+                  <IconCheck />
                 </span>
                 <span>
                   <small>Crédit attribué</small>
@@ -281,7 +287,7 @@ export default async function HomePage(): Promise<JSX.Element> {
             {HOW_IT_WORKS.map((item) => (
               <li key={item.title}>
                 <Card padded className="feature-card">
-                  <DecorativeMedal className="feature-card__icon" />
+                  <item.icon className="feature-card__icon" />
                   <h3>{item.title}</h3>
                   <p>{item.text}</p>
                 </Card>
@@ -348,7 +354,10 @@ export default async function HomePage(): Promise<JSX.Element> {
               Décris ton équipe, choisis tes produits, lance ta campagne — le crédit de financement
               est calculé et attribué automatiquement à chaque achat de tes partisans.
             </p>
-            <p className="home-teams__promise">Campagne créée en 15 minutes</p>
+            <p className="home-teams__promise">
+              <IconZap />
+              Campagne créée en 15 minutes
+            </p>
             <ol className="home-teams__steps">
               <li>Décris ton équipe et ton objectif de campagne.</li>
               <li>Choisis les produits qui financent ta campagne.</li>
@@ -393,7 +402,7 @@ export default async function HomePage(): Promise<JSX.Element> {
             {ENGAGEMENTS.map((item) => (
               <li key={item.title}>
                 <Card padded className="feature-card">
-                  <DecorativeMedal className="feature-card__icon" />
+                  <item.icon className="feature-card__icon" />
                   <h3>{item.title}</h3>
                   <p>{item.text}</p>
                 </Card>
