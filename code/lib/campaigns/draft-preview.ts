@@ -33,11 +33,15 @@ export function buildDraftPreviewCampaignSection(data: CampaignDraftData): Publi
     goal_cents: data.goalCents ?? null,
     starts_at: data.startsAt ?? null,
     ends_at: data.endsAt ?? null,
+    delivery_date: data.deliveryDate ?? null,
   };
 
   return {
     campaign: previewCampaign,
     progress: computeCampaignProgress(0, data.goalCents ?? null),
     daysRemaining: data.endsAt ? computeDaysRemaining(data.endsAt) : null,
+    // P.4 (R4) : une campagne en brouillon n'existe pas encore en base --
+    // 0 commande possible, jamais « complète » à l'aperçu.
+    isOrderCapReached: false,
   };
 }

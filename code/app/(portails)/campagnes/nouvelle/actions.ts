@@ -30,6 +30,7 @@ import {
   nextStepId,
   parseStepInput,
   stepIndexFromStepId,
+  type CampaignDraftData,
   type CampaignDraftStepId,
 } from '@/lib/campaigns/draft';
 import {
@@ -39,6 +40,8 @@ import {
 import { createSupabaseAthleteRepo } from '@/lib/entities/athletes';
 import { BusinessRuleError, NotFoundError, PermissionError } from '@/lib/entities/errors';
 import type { AuthUser } from '@/lib/auth/permissions';
+import { getParametres } from '@/lib/parametres';
+import { buildObjectifAmbitieuxMessage, buildProduitsRecommandeMessage } from '@/lib/campaigns/wizard-warnings';
 
 const NOUVELLE_CAMPAGNE_PATH = '/campagnes/nouvelle';
 
@@ -99,18 +102,29 @@ async function requireUser(): Promise<AuthUser> {
  * toujours l'étape, mais on revient au récapitulatif au lieu d'avancer à
  * l'étape suivante — c'est ce qui rend la correction d'un champ "en un clic"
  * (un clic pour ouvrir l'étape, un clic pour enregistrer et revenir).
+ *
+ * `buildInfoMessage` (P.6, avertissements R5/R6 -- SPEC-PARAMETRES-PLATEFORME.md
+ * §4) : optionnel, appelé APRÈS la sauvegarde avec les données fusionnées,
+ * pour un avertissement non bloquant (ex. objectif ambitieux, nombre de
+ * produits au-delà du recommandé). Retourne `null` pour ne rien afficher.
+ * Volontairement DANS le `try/catch` (comme `buildRawInput`) : ni R5 ni R6
+ * ne doivent jamais faire échouer la sauvegarde de l'étape elle-même
+ * (avertissement « souple », spec §4) -- seule la construction du message
+ * est protégée, jamais le `redirect()` final.
  */
 async function saveStepAndAdvance(
   stepId: CampaignDraftStepId,
   stepIndex: number,
   retour: string | null,
   buildRawInput: () => unknown,
+  buildInfoMessage?: (merged: CampaignDraftData) => Promise<string | null>,
 ): Promise<void> {
   const user = await requireUser();
   const supabase = createSupabaseServerClient();
   const draftRepo = createSupabaseCampaignDraftRepo(supabase);
 
   let targetStepIndex: number;
+  let infoMessage: string | null = null;
   try {
     const rawInput = buildRawInput();
     const patch = parseStepInput(stepId, rawInput);
@@ -119,11 +133,12 @@ async function saveStepAndAdvance(
     const next: CampaignDraftStepId = retour === 'recap' ? 'recap' : nextStepId(stepId) ?? stepId;
     await draftRepo.saveStep(user.id, next, merged);
     targetStepIndex = stepIndexFromStepId(next);
+    infoMessage = buildInfoMessage ? await buildInfoMessage(merged) : null;
   } catch (error) {
     redirectWithError(stepIndex, error);
   }
 
-  redirectToStep(targetStepIndex);
+  redirectToStep(targetStepIndex, infoMessage ? { info: infoMessage } : {});
 }
 
 export async function saveTypeNomStepAction(formData: FormData): Promise<void> {
@@ -143,16 +158,47 @@ export async function saveBeneficiaireStepAction(formData: FormData): Promise<vo
   }));
 }
 
+/** P.6 (R6) : avertissement « objectif ambitieux » -- I/O (lecture des
+ * paramètres) + délégation à la fonction pure `buildObjectifAmbitieuxMessage`
+ * (lib/campaigns/wizard-warnings.ts). `getParametres` ne lève jamais
+ * d'exception (repli sur `PARAMETRES_DEFAUT`, voir lib/parametres.ts) : rien
+ * ici ne peut faire échouer la sauvegarde de l'étape. */
+async function objectifAmbitieuxWarning(merged: CampaignDraftData): Promise<string | null> {
+  const parametres = await getParametres(createSupabaseServerClient());
+  return buildObjectifAmbitieuxMessage(
+    merged.goalCents ?? null,
+    parametres.campagne_objectif_athlete_avertissement,
+    parametres.campagne_objectif_athlete_suggere,
+  );
+}
+
+/** P.6 (R5) : avertissement « produits recommandés dépassés » -- même
+ * séparation I/O + fonction pure que `objectifAmbitieuxWarning` ci-dessus. */
+async function produitsRecommandeWarning(merged: CampaignDraftData): Promise<string | null> {
+  const parametres = await getParametres(createSupabaseServerClient());
+  return buildProduitsRecommandeMessage(merged.productIds?.length ?? 0, parametres.campagne_produits_recommande);
+}
+
 export async function saveObjectifDatesStepAction(formData: FormData): Promise<void> {
-  await saveStepAndAdvance('objectif_dates', 3, emptyToNull(formData.get('retour')), () => {
-    const startsAtRaw = emptyToNull(formData.get('startsAt'));
-    const endsAtRaw = emptyToNull(formData.get('endsAt'));
-    return {
-      goalCents: emptyToNull(formData.get('goalCents')) !== null ? Number(formData.get('goalCents')) : null,
-      startsAt: toIsoOrNull(startsAtRaw),
-      endsAt: toIsoOrNull(endsAtRaw),
-    };
-  });
+  await saveStepAndAdvance(
+    'objectif_dates',
+    3,
+    emptyToNull(formData.get('retour')),
+    () => {
+      const startsAtRaw = emptyToNull(formData.get('startsAt'));
+      const endsAtRaw = emptyToNull(formData.get('endsAt'));
+      const deliveryDateRaw = emptyToNull(formData.get('deliveryDate'));
+      return {
+        goalCents: emptyToNull(formData.get('goalCents')) !== null ? Number(formData.get('goalCents')) : null,
+        startsAt: toIsoOrNull(startsAtRaw),
+        endsAt: toIsoOrNull(endsAtRaw),
+        // P.3 (R2) : date de livraison, désormais requise -- voir
+        // lib/campaigns/create-campaign.ts.
+        deliveryDate: toIsoOrNull(deliveryDateRaw),
+      };
+    },
+    objectifAmbitieuxWarning,
+  );
 }
 
 export async function saveParticipantsStepAction(formData: FormData): Promise<void> {
@@ -162,9 +208,15 @@ export async function saveParticipantsStepAction(formData: FormData): Promise<vo
 }
 
 export async function savePacksStepAction(formData: FormData): Promise<void> {
-  await saveStepAndAdvance('packs', 5, emptyToNull(formData.get('retour')), () => ({
-    productIds: formData.getAll('productIds').map(String),
-  }));
+  await saveStepAndAdvance(
+    'packs',
+    5,
+    emptyToNull(formData.get('retour')),
+    () => ({
+      productIds: formData.getAll('productIds').map(String),
+    }),
+    produitsRecommandeWarning,
+  );
 }
 
 /**

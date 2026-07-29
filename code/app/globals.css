@@ -88,6 +88,25 @@
 
   /* Anneau de focus (accessibilité clavier — jamais supprimé, voir règle ci-dessous) */
   --focus-ring: 0 0 0 3px rgba(180, 67, 10, 0.35);
+
+  /* --------------------------------------------------------------------
+     Refonte de l'accueil (BRIEF-REFONTE-ACCUEIL.md / PLAN-DESIGN-
+     REFONTE-ACCUEIL.md). Additifs uniquement : aucun token ci-dessus
+     n'est modifié, aucun composant hors accueil n'est affecté. Brouillon
+     non fusionné dans docs/DESIGN.md tant que non validé -- voir l'en-tête
+     du brief.
+     -------------------------------------------------------------------- */
+  --color-ink-strong: #17140f; /* titres du hero/scoreboard, plus dense que --color-text */
+  --color-teal-deep: #0b4438; /* aplat sombre "bande d'aréna", plus sombre que --color-accent */
+  --color-teal-deep-text: var(--color-bg); /* texte cream sur aplat sarcelle, contraste > 8:1 */
+
+  --font-display: var(--font-archivo), var(--font-heading); /* condensé sport, hero + scoreboard uniquement */
+  --font-body-alt: var(--font-figtree), var(--font-body); /* corps de l'accueil (brief §4) */
+  --font-metric: var(--font-archivo), var(--font-heading); /* chiffres/compteurs, tabular-nums */
+
+  --radius-scoreboard: 4px; /* anguleux par exception assumée, tranche avec le reste (12-24px) */
+  --color-scoreboard-bg: var(--color-teal-deep);
+  --color-scoreboard-digit: var(--color-primary-light); /* ton vif décoratif, pas un usage de texte AA */
 }
 
 *,
@@ -208,6 +227,12 @@ textarea {
 .btn--sm {
   padding: 6px 14px;
   font-size: 0.875rem;
+}
+/* Accueil (refonte) : CTA du hero "plus francs" (brief §2/§6) -- additif. */
+.btn--lg {
+  padding: 14px 28px;
+  font-size: 1.0625rem;
+  font-weight: 700;
 }
 .btn--full-width {
   width: 100%;
@@ -1284,12 +1309,22 @@ textarea {
   padding: 0;
 }
 .sport-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
   padding: var(--space-2) var(--space-4);
   border-radius: 999px;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   font-weight: 600;
   font-size: 0.9375rem;
+}
+/* Icônes de sport (demande du 2026-07-10, voir components/sport-icons.tsx) --
+   remises à l'échelle de la puce, jamais plus grandes que le texte à côté. */
+.sport-chip__icon {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
 }
 .sport-chip--more {
   color: var(--color-text-secondary);
@@ -1582,4 +1617,618 @@ textarea {
 .stat-card__label {
   font-size: 0.875rem;
   color: var(--color-text-secondary);
+}
+
+/* ==========================================================================
+   Accueil — Refonte (BRIEF-REFONTE-ACCUEIL.md / PLAN-DESIGN-REFONTE-ACCUEIL.md).
+   Étend, sans les modifier, les classes .home-* de la Tâche V4 ci-dessus.
+   Scope strict à `.home` : aucune autre page n'est affectée.
+   ========================================================================== */
+
+.home {
+  font-family: var(--font-body-alt);
+}
+
+/* Titre du hero : condensé sportif, accent LOCAL (le reste des titres de la
+   page -- h2/h3 de section -- reste en --font-heading, Bricolage Grotesque,
+   voir docs/DESIGN.md). */
+.home-hero h1 {
+  font-family: var(--font-display);
+  color: var(--color-ink-strong);
+  text-transform: uppercase;
+  letter-spacing: 0.01em;
+  font-weight: 800;
+}
+
+/* Fait honnête superposé au hero (brief §6 : libellé vrai plutôt qu'une
+   statistique inventée). */
+.home-hero__fact {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  width: fit-content;
+}
+.home-hero__fact-value {
+  font-family: var(--font-metric);
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  font-size: 1.75rem;
+  color: var(--color-primary);
+  line-height: 1;
+}
+.home-hero__fact-label {
+  color: var(--color-text-secondary);
+  font-size: 0.9375rem;
+}
+
+/* Animation illustrée du hero (brief §6) : boucle CSS douce, aucune
+   dépendance JS/vidéo -- reste un Server Component. Représente le geste
+   d'achat (sac) qui se transforme en soutien (médaille/étoile). */
+.home-hero__animation {
+  width: 220px;
+  height: 220px;
+}
+.home-hero__animation-bag {
+  transform-origin: center;
+  animation: home-hero-bag-bounce 4.5s ease-in-out infinite;
+}
+.home-hero__animation-medal {
+  transform-origin: center;
+  opacity: 0;
+  animation: home-hero-medal-reveal 4.5s ease-in-out infinite;
+}
+.home-hero__animation-sparkle {
+  transform-origin: center;
+  animation: home-hero-sparkle-spin 9s linear infinite;
+}
+@keyframes home-hero-bag-bounce {
+  0%, 55% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+  70% {
+    transform: translateY(-6px) scale(1.04);
+    opacity: 1;
+  }
+  85%, 100% {
+    transform: translateY(-6px) scale(0.9);
+    opacity: 0;
+  }
+}
+@keyframes home-hero-medal-reveal {
+  0%, 70% {
+    opacity: 0;
+    transform: scale(0.7) translateY(8px);
+  }
+  88%, 100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+@keyframes home-hero-sparkle-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .home-hero__animation-bag,
+  .home-hero__animation-medal,
+  .home-hero__animation-sparkle {
+    animation: none;
+  }
+  .home-hero__animation-bag {
+    opacity: 1;
+  }
+  .home-hero__animation-medal {
+    opacity: 1;
+  }
+}
+
+/* Bande plein fond sarcelle sombre (brief §3 : "aplats sarcelle en zones
+   sombres qui rythment le scroll, façon bandes d'aréna"). Volontairement
+   limitée à 2 usages sur la page (scoreboard + section équipes, voir
+   app/(public)/page.tsx) pour ne pas fatiguer l'oeil ni banaliser l'effet. */
+.home-band--dark {
+  background: var(--color-teal-deep);
+  color: var(--color-teal-deep-text);
+}
+.home-band--dark h2,
+.home-band--dark p {
+  color: var(--color-teal-deep-text);
+}
+.home-band--dark .home-section__lead {
+  color: rgba(251, 247, 242, 0.8);
+}
+
+/* Élément signature : le scoreboard (brief §7). Anguleux par exception
+   assumée (--radius-scoreboard = 4px), tranche avec les rayons doux du
+   reste du système de design -- c'est le seul endroit qui prend ce risque. */
+.scoreboard__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--space-5);
+}
+.scoreboard__item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-5);
+  border: 1px solid rgba(251, 247, 242, 0.25);
+  border-radius: var(--radius-scoreboard);
+  background: rgba(0, 0, 0, 0.12);
+}
+.scoreboard__value {
+  font-family: var(--font-metric);
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  font-size: clamp(2.5rem, 6vw, 3.75rem);
+  line-height: 1;
+  color: var(--color-scoreboard-digit);
+}
+.scoreboard__label {
+  font-size: 0.9375rem;
+  color: rgba(251, 247, 242, 0.85);
+}
+
+/* Section "Pour les équipes" (brief §9.5) : promesse + mini-démo, sur la
+   même bande sombre que le scoreboard. */
+.home-teams__promise {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid rgba(251, 247, 242, 0.35);
+  border-radius: 999px;
+  font-weight: 700;
+  width: fit-content;
+}
+/* <ol> natif (marqueurs numérotés conservés -- pas de display:flex, qui les
+   ferait disparaître sur les enfants). */
+.home-teams__steps {
+  margin: 0;
+  padding-left: 1.25rem;
+}
+.home-teams__steps li + li {
+  margin-top: var(--space-2);
+}
+
+/* Révélations au scroll (brief §8) : par section, jamais par élément.
+   Dégrade proprement sans JS (contenu visible par défaut, voir
+   components/scroll-reveal.tsx) ; prefers-reduced-motion coupe l'effet
+   entièrement plutôt que de le réduire. */
+.reveal {
+  opacity: 1;
+  transform: none;
+}
+.reveal--pending {
+  opacity: 0;
+  transform: translateY(16px);
+}
+.reveal--visible {
+  opacity: 1;
+  transform: none;
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  .reveal--pending {
+    opacity: 1;
+    transform: none;
+  }
+  .reveal--visible {
+    transition: none;
+  }
+}
+
+/* Section "Produits vedettes" (brief §9.4) : réutilise .product-grid
+   existant (Tâche 1.2/V5) sans le modifier ; l'exemple chiffré conservé
+   (tests/e2e/accueil-confiance.spec.ts) est mis en avant à côté, pas en
+   remplacement. */
+.home-products__example {
+  border-color: var(--color-primary);
+  background: var(--color-primary-tint);
+}
+
+/* Bandeau "Pour tous les sports" (remplace les puces d'icônes le 2026-07-10
+   -- voir docblock app/(public)/page.tsx) : photo d'équipement sportif
+   pleine largeur (public/images/sports-banner.png) avec le titre/texte
+   superposés sur un scrim. Le scrim réutilise --color-text (RGB 42,38,34)
+   en dégradé plutôt qu'une teinte arbitraire, pour rester dans les tokens
+   de la marque même si l'image elle-même n'en fait pas partie. */
+.home-sports-banner {
+  position: relative;
+  overflow: hidden;
+  min-height: 420px;
+  display: flex;
+  align-items: center;
+  padding-top: var(--space-8);
+  padding-bottom: var(--space-8);
+}
+.home-sports-banner__image {
+  object-fit: cover;
+  z-index: 0;
+}
+.home-sports-banner__scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: linear-gradient(
+    90deg,
+    rgba(42, 38, 34, 0.72) 0%,
+    rgba(42, 38, 34, 0.45) 42%,
+    rgba(42, 38, 34, 0.1) 72%,
+    rgba(42, 38, 34, 0) 100%
+  );
+}
+.home-sports-banner__content {
+  position: relative;
+  z-index: 2;
+  max-width: 640px;
+}
+.home-sports-banner__content h2,
+.home-sports-banner__content p {
+  color: var(--color-bg);
+}
+@media (max-width: 640px) {
+  .home-sports-banner {
+    min-height: 320px;
+  }
+  .home-sports-banner__scrim {
+    background: rgba(42, 38, 34, 0.6);
+  }
+}
+
+/* ==========================================================================
+   Accueil — Élévation "firme pro" (2026-07-29, validée par Frédéric sur la
+   maquette apercu-accueil-premium.html). PUREMENT additif et scopé `.home` :
+   redéfinit certaines règles .home-* ci-dessus par cascade (mêmes sélecteurs,
+   placés plus bas) sans toucher aux tokens globaux ni à aucune autre page.
+   Aucune couleur en dur hors des tokens de la marque ; dégradés discrets
+   réservés aux accents (conforme DESIGN.md §8 "pas de dégradés tape-à-l'oeil").
+   ========================================================================== */
+
+/* --- Hero : deux colonnes, fond cream + halos d'accent très légers --- */
+.home-hero {
+  background: var(--color-bg);
+  position: relative;
+  overflow: hidden;
+}
+.home-hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(58% 58% at 84% 16%, rgba(244, 115, 43, 0.13), transparent 60%),
+    radial-gradient(48% 48% at 10% 92%, rgba(15, 110, 86, 0.09), transparent 60%);
+}
+.home-hero__inner {
+  position: relative;
+  z-index: 1;
+  align-items: center;
+  gap: var(--space-8);
+  padding-top: var(--space-9);
+  padding-bottom: var(--space-9);
+}
+.home-hero__content {
+  flex: 1 1 480px;
+}
+.home-hero h1 {
+  font-size: clamp(2.75rem, 5.4vw, 4.25rem);
+  line-height: 0.98;
+  text-transform: none; /* le condensé Archivo suffit ; les majuscules alourdissaient */
+  letter-spacing: -0.02em;
+}
+.home-hero__lead {
+  font-size: 1.25rem;
+  color: var(--color-text-secondary);
+  max-width: 36ch;
+  margin-top: var(--space-4);
+}
+.home-hero__eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  background: var(--color-primary-tint);
+  border: 1px solid #ffd9c0;
+  border-radius: 999px;
+  color: var(--color-primary-dark);
+  font-weight: 600;
+  font-size: 0.875rem;
+  margin-bottom: var(--space-4);
+}
+.home-hero__eyebrow::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-primary-light);
+}
+.home-hero .entry-buttons {
+  margin-top: var(--space-5);
+}
+.home-hero__stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-6);
+  margin-top: var(--space-6);
+  padding: 0;
+  list-style: none;
+}
+.home-hero__stats b {
+  display: block;
+  font-family: var(--font-metric);
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  font-size: 1.625rem;
+  color: var(--color-ink-strong);
+  line-height: 1.1;
+}
+.home-hero__stats span {
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+}
+
+/* Carte d'impact du hero (remplace l'ancien pictogramme SVG) : montre le
+   produit en action -- progression de campagne + deux badges flottants.
+   Server Component pur, aucune donnée réelle (libellés d'illustration). */
+.home-hero__art {
+  display: block;
+  flex: 0 1 380px;
+}
+.home-impact {
+  position: relative;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  box-shadow: 0 30px 60px -25px rgba(42, 38, 34, 0.3);
+  padding: var(--space-5);
+}
+.home-impact__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+.home-impact__avatar {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: var(--color-accent-tint);
+  color: var(--color-accent);
+  display: grid;
+  place-items: center;
+  font-family: var(--font-metric);
+  font-weight: 800;
+}
+.home-impact__head b {
+  display: block;
+  font-family: var(--font-heading);
+  color: var(--color-ink-strong);
+}
+.home-impact__head span {
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+}
+.home-impact__bar {
+  height: 12px;
+  border-radius: 999px;
+  background: var(--color-bg-alt);
+  overflow: hidden;
+  margin-bottom: var(--space-2);
+}
+.home-impact__bar > i {
+  display: block;
+  height: 100%;
+  width: 68%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--color-primary-light), var(--color-primary));
+}
+.home-impact__row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+}
+.home-impact__row b {
+  font-family: var(--font-metric);
+  color: var(--color-ink-strong);
+}
+.home-impact__badge {
+  position: absolute;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-md);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.home-impact__badge small {
+  display: block;
+  color: var(--color-text-secondary);
+  font-size: 0.6875rem;
+}
+.home-impact__badge b {
+  font-family: var(--font-metric);
+  color: var(--color-ink-strong);
+  font-size: 0.9375rem;
+}
+.home-impact__badge-ic {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-sm);
+  display: grid;
+  place-items: center;
+}
+.home-impact__badge--a {
+  top: -18px;
+  left: -18px;
+}
+.home-impact__badge--b {
+  bottom: -18px;
+  right: -14px;
+}
+@media (max-width: 900px) {
+  .home-hero__inner {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .home-impact__badge--a {
+    left: 0;
+  }
+  .home-impact__badge--b {
+    right: 0;
+  }
+}
+
+/* --- Eyebrow réutilisable au-dessus des titres de section --- */
+.home-eyebrow {
+  display: block;
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--color-primary);
+  margin-bottom: var(--space-2);
+}
+.home-band--dark .home-eyebrow {
+  color: var(--color-primary-light);
+}
+
+/* --- Rythme vertical plus généreux entre sections --- */
+.home-section {
+  padding: var(--space-9) 0;
+}
+
+/* --- "Comment ça fonctionne" / "Engagements" : cartes soulevées, numéro --- */
+.home .feature-grid {
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+.home .feature-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6) var(--space-5);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.home .feature-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-md);
+}
+.home .feature-card h3 {
+  font-size: 1.25rem;
+}
+.feature-card__icon {
+  width: 46px;
+  height: 46px;
+  padding: 8px;
+  background: var(--color-primary-tint);
+  border-radius: var(--radius-md);
+}
+@media (prefers-reduced-motion: reduce) {
+  .home .feature-card:hover {
+    transform: none;
+  }
+}
+
+/* --- Scoreboard : cellules un peu plus affirmées --- */
+.scoreboard__value {
+  letter-spacing: -0.02em;
+}
+.scoreboard__item {
+  background: rgba(255, 255, 255, 0.03);
+  padding: var(--space-6) var(--space-5);
+}
+
+/* --- Produits vedettes : fond alterné pour poser la section --- */
+.home-section--products {
+  background: var(--color-bg-alt);
+}
+
+/* --- Mini-maquette "espace équipe" dans la bande sombre --- */
+.home-teams__mock {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(251, 247, 242, 0.16);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+}
+.home-teams__mock-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius-sm);
+  padding: var(--space-3) var(--space-4);
+  font-size: 0.875rem;
+}
+.home-teams__mock-row + .home-teams__mock-row {
+  margin-top: var(--space-2);
+}
+.home-teams__mock-row b {
+  font-family: var(--font-metric);
+  color: var(--color-primary-light);
+}
+.home-teams__mock-row--total {
+  background: rgba(244, 115, 43, 0.14);
+}
+.home-teams__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-8);
+  align-items: center;
+}
+@media (max-width: 820px) {
+  .home-teams__grid {
+    grid-template-columns: 1fr;
+    gap: var(--space-6);
+  }
+}
+
+/* --- CTA clubs : bloc arrondi corail plutôt qu'aplat pleine largeur --- */
+.home-cta {
+  background: transparent;
+  color: inherit;
+  padding-bottom: var(--space-9);
+}
+.home-cta__inner {
+  background: linear-gradient(120deg, var(--color-primary), var(--color-primary-dark));
+  border-radius: var(--radius-xl);
+  padding: var(--space-9) var(--space-8);
+  color: var(--color-on-primary);
+  position: relative;
+  overflow: hidden;
+}
+.home-cta__inner::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(50% 120% at 100% 0, rgba(255, 255, 255, 0.14), transparent 60%);
+  pointer-events: none;
+}
+.home-cta h2,
+.home-cta p {
+  color: var(--color-on-primary);
+  position: relative;
+}
+.home-cta p {
+  max-width: 54ch;
+  margin-left: auto;
+  margin-right: auto;
+}
+.home-cta .btn--primary {
+  position: relative;
+  background: var(--color-surface);
+  color: var(--color-primary-dark);
+}
+.home-cta .btn--primary:hover:not(:disabled) {
+  background: var(--color-bg);
 }

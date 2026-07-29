@@ -3,6 +3,14 @@
 Ce fichier est lu automatiquement par Claude Code à chaque session. Il est la
 source de vérité des conventions du projet. Respecte-le sans exception.
 
+## Objectif du projet
+
+Plateforme web de financement sportif pour athlètes, équipes ou clubs : une
+boutique en ligne (produits, packs, abonnements) convertit chaque vente en
+crédit attribué automatiquement au bénéficiaire choisi, avec des portails de
+suivi de campagne pour les clubs/équipes et un back-office admin complet
+(produits, commandes, crédits, paiements, livraisons, rapports).
+
 ## 1. Ce que construit ce projet
 
 Une plateforme web qui combine quatre systèmes :
@@ -35,6 +43,10 @@ commandes → relancer → produire des rapports.
 - **Confidentialité mineurs : défaut "Standard"** (profil complet visible), MAIS
   tous les champs de masquage `hide_*` existent dès la V1 et doivent être
   respectés partout où une donnée d'athlète est exposée publiquement.
+- **Récompenses vendeurs/acheteurs : financées par la MARGE de la plateforme,
+  jamais en réduisant le crédit du bénéficiaire.** Décision confirmée par
+  l'utilisateur le 2026-07-16 (voir `docs/DECISIONS.md`) — aucune ligne de
+  `reward_rules`/`reward_grants` ne touche `order_credits` ou son calcul.
 
 ## 3. Stack technique (imposée)
 
@@ -145,6 +157,53 @@ Marketplace ouverte, app native, multi-entrepôts, IA de recommandation,
 multilingue complet, comptabilité complète, abonnements très flexibles,
 remboursement automatisé complexe. Ne pas anticiper ces fonctions : elles
 viendront après la V1.
+
+## 11. État actuel et prochaines étapes (détail)
+
+Voir les sections dédiées ci-dessous (`État actuel`, `Prochaines étapes`).
+
+## État actuel
+
+(2026-07-13) Le cœur V1 est livré et testé (boutique, moteur de crédit,
+panier multi-bénéficiaires, paiement Stripe, pages publiques, portails
+campagne/équipe/compte, back-office admin, paramètres de plateforme P.1 à
+P.8). Direction visuelle validée dans `docs/DESIGN.md` (2026-06-27) ; une
+refonte de la page d'accueil est en brouillon
+(`docs/PLAN-DESIGN-REFONTE-ACCUEIL.md`, pas encore fusionnée). Le module
+tirage/billets (Phase C.10) est en attente d'un feu vert juridique avant
+activation (`RAFFLE_ENABLED`) — voir `docs/PROGRESS.md`.
+
+(2026-07-16) Schéma défini pour un nouveau chantier — récompenses vendeurs
+et acheteurs (migration `code/supabase/migrations/0028_seller_buyer_rewards.sql`
++ résumé dans `docs/schema-reference.sql`). Décisions et contexte dans
+`docs/DECISIONS.md`. Implémentation applicative (branchement au checkout,
+calcul, UI, tests) pas encore commencée — voir `TODO.md`, chantier 3.
+
+## Prochaines étapes
+
+(1 et 2 décidées le 2026-07-13 ; 3 ajoutée le 2026-07-16)
+
+1. **Partenariats fournisseurs.** Finaliser les ententes avec les compagnies
+   qui vont approvisionner la boutique en produits. C'est une piste
+   **business, hors code** (prospection, négociation, signature) — suivie
+   dans `TODO.md`. Aucun développement de modèle de données fournisseur tant
+   que rien n'est décidé côté catalogue/contrat ; à réévaluer avec
+   l'utilisateur une fois les premières ententes signées (par ex. besoin ou
+   non d'un suivi produit↔fournisseur au back-office).
+2. **Refonte design complète du site.** Étendre la direction déjà validée
+   (`docs/DESIGN.md` + brouillon `docs/PLAN-DESIGN-REFONTE-ACCUEIL.md`) à
+   l'ensemble des pages pour obtenir un rendu professionnel et sportif :
+   boutique, pages publiques athlète/équipe/club, panier/paiement, portails
+   (compte, campagnes, équipe), back-office admin, `/styleguide`. On ne
+   repart pas de zéro — pas de nouveau brief de design, pas de nouveaux
+   tokens en dehors de ceux déjà additifs de `docs/PLAN-DESIGN-REFONTE-ACCUEIL.md`.
+   Détail des sous-tâches dans `TODO.md`.
+3. **Récompenses vendeurs et acheteurs.** Schéma défini (voir `docs/
+   DECISIONS.md`, entrée du 2026-07-16) : financé par la marge de la
+   plateforme, jamais en réduisant le crédit du bénéficiaire. Reste à
+   brancher au flux de commande réel (`create_paid_order`, capture de
+   l'attribution, calcul des règles, UI, tests) — détail des sous-tâches
+   dans `TODO.md`.
 
 ## Routine de fin de session
 

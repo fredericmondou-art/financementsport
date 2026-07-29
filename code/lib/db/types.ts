@@ -61,6 +61,11 @@ export type OrderStatus =
   | 'error';
 
 export type CreditStatus = 'pending' | 'active' | 'expired' | 'cancelled' | 'refunded';
+/** P.5 (SPEC-PARAMETRES-PLATEFORME.md, R8, migration 0026) : pourquoi un
+ * crédit est `pending` -- `campagne_inactive` (raison historique, seule
+ * possible avant P.5) ou `plafond_annuel` (R8, excédent au-delà de
+ * `athlete_credit_annuel_max`, à libérer manuellement par un admin). */
+export type CreditPendingReason = 'campagne_inactive' | 'plafond_annuel';
 
 export type PayoutStatus =
   | 'calculated'
@@ -366,6 +371,7 @@ export interface CampaignsTable {
     goal_cents: number | null;
     starts_at: string | null;
     ends_at: string | null;
+    delivery_date: string | null;
     created_by: string | null;
     approved_at: string | null;
     closed_at: string | null;
@@ -386,6 +392,7 @@ export interface CampaignsTable {
     goal_cents?: number | null;
     starts_at?: string | null;
     ends_at?: string | null;
+    delivery_date?: string | null;
     created_by?: string | null;
     approved_at?: string | null;
     closed_at?: string | null;
@@ -590,6 +597,7 @@ export interface OrderCreditsTable {
     status: CreditStatus;
     applied_rule_id: string | null;
     computation_note: string | null;
+    pending_reason: CreditPendingReason | null;
     created_at: string;
     updated_at: string;
   };
@@ -603,6 +611,7 @@ export interface OrderCreditsTable {
     status?: CreditStatus;
     applied_rule_id?: string | null;
     computation_note?: string | null;
+    pending_reason?: CreditPendingReason | null;
     created_at?: string;
     updated_at?: string;
   };
@@ -945,6 +954,22 @@ export interface VCampaignSupporterCountView {
   };
 }
 
+/**
+ * Ajoutée par la migration 0025 (P.4, SPEC-PARAMETRES-PLATEFORME.md, R4) :
+ * nombre de commandes payées (`isOrderPaid`, lib/distribution/build-list.ts)
+ * par campagne (`orders.primary_campaign_id`) -- même raison d'être qu'une
+ * vue plutôt qu'une lecture directe de `orders` que `VCampaignSupporterCountView`
+ * ci-dessus : le client de l'acheteur (`anon` la plupart du temps) n'a par
+ * RLS accès qu'à ses propres commandes (migration 0005, `orders_select_
+ * scoped`), voir le commentaire de la migration 0025.
+ */
+export interface VCampaignPaidOrderCountView {
+  Row: {
+    campaign_id: string;
+    paid_order_count: number;
+  };
+}
+
 export interface VPublicAthleteView {
   Row: {
     id: string;
@@ -1006,6 +1031,7 @@ export interface VPublicCampaignView {
     goal_cents: number | null;
     starts_at: string | null;
     ends_at: string | null;
+    delivery_date: string | null;
   };
 }
 
@@ -1059,6 +1085,7 @@ export interface Database {
       v_beneficiary_credit_totals: VBeneficiaryCreditTotalsView;
       v_campaign_progress: VCampaignProgressView;
       v_campaign_supporter_count: VCampaignSupporterCountView;
+      v_campaign_paid_order_count: VCampaignPaidOrderCountView;
       v_public_athlete: VPublicAthleteView;
       v_public_team: VPublicTeamView;
       v_public_club: VPublicClubView;
@@ -1072,6 +1099,7 @@ export interface Database {
       campaign_status: CampaignStatus;
       order_status: OrderStatus;
       credit_status: CreditStatus;
+      credit_pending_reason: CreditPendingReason;
       payout_status: PayoutStatus;
       product_kind: ProductKind;
     };

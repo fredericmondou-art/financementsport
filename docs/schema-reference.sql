@@ -520,3 +520,74 @@ GROUP BY c.id, c.goal_cents;
 --   - seul platform_admin écrit dans products, credit_rules, tax_rates.
 -- Les policies RLS détaillées font l'objet d'un prompt dédié (voir 03-prompts).
 -- =============================================================================
+
+-- =============================================================================
+-- AJOUTS -- Migration 0028 : récompenses vendeurs et acheteurs
+-- (schéma défini le 2026-07-16, voir docs/DECISIONS.md -- implémentation
+-- applicative encore à faire, voir TODO.md)
+-- =============================================================================
+--
+-- Code vendeur : EXTENSION de qr_codes (pas une nouvelle table) --
+-- réutilise target_type='campaign'/target_id/scan_count/resolve-target.ts
+-- tels quels. Colonnes ajoutées :
+--   qr_codes.seller_profile_id  UUID REFERENCES profiles(id) ON DELETE SET NULL
+--   qr_codes.seller_name        TEXT   -- requis dès qu'un code est un code vendeur
+--   qr_codes.seller_email       CITEXT
+-- Un code vendeur cible toujours target_type='campaign'. Unique par
+-- (target_id, seller_profile_id) quand le vendeur a un compte.
+--
+-- Attribution, figée à la commande comme primary_campaign_id/team_id :
+--   carts.seller_qr_code_id   UUID REFERENCES qr_codes(id) ON DELETE SET NULL
+--   orders.seller_qr_code_id  UUID REFERENCES qr_codes(id) ON DELETE SET NULL
+
+CREATE TABLE reward_rules (
+  id                 UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  campaign_id        UUID REFERENCES campaigns(id) ON DELETE CASCADE, -- NULL = règle par défaut plateforme
+  applies_to         TEXT NOT NULL CHECK (applies_to IN ('buyer', 'seller')),
+  reward_type        TEXT NOT NULL CHECK (reward_type IN ('discount_code', 'recognition')), -- V1 : non monétaire
+  threshold_scope    TEXT NOT NULL DEFAULT 'per_order' CHECK (threshold_scope IN ('per_order', 'cumulative')),
+  threshold_cents    INTEGER CHECK (threshold_cents >= 0),
+  reward_value_cents INTEGER CHECK (reward_value_cents >= 0),
+  reward_label       TEXT,
+  priority           INTEGER NOT NULL DEFAULT 0,
+  is_active          BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at         TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Ledger des récompenses accordées -- source de vérité, jamais de solde/
+-- palmarès stocké en dur (même principe que order_credits, section 4).
+-- Financé par la MARGE de la plateforme -- ne touche JAMAIS order_credits.
+CREATE TABLE reward_grants (
+  id                   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  order_id             UUID NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+  recipient_type       TEXT NOT NULL CHECK (recipient_type IN ('buyer', 'seller')),
+  recipient_profile_id UUID REFERENCES profiles(id) ON DELETE SET NULL,
+  recipient_qr_code_id UUID REFERENCES qr_codes(id) ON DELETE SET NULL, -- requis si recipient_type='seller'
+  recipient_email      CITEXT,
+  applied_rule_id      UUID REFERENCES reward_rules(id) ON DELETE SET NULL,
+  reward_type          TEXT NOT NULL CHECK (reward_type IN ('discount_code', 'recognition')),
+  value_cents          INTEGER CHECK (value_cents >= 0),
+  label                TEXT,
+  code                 TEXT,
+  status               TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'issued', 'redeemed', 'cancelled')),
+  computation_note     TEXT,
+  created_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at           TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Journal d'audit -- même patron que credit_audit_log.
+CREATE TABLE reward_grant_audit_log (
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  reward_grant_id UUID NOT NULL REFERENCES reward_grants(id) ON DELETE CASCADE,
+  actor_id        UUID REFERENCES profiles(id) ON DELETE SET NULL,
+  action          TEXT NOT NULL,
+  old_value       JSONB,
+  new_value       JSONB,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Détail complet, contraintes CHECK, index et policies RLS : voir
+-- code/supabase/migrations/0028_seller_buyer_rewards.sql (source de vérité
+-- exécutable -- ce fichier reste un résumé de référence, comme pour le
+-- reste du schéma).

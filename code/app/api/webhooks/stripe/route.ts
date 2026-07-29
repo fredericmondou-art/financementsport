@@ -53,6 +53,9 @@ import { createSupabaseTaxRatesRepo } from '@/lib/taxes/rates';
 import { loadCartCreditContext } from '@/lib/cart/credit-context';
 import { calculateOrderCredits, type CreditLineInput } from '@/lib/credits/calculate';
 import { buildOrderCreditInserts } from '@/lib/credits/persist';
+import { applyAnnualCreditCap, buildAnnualCapAdminNoteFr, summarizeAnnualCapExcess } from '@/lib/credits/annual-cap';
+import { loadAthleteAnnualCreditTotals } from '@/lib/credits/load-annual-totals';
+import { getParametres } from '@/lib/parametres';
 import { createPaidOrder, type OrderItemInsertPayload } from '@/lib/orders/create-order';
 import { loadBeneficiaryLabels, beneficiaryLabelKey } from '@/lib/cart/beneficiary-labels';
 import { sendOrderConfirmationEmail } from '@/lib/email/send-order-confirmation';
@@ -206,12 +209,30 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       })),
     });
 
-    const creditInserts = buildOrderCreditInserts(
+    const rawCreditInserts = buildOrderCreditInserts(
       creditResult.lineCredits,
       creditResult.beneficiaryCredits,
       campaignId,
       creditContext.isCampaignActive,
     );
+
+    // R8 (SPEC-PARAMETRES-PLATEFORME.md §4) : plafond annuel de crédit par
+    // athlète. N'affecte que les lignes 'athlete'/'active' -- un panier sans
+    // bénéficiaire athlète (équipe/club seuls) n'a rien à charger.
+    const athleteIdsForAnnualCap = rawCreditInserts
+      .filter((insert) => insert.beneficiary_type === 'athlete' && insert.status === 'active')
+      .map((insert) => insert.beneficiary_id);
+    const parametres = await getParametres(supabase);
+    const annualTotalsByAthlete =
+      athleteIdsForAnnualCap.length > 0
+        ? await loadAthleteAnnualCreditTotals(supabase, athleteIdsForAnnualCap)
+        : new Map<string, number>();
+    const creditInserts = applyAnnualCreditCap(
+      rawCreditInserts,
+      annualTotalsByAthlete,
+      parametres.athlete_credit_annuel_max,
+    );
+    const annualCapExcess = summarizeAnnualCapExcess(creditInserts);
 
     const orderItemInserts: OrderItemInsertPayload[] = lines.map((line) => ({
       product_id: line.productId,
@@ -244,6 +265,23 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       credits: creditInserts,
       eventPayload: event,
     });
+
+    // R8 : notification interne admin (notes_internal, voir lib/credits/
+    // annual-cap.ts) si au moins une ligne a basculé en excédent plafond
+    // annuel. Non bloquant -- le crédit est déjà correctement écrit dans
+    // order_credits quoi qu'il arrive ; seule la note de suivi peut échouer.
+    if (annualCapExcess.length > 0) {
+      const note = buildAnnualCapAdminNoteFr(annualCapExcess);
+      const combinedNote = order.notes_internal ? `${order.notes_internal} ${note}` : note;
+      try {
+        await supabase.from('orders').update({ notes_internal: combinedNote }).eq('id', order.id);
+      } catch (error) {
+        logger.error('Échec de la notification interne admin R8 (non bloquant).', {
+          orderId: order.id,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
 
     // Le panier ayant abouti à une commande payée n'est plus "ouvert" --
     // évite qu'il réapparaisse comme panier actif de l'identité.

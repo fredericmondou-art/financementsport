@@ -4455,3 +4455,1023 @@ Suite de tests complète relancée par lots de quelques fichiers à la fois
 (le délai du bac à sable ne permet pas une seule passe `npm test` sur les
 78 fichiers du projet) : 58/58 fichiers unitaires et 20/20 fichiers
 d'intégration verts, aucune régression. `tsc --noEmit`/`eslint .` propres.
+
+## 2026-07-10 — Refonte de la page d'accueil (BRIEF-REFONTE-ACCUEIL.md)
+
+**Contexte.** Implémentation du plan produit à `docs/PLAN-DESIGN-REFONTE-ACCUEIL.md`
+(lui-même issu du brief fourni par Frédéric). Deux choix avaient déjà été
+tranchés par Frédéric via `AskUserQuestion` avant le codage (voir
+`docs/QUESTIONS.md`) : corps de texte en Figtree (pas Inter), CTA clubs
+renommé « Devenir club partenaire ». Le reste ci-dessous est autonome.
+
+**Décision 1 — brouillon non fusionné dans `docs/DESIGN.md`.** Le brief
+précise lui-même qu'il complète `DESIGN.md` et devra y être fusionné APRÈS
+validation. Tous les nouveaux tokens (`--color-ink-strong`, `--color-teal-deep`,
+`--font-display`, `--font-metric`, `--font-body-alt`, `--radius-scoreboard`...)
+sont donc additifs dans `app/globals.css` et scopés à `.home` -- aucune autre
+page n'est visuellement affectée, aucun token existant n'est modifié.
+Conséquence assumée : l'accueil utilise maintenant Figtree/Archivo alors que
+le reste du site reste en Inter/Bricolage Grotesque tant que ce brief n'est
+pas fusionné -- rupture de cohérence temporaire, signalée dans le plan et
+acceptée par Frédéric en tranchant la question du corps de texte.
+
+**Décision 2 — substitution du catalogue fictif du brief par le vrai
+catalogue.** Le brief §9.4 cite des produits qui n'existent pas
+(« détergent concentré », « tablettes lave-vaisselle », « sacs
+compostables ») -- `supabase/seed.sql` ne contient que 4 "packs" (Pack
+Maison/Famille/Saison/Sport Propre). Plutôt que d'inventer des noms de
+produits, "Produits vedettes" affiche les 3 VRAIS produits les plus
+généreux en crédit (`listPublicProducts({sort:'credit_desc'})`, tronqué à 3),
+cohérent avec la discipline déjà en place sur cette page (aucune statistique
+ni témoignage inventés, voir l'ancien docblock de la Tâche V4).
+
+**Décision 3 — section "Tous les sports" retirée.** Le brief propose une
+structure stricte de 8 sections qui ne l'inclut pas. Retirée pour suivre la
+discipline demandée (« On Running : rigueur de grille ») ; le message est
+conservé dans la phrase du hero. Classes `.sport-chip*` laissées inutilisées
+dans `app/globals.css` plutôt que supprimées (aucun autre appelant, risque
+nul à les garder, coût nul à les retirer plus tard si jamais réutilisées).
+
+**Décision 4 — deux nouveaux Client Components.**
+`components/scroll-reveal.tsx` (révélation au scroll) et
+`components/scoreboard.tsx` (élément signature, décompte animé) --
+IntersectionObserver n'a pas d'équivalent Server Component, même
+justification que `components/ui/modal.tsx` (Tâche 1.4.2) et
+`components/beneficiary-split.tsx` (Tâche 1.6.A4), les seules exceptions
+précédentes du projet. Les deux dégradent proprement sans JS (contenu
+visible / valeur finale déjà affichée par le rendu serveur) et respectent
+`prefers-reduced-motion` en coupant l'animation entièrement plutôt qu'en la
+réduisant (brief §8 : « obligatoire »). Testés unitairement
+(`tests/unit/scroll-reveal.test.tsx`, `tests/unit/scoreboard.test.tsx`) avec
+`IntersectionObserver`/`matchMedia`/`requestAnimationFrame` mockés.
+
+**Décision 5 — tutoiement uniformisé.** L'ancien hero utilisait le
+vouvoiement (« vous choisissez ») alors que le bas de page utilisait déjà le
+tutoiement (« ta campagne ») -- incohérence pré-existante non liée à cette
+tâche. Corrigée au passage : tout le nouveau texte est en tutoiement,
+conforme à `docs/DESIGN.md` §7 (validé 2026-06-27).
+
+**Décision 6 — "Devenir club partenaire" pointe vers `/campagnes/nouvelle`,
+comme l'ancien CTA.** Aucun parcours d'inscription B2B séparé n'existe en V1
+(hors scope, section 63 du cahier) -- le seul chemin réel pour un club est de
+créer un compte responsable puis une campagne. Renommer le libellé sans
+changer la destination reste honnête (le parcours réel EST la création de
+campagne) et n'invente aucune fonctionnalité.
+
+**Vérifications.** `npx tsc --noEmit` propre. `npx eslint .` propre (confirmé
+en un seul passage complet, 40s). Suite `vitest` complète relancée par lots
+(contrainte de délai du bac à sable, comme documenté pour les tâches
+précédentes) : 60/60 fichiers unitaires verts, dont 2 nouveaux
+(`scroll-reveal.test.tsx`, `scoreboard.test.tsx`), aucune régression.
+`npx playwright test --list` : 56 tests / 20 fichiers toujours valides
+(`tests/e2e/accueil-confiance.spec.ts` mis à jour : lien renommé "Trouver un
+athlète" → "Encourager un athlète", même destination `/trouver`).
+
+**Limite rencontrée -- captures d'écran (étape 4 du brief) non réalisées.**
+`npm run build` reste bloqué indéfiniment dans ce bac à sable (deux tentatives,
+aucune sortie après le bandeau Next.js) -- très probablement le téléchargement
+des fichiers de police Google (Archivo/Figtree, nouvellement ajoutées) par
+`next/font/google` au moment du build, le réseau du bac à sable étant déjà
+documenté comme bloquant Chromium/Supabase pour tous les tests e2e du projet.
+Autocritique faite par relecture de code contre `BRIEF-REFONTE-ACCUEIL.md`
+section 12 plutôt que par capture d'écran réelle -- à refaire en local/CI
+avant mise en production (`npm run dev` + inspection visuelle desktop/mobile,
+ou aperçu Vercel).
+
+## 2026-07-10 (suite) — Icônes de sports sur l'accueil
+
+**Contexte.** Après avoir vu la refonte en ligne, Frédéric a demandé des
+« images de sports, raquette, bâton, patins, terrain de sport, soulier ».
+Question posée via `AskUserQuestion` (illustrations vs vraies photos vs
+photos produits) -- réponse : illustrations (équipement).
+
+**Décision.** Nouveau `components/sport-icons.tsx` (5 icônes SVG décoratives :
+bâton de hockey, ballon/terrain de soccer, raquette, patin, soulier de
+course), même langage visuel que `HeroAnimation`/`DecorativeMedal` (cercle
+teinté + traits aux couleurs de marque) -- choix qui règle la demande sans
+réintroduire de photo/visage (DESIGN.md §6, protection des mineurs). Section
+« Pour tous les sports, toutes les catégories » RÉINTRODUITE juste après le
+hero (elle avait été retirée dans la refonte précédente pour suivre
+strictement les 8 sections du brief) -- les classes `.sport-chip*`,
+laissées inutilisées à dessein lors du retrait, servent maintenant vraiment.
+`.sport-chip` passe de texte simple à `inline-flex` (icône + libellé) ;
+nouvelle `.sport-chip__icon` (28px, jamais plus grand que le texte).
+
+**Vérifications.** `tsc --noEmit`/`eslint .` propres. Tests ciblés relancés
+(`catalog-products`, `ui-button`, `scoreboard`, `scroll-reveal`) : 23/23
+verts. Aucun test existant ne verrouillait la section retirée puis
+réintroduite (vérifié par recherche avant de la retirer la première fois) --
+aucune mise à jour de test nécessaire.
+
+**Note technique (bac à sable) : mount/git à nouveau rencontré sur
+`app/(public)/page.tsx` et `app/globals.css` pendant cette même tâche
+(`tsc` signalait des balises JSX non fermées alors que le fichier relu était
+valide) -- réparé par réécriture heredoc complète des deux fichiers +
+vérification octets avant de recommencer `tsc`/`eslint`, comme documenté
+dans la mémoire persistante `mount-staleness-ecommerce`.**
+
+## 2026-07-10 (suite 2) — Bannière photo remplace les icônes de sports
+
+**Contexte.** Retour explicite de Frédéric sur les icônes de sports livrées
+plus tôt le même jour : « c'est réussi mais ce n'est pas ce que je voulais »
+-- il voulait « une grande image, pas des petites icônes », précisément une
+« image de fond plein écran (bandeau) ». Frédéric a généré lui-même l'image
+(outil externe « Claude design », prompt co-écrit avec l'agent), fourni en
+deux versions : la première avec des logos de marque visibles sur
+l'équipement (risque de marque de commerce, signalé), la seconde sans logo
+visible et avec une zone sombre calme à gauche pour le texte -- c'est cette
+seconde version que Frédéric a retenue et déposée dans
+`code/public/images/` (renommée `sports-banner.png`, 1774×887, ~2,2 Mo).
+
+**Décision.** Remplace le `<ul class="sport-chips">` (icônes SVG) par un
+`next/image` (`fill`, `sizes="100vw"`) en fond de la section, avec un scrim
+en dégradé (réutilise le RGB de `--color-text` plutôt qu'une teinte
+arbitraire) pour la lisibilité du titre/texte superposés en `--color-bg`.
+`components/sport-icons.tsx` reste dans le dépôt (code mort documenté, même
+logique que `.sport-chip*` laissé inutilisé plus tôt) mais n'est plus
+importé par `app/(public)/page.tsx`.
+
+**Écarts assumés, signalés à Frédéric avant qu'il ne tranche :**
+- Incohérence de style : le reste du site est en illustration SVG plate
+  (`HeroAnimation`, `DecorativeMedal`, `sport-icons.tsx`) ; cette bannière
+  est une photo réaliste. Frédéric a choisi de conserver la photo.
+- DESIGN.md §6 / BRIEF §5 imposent « illustration uniquement » pour éviter
+  tout risque lié à des photos de personnes/mineurs -- cette photo ne
+  contient ni visage ni personne (équipement seul), donc ne déclenche pas
+  le risque que ces règles visaient à prévenir ; traité comme un cas hors
+  du champ de la règle plutôt qu'une exception à celle-ci.
+- Poids de fichier (~2,2 Mo) : accepté tel quel -- `next/image` optimise/
+  redimensionne automatiquement à la volée pour chaque appareil, donc le
+  poids servi réellement sera bien inférieur.
+
+**Vérifications.** `tsc --noEmit` propre (après réparation d'une troncature
+de fichier -- voir note technique ci-dessous). `eslint` propre sur les
+fichiers modifiés. Tests unitaires ciblés (`scoreboard`, `scroll-reveal`,
+`ui-button`, `beneficiary-split`, `app-not-found`) : 24/24 verts. CSS validé
+avec `postcss.parse()` sur le fichier de travail ET sur le blob de l'arbre
+git avant de créer le commit (leçon de la régression Vercel précédente sur
+`globals.css`).
+
+**Note technique (bac à sable) : le bug de troncature mount/git a de
+nouveau touché `app/(public)/page.tsx` ET `app/globals.css` pendant cette
+tâche -- cette fois-ci une vraie troncature de fichier (pas seulement un
+retard d'affichage) : `wc -l` montrait un nombre de lignes inférieur à la
+version relue par l'outil Read, et `tsc` signalait des balises JSX non
+fermées correspondant exactement au point de troncature. Réparé par
+réécriture/complément heredoc des deux fichiers, avec vérification
+octets/`postcss.parse()` avant de relancer `tsc`/`eslint` et de committer,
+comme documenté dans `mount-staleness-ecommerce`. Un délestage `.git/
+index.lock` bloqué a aussi été rencontré à nouveau (voir
+`git-lock-bypass-ecommerce`) ; contournement identique via `GIT_INDEX_FILE`.
+
+## 2026-07-10 (suite 3) — Paramètres de plateforme (P.1 + P.2)
+
+**Contexte.** `SPEC-PARAMETRES-PLATEFORME.md` (fichier reçu hors dépôt,
+non copié — même convention que `BRIEF-REFONTE-ACCUEIL.md` plus tôt le même
+jour) demande de centraliser les limites opérationnelles (durées, plafonds,
+seuils) dans une table de configuration plutôt qu'en dur dans le code.
+Plan écrit avant codage : `docs/PLAN-PARAMETRES-PLATEFORME.md`. Périmètre
+traité dans cette session : **P.1 et P.2 seulement** (fondations données +
+module de lecture) — P.3 à P.8 (validations serveur R1-R9, écran assistant,
+mécanisme de dérogation) restent des tâches futures distinctes, cohérent
+avec CLAUDE.md section 9 (une tâche à la fois pour limiter le risque de
+régression sur la création de campagne/panier, déjà testées).
+
+**P.1 — Migration `0023_platform_parameters.sql`.** Tables
+`parametres_plateforme` (12 valeurs V1 seedées) et `derogations_parametres`
+(journal d'audit, pas encore écrite par du code applicatif — le mécanisme de
+dérogation est P.7). RLS : même patron que `stripe_events` (migration 0006)
+— `ENABLE ROW LEVEL SECURITY` SANS AUCUNE POLICY, donc `service_role`
+uniquement (BYPASSRLS). Trois décisions autonomes :
+1. `campagne_duree_jours` est listée dans la spec comme "DURE (max), SOUPLE
+   (défaut)" — un type composite qu'une seule colonne `type_limite` ne peut
+   pas représenter. R1 (spec §4) rejette hors de TOUT l'intervalle [min,
+   max] côté serveur, donc la règle est bloquante dans son ensemble ;
+   "defaut" ne sert qu'au pré-remplissage UI. Seedé `type_limite = 'dure'`.
+2. `derogations_parametres.admin_id` est NULLABLE avec `ON DELETE SET NULL`
+   (même patron que `credit_audit_log.actor_id`, migration 0001) plutôt que
+   `NOT NULL` — la spec ne précise pas la nullabilité, et `ON DELETE SET
+   NULL` exige une colonne nullable ; on ne veut jamais qu'une suppression
+   de compte admin soit bloquée par une ligne d'audit historique.
+3. `derogations_parametres` n'a pas encore de policy `SELECT` pour
+   `platform_admin` — aucun écran admin ne la lit pour l'instant (spec §7,
+   hors périmètre V1 : "modification directe dans Supabase suffit"). Une
+   policy additive viendra avec P.7, quand une vraie fonctionnalité
+   l'exercera (même pratique que la migration 0016 pour le dashboard
+   équipe).
+Les colonnes `description` utilisent le dollar-quoting Postgres
+(`$desc$...$desc$`) plutôt que des apostrophes classiques, pour éviter tout
+risque d'échappement manqué sur du texte français ("d'une", "l'intervalle",
+etc.) — un premier essai avec apostrophes classiques a effectivement cassé
+une chaîne (`qu'au` non doublé), détecté par relecture avant tout run, pas
+par un échec de test.
+
+**P.2 — `lib/parametres.ts`.** Types stricts par clé (`ParametresValeurs`,
+pas de `Record<string, unknown>` générique), `PARAMETRES_DEFAUT` en miroir
+du seed SQL, repo injectable (`createSupabaseParametresRepo`, même patron
+que `lib/taxes/rates.ts`), cache mémoire 5 minutes au niveau du module
+(`invalidateParametresCache()` exportée pour P.7), fallback à deux niveaux :
+table entièrement inaccessible → `PARAMETRES_DEFAUT` complet sans mise en
+cache (retente au prochain appel) ; clé absente ou de forme invalide (validée
+par un schéma zod par clé) → fallback CIBLÉ sur cette seule clé, les autres
+valeurs lues restent celles de la base. Décision autonome : `type_limite`/
+`description` ne sont PAS exposés par ce module — chaque règle R1-R9 encode
+déjà son comportement souple/dur dans le code (spec §4), `type_limite` en
+base n'est que documentation pour l'admin qui édite directement dans
+Supabase Studio. À réévaluer si P.6/P.7 en ont besoin.
+
+**Garde anti-divergence.** `tests/unit/parametres.test.ts` inclut un test qui
+relit littéralement `supabase/migrations/0023_platform_parameters.sql` par
+expression régulière et compare chaque valeur seedée à `PARAMETRES_DEFAUT`,
+plutôt qu'une copie codée en dur dans le test (qui aurait pu diverger sans
+être détectée) — si quelqu'un modifie l'un sans l'autre, ce test échoue.
+
+**Vérifications.** Migration validée par exécution réelle (pas seulement
+relecture) : `tests/integration/platform-parameters-rls.test.ts` (nouveau,
+8 tests — seed correct, RLS anon/authenticated à zéro ligne y compris en
+écriture, FK `cle_parametre`, CHECK `entite_type`) fait rejouer TOUTES les
+migrations existantes sur un Postgres embarqué, donc valide au passage que
+0023 s'intègre proprement au schéma déjà en place. `tests/unit/
+parametres.test.ts` (nouveau, 13 tests — fusion pure, cache/TTL/invalidation
+avec horloge injectée, fallback total et ciblé, garde anti-divergence).
+Suite complète relancée par lots (61 fichiers unitaires + 21 fichiers
+d'intégration, contrainte de délai du bac à sable, même pratique que les
+tâches précédentes) : aucune régression. `tsc --noEmit`/`npm run lint`
+propres. Aucun octet NUL/troncature détecté sur les 4 fichiers écrits
+(migration, module, 2 fichiers de test) — vérifié par scan Python avant
+chaque exécution de test, comme documenté dans `mount-staleness-ecommerce`.
+
+**P.3 à P.8 non traités ici** — restent à faire une tâche à la fois :
+validations serveur R1/R2/R3/R5/R7/R9 (P.3), vérification pré-Stripe R4
+(P.4), plafond annuel R8 dans le moteur de crédits (P.5), UI assistant de
+création (P.6), mécanisme de dérogation admin (P.7), tests aux bornes de
+chaque règle (P.8).
+
+**Note technique (bac à sable) : le bug de désync mount/git (voir
+`mount-staleness-ecommerce`) s'est manifesté une fois de plus pendant cette
+même tâche, cette fois sur `docs/DECISIONS.md` lui-même — un append (`cat >>`)
+en fin de fichier a introduit 3 octets NUL exactement à la jonction entre
+l'ancien contenu et le nouveau (détecté par le scan Python systématique,
+`b.count(b'\x00')` non nul), sans aucune troncature de texte visible.
+Corrigé par une passe `bytes.replace(b'\x00', b'')` directe sur le fichier
+(pas une réécriture heredoc complète cette fois, le reste du fichier étant
+intact et volumineux — 309 Ko), revérifié à zéro octet NUL avant de
+poursuivre.**
+
+**Note technique (bac à sable), suite : une seconde manifestation, plus
+sérieuse, a touché `docs/PROGRESS.md` juste après — une réécriture complète
+via script Python (insertion de la section "Terminé (suite 15)" avant "##
+En cours") a produit un fichier tronqué en pleine phrase (`...fusionner
+`docs/PLAN-DESIGN-REFONTE-ACCUEIL.md`` puis plus rien, alors que la section
+"À venir" existante et toute la section "Point ouvert" qui suivait ont
+disparu) — détecté par un scan d'octets systématique après coup, pas par une
+erreur d'exécution (le script Python s'est terminé sans erreur). Réparé en
+localisant l'offset de troncature exact (juste après `## En cours\n(aucune)\n`,
+contenu jusque-là intact et vérifié) puis en ré-écrivant uniquement la queue
+manquante à partir du texte déjà relu en amont dans cette même session,
+plutôt qu'en retentant une réécriture complète du fichier (~87 Ko) qui aurait
+pu retronquer ailleurs. Reconfirme la prudence de `mount-staleness-ecommerce` :
+même une écriture Python "réussie" (`open(..., 'w')` sans exception) doit être
+revérifiée par scan d'octets avant d'être considérée fiable sur ce mount.
+
+## 2026-07-10 (suite 4) — Paramètres de plateforme, P.3 (validations serveur R1/R2/R3/R5/R7/R9)
+
+**Contexte.** Suite de P.1+P.2 (voir entrée précédente). P.3 de
+`docs/PLAN-PARAMETRES-PLATEFORME.md` : « Validations serveur R1, R2, R3, R5,
+R7, R9 dans les mutations de campagne existantes ». Avant de coder, question
+bloquante posée à Frédéric (`AskUserQuestion`, CLAUDE.md section 9(b) — deux
+lectures possibles et incompatibles) : R1 (durée 7-21 jours) et R2 (date de
+livraison obligatoire) supposent une campagne avec date de fin fixe, mais le
+schéma permet `ends_at IS NULL` et déclare des types `annual`/`reorder`
+jamais implémentés ailleurs. Réponse retenue : **R1/R2 s'appliquent à TOUS
+les types de campagne** ; `endsAt` et `deliveryDate` deviennent des champs
+REQUIS (`endsAt` ne l'était pas avant P.3).
+
+**Ampleur réelle, plus large que "validations serveur" seul.** Rendre
+`deliveryDate` obligatoire exigeait une colonne qui n'existait pas
+(`campaigns.delivery_date`, absente du cahier section 21) ET un champ dans
+l'assistant de création (sinon plus aucune campagne n'était créable — la
+Server Action aurait toujours échoué à la validation zod). P.3 a donc
+nécessairement entraîné, en plus des règles elles-mêmes :
+- **Migration 0024** : colonne `campaigns.delivery_date` (NULLABLE au niveau
+  base, même convention que `starts_at`/`ends_at` -- le caractère obligatoire
+  est appliqué par zod, jamais par une contrainte NOT NULL, pour ne jamais
+  bloquer une migration sur une campagne réelle déjà en production, voir
+  Tâche 1.4.6). `create_campaign_with_details` (migration 0008) DROP puis
+  recréée avec un 17e paramètre `p_delivery_date` (DROP explicite plutôt que
+  laisser deux signatures coexister en surcharge). `v_public_campaign`
+  (migration 0007) étendue pour exposer `delivery_date` -- R2 exige
+  explicitement un affichage public ("obligation légale de contrat à
+  distance"), pas seulement un stockage.
+- **`lib/campaigns/defaults.ts`** : `DEFAULT_CAMPAIGN_DURATION_DAYS` était à
+  **60 jours** (Tâche 1.6.B2, "tout par défaut" = campagne activable) --
+  aurait violé R1 (max 21) instantanément. Remplacé par une valeur sourcée
+  depuis `parametres.campagne_duree_jours.defaut` (14), transmise par
+  l'appelant (`app/(portails)/campagnes/nouvelle/page.tsx`, qui appelle
+  désormais `getParametres(supabase)` en parallèle des autres chargements) --
+  `defaults.ts` reste pur/synchrone, ne lit jamais `lib/parametres.ts`
+  directement. Constante repliée à 14 (au lieu de 60) pour rester cohérente
+  même sans options fournies. Nouveau `DEFAULT_DELIVERY_DELAY_DAYS = 7`
+  (aucune valeur "defaut" définie par la spec pour
+  `campagne_delai_livraison_jours_max`, seulement un maximum -- choix UX
+  autonome, borné par `Math.min(7, deliveryDelayMaxDays)` pour ne jamais
+  dépasser le plafond configuré même s'il est abaissé sous 7).
+- **Assistant** (`lib/campaigns/draft.ts`, `app/(portails)/campagnes/nouvelle/
+  {page,actions}.ts`) : champ « Date de livraison » ajouté à l'étape
+  « Objectif et dates » (requis, comme « Date de fin » qui passe d'optionnel
+  à requis) + ligne au récapitulatif. Aucune étape supplémentaire créée --
+  champ inséré dans l'étape existante, cohérent avec « une décision
+  principale par étape » (Tâche 1.6.B1) : objectif/dates/livraison forment
+  une seule décision temporelle.
+
+**Décisions autonomes sur la portée des règles** (non bloquantes, tranchées
+seule puis documentées ici, CLAUDE.md section 9) :
+- **R3** (athlètes max) : la spec la décrit "par campagne d'équipe" mais le
+  champ `participantAthleteIds` n'est pas réservé aux campagnes d'équipe
+  dans le schéma -- appliquée à TOUT type de campagne ayant des
+  participants, pas seulement `type: 'team'`.
+- **R7** (campagnes/équipe/an) : reste strictement liée à `teamId !== null`
+  (aucune variante "club" définie par la spec) -- `countTeamCampaignsSince`
+  n'est pas appelée pour une campagne de club pur (test dédié).
+- **R7, fenêtre de calcul** : compte TOUTES les campagnes de l'équipe dont
+  `starts_at` tombe dans les 12 derniers mois glissants, quel que soit leur
+  statut (y compris `cancelled`/`archived`) -- lecture la plus littérale de
+  "campagnes... lancées", évite d'ouvrir un débat sur quels statuts
+  "comptent vraiment" pour une limite qui n'est pas une règle d'argent.
+- **R9** (bénéficiaires/commande) : appliquée uniquement au point d'écriture
+  unique `setCartBeneficiarySplit` (pas dupliquée au checkout, contrairement
+  à `SUM(share_bps)=10000` qui l'est) -- une répartition invalide ne peut
+  jamais être persistée, donc le risque de contournement par une requête
+  concurrente est beaucoup plus faible que pour la somme à 100 % (règle
+  d'argent non négociable, CLAUDE.md section 4).
+- **R1/R2, bornes strictes** : durée/délai calculés en jours FRACTIONNAIRES
+  (`(finMs - débutMs) / 86400000`), sans arrondi -- une campagne d'EXACTEMENT
+  `max` jours passe, `max` jours + 1 ms échoue. Testé aux deux bornes
+  (min/min-1, max/max+1) pour R1 et à la borne max/max+1 pour R2 (pas de
+  minimum défini pour le délai de livraison).
+
+**Tests.** `tests/unit/create-campaign.test.ts` réécrit : bassins d'ids
+(`TEAM_ATHLETE_POOL`/`PRODUCT_POOL`, dimensionnés sur
+`PARAMETRES_DEFAUT.campagne_athletes_max/produits_max + 5`) pour tester les
+bornes R3/R5 sans dépendre d'une valeur codée en dur dans le test ; 16
+nouveaux tests (R1 ×4, R2 ×2, R3 ×2, R5 ×2, R7 ×3, + dates requises ×3, +
+délai < clôture ×1) en plus des tests existants adaptés (dates de fixture
+dans `[min,max]`). Nouveau `tests/integration/campaign-delivery-date.test.ts`
+(2 tests, Postgres embarqué, rejoue TOUTES les migrations -- contrairement à
+`tests/integration/create-campaign.test.ts`, Tâche 1.7, volontairement gelé
+sur les migrations 0001-0008 avec l'ANCIENNE signature à 16 paramètres,
+jamais rejoué au-delà : toujours valide tel quel, aucune modification) :
+persistance de `delivery_date` + exposition publique + preuve que l'ancienne
+signature n'existe plus après 0024. R9 testé dans
+`tests/integration/cart.test.ts` (bornes max/max+1, fake repo étendu avec
+`getParametres` retournant `PARAMETRES_DEFAUT`). Suite complète relancée par
+lots : 61/61 fichiers unitaires + 22/22 fichiers d'intégration verts, aucune
+régression. `tsc --noEmit`/`npm run lint` propres.
+
+**P.4 à P.8 non traités ici** — restent à faire une tâche à la fois :
+vérification pré-Stripe + état « campagne complète » R4 (P.4), plafond
+annuel R8 dans le moteur de crédits (P.5), UI assistant -- compteurs/
+avertissements R5/R6 restants, au-delà du seul champ de date (P.6), mécanisme
+de dérogation admin (P.7), tests aux bornes supplémentaires (P.8, en bonne
+partie déjà couverts par les tests ci-dessus).
+
+## Terminé (suite 17) — Paramètres de plateforme, P.4 (R4)
+
+**P.4 — Vérification pré-Stripe + état « campagne complète » (R4)** (2026-07-10).
+
+**Découverte architecturale clé, avant tout code** : `app/api/webhooks/
+stripe/route.ts` relit `cart_beneficiaries` EN DIRECT à la confirmation du
+paiement (`campaignId = beneficiaries.find(...).campaign_id`), jamais les
+métadonnées de la session Stripe. Conséquence : la « bascule silencieuse
+vers la boutique permanente » exigée par R4 (« aucun message d'erreur côté
+acheteur ») ne peut PAS être une simple variable locale dans
+`createCheckoutSession` -- elle doit écrire `cart_beneficiaries.campaign_id
+= NULL` en base AVANT la création de la session Stripe, sinon le webhook
+verrait une campagne different de celle utilisée pour construire la session
+et le crédit resterait attaché à la campagne pleine.
+
+**Deuxième découverte, en cours d'implémentation (pas anticipée par le plan
+initial)** : le plan naïf (compter `orders` filtrées par
+`primary_campaign_id` avec le client de session de l'acheteur) échoue en
+silence pour un invité -- `orders` n'a que la policy `orders_select_scoped`
+(migration 0005), qui ne donne accès qu'aux commandes DONT ON EST
+PROPRIÉTAIRE. Un acheteur anonyme lisant `orders` pour compter les commandes
+payées de la campagne ne verrait donc jamais que 0 (les siennes), et R4 ne
+se déclencherait jamais. Nouvelle migration
+`supabase/migrations/0025_campaign_paid_order_count_view.sql` :
+`v_campaign_paid_order_count` (agrégat `COUNT(*)` par `primary_campaign_id`,
+mêmes statuts que `isOrderPaid`, lib/distribution/build-list.ts), GRANT
+SELECT à `anon`/`authenticated` -- même patron déjà établi par
+`v_campaign_progress` et `v_campaign_supporter_count` (migration 0011) :
+une vue d'agrégation sans PII plutôt qu'une policy RLS supplémentaire sur la
+table brute. Testé explicitement (`tests/integration/
+campaign-paid-order-count-view.test.ts`) : agrégation correcte (seuls les 7
+statuts « payés » comptent, jamais un autre `primary_campaign_id`), lisible
+par `anon`, ET contrôle négatif prouvant qu'une lecture directe de `orders`
+par `anon` retourne bien 0 ligne (justifie la vue).
+
+**`lib/checkout/create-checkout-session.ts`** : `campaignId` passe de
+`const` à `let`. À l'intérieur du bloc `if (campaignId !== null)` existant
+(clôture de campagne, Tâche 1.5.8), ajout de la vérification R4 : lit
+`parametres.campagne_commandes_max` (`getParametres`) et
+`v_campaign_paid_order_count`, compare via une nouvelle fonction PURE
+`isCampaignOrderCapReached(paidOrderCount, max)` (`lib/checkout/
+campaign-order-cap.ts`, `>=` jamais `>` -- extraite pour être testée aux
+bornes sans I/O, CLAUDE.md section 8). Au plafond : `UPDATE
+cart_beneficiaries SET campaign_id = NULL WHERE cart_id = ... AND
+campaign_id = ...` puis `campaignId = null` en mémoire (pour que les
+métadonnées Stripe reflètent aussi la bascule) -- AUCUNE `BusinessRuleError`
+levée (contrairement à la clôture de campagne juste au-dessus, qui elle
+bloque avec message) : c'est le comportement voulu par R4, pas un oubli.
+
+**Page publique — état « Campagne complète »** : `PublicCampaignSection`
+(lib/public/profile.ts) gagne un champ `isOrderCapReached: boolean`, calculé
+par `loadCampaignAndProducts` avec la MÊME fonction pure
+`isCampaignOrderCapReached` (une seule définition du « plafond atteint »,
+partagée avec le checkout). `components/public-profile-view.tsx` : nouvelle
+branche prioritaire affichant « Campagne complète — objectif dépassé ! »
+(barre à 100 %) au lieu de la progression normale quand `isOrderCapReached`
+est vrai. Texte suit la convention DÉJÀ établie dans ce fichier pour la
+ponctuation (espace avant `!`, ex. la ligne `isGoalExceeded` juste
+au-dessus) plutôt que la graphie exacte de la spec (« dépassé! » sans
+espace) -- cohérence interne au fichier jugée plus importante qu'une copie
+littérale d'un espacement qui varie déjà dans le cahier des charges
+lui-même.
+
+**CTA d'achat — AUCUN changement nécessaire, vérifié avant de coder** : R4
+exige que les CTA redirigent vers la boutique permanente au plafond. En
+lisant les 3 pages publiques (`app/(public)/{team,club}/[slug]/page.tsx`,
+`app/(public)/[athleteSlug]/page.tsx`), `encouragerHref` pointait DÉJÀ
+systématiquement vers `/boutique?beneficiaryType=...&beneficiaryId=...`
+(jamais vers la campagne) -- l'attachement à une campagne se fait plus tard,
+côté panier, pas via l'URL du bouton. Le bouton "Soutenir avec ce pack" des
+produits recommandés réutilise le même `encouragerHref`. Rien à modifier
+dans `components/public-profile-view.tsx` pour cette partie de R4.
+
+**Vue privée du tuteur (`lib/athletes/profile.ts`)** : `PublicCampaignSection`
+étant un type partagé, `loadOwnerCampaignSection` (page d'édition athlète +
+page de suivi) doit aussi fournir `isOrderCapReached` pour compiler --
+décision autonome de calculer la vraie valeur (même repo, mêmes appels)
+plutôt qu'un `false` en dur, pour que le parent voie aussi « Campagne
+complète » s'il consulte le suivi de son enfant. Aucun changement de rendu
+dans la page de suivi elle-même (hors périmètre explicite de R4, qui ne
+parle que de « la page publique ») -- seul le champ est calculé
+correctement, prêt si une page privée veut l'utiliser plus tard.
+
+**`lib/campaigns/draft-preview.ts`** : `isOrderCapReached: false` en dur --
+une campagne en brouillon n'existe pas encore en base, 0 commande possible
+par construction.
+
+**Bug d'infrastructure rencontré et contourné pendant cette tâche** (voir
+aussi les mémoires `git-lock-bypass-ecommerce`/`mount-staleness-ecommerce`) :
+plusieurs fichiers modifiés via l'outil Edit (`lib/checkout/
+create-checkout-session.ts`, `lib/db/types.ts`, `lib/public/profile.ts`,
+`lib/athletes/profile.ts`, `lib/campaigns/draft-preview.ts`, `components/
+public-profile-view.tsx`, `tests/integration/public-profile.test.ts`) sont
+apparus TRONQUÉS côté bash (`tsc`/tests) après coup, alors que l'outil Read
+montrait le contenu correct et complet -- la vue bash du montage n'était pas
+synchronisée avec les écritures Edit, de façon reproductible (même longueur
+tronquée à chaque nouvelle tentative d'Edit, y compris après une réécriture
+complète via l'outil Write). Contournement qui a fonctionné : réécrire le
+fichier entier directement depuis bash (heredoc Python, jamais l'outil Write
+côté hôte) avec le contenu exact lu via l'outil Read -- la vue bash reflète
+alors immédiatement le contenu correct. Un fichier a montré un second
+symptôme (octets `\x00` de bourrage en fin de fichier après un simple retrait
+de ligne via Edit) -- nettoyé par `.replace(b'\x00', b'')`.
+
+**Tests.** Nouveau `tests/unit/campaign-order-cap.test.ts` (6 tests,
+bornes max-1/max/max+1 + cas 0/1 de `isCampaignOrderCapReached`). Nouveau
+`tests/integration/campaign-paid-order-count-view.test.ts` (3 tests,
+Postgres embarqué, rejoue TOUTES les migrations). `tests/integration/
+public-profile.test.ts` étendu : fake repo avec `getPaidOrderCount`/
+`getParametres`, 5 nouveaux tests de bornes (max-1/max/max+1/absent pour
+`loadPublicAthleteProfile`, +1 pour `loadOwnerCampaignSection`). Suite
+complète relancée par lots : 46/46 fichiers unitaires (667 tests) + 23/23
+fichiers d'intégration (201 tests) verts, aucune régression. `tsc --noEmit`/
+`eslint` propres sur tous les fichiers touchés.
+
+**P.5 à P.8 restent à traiter, une tâche à la fois** : plafond annuel R8
+dans le moteur de crédits (P.5), UI assistant -- compteurs/avertissements
+R5/R6 restants (P.6), mécanisme de dérogation admin (P.7), tests aux bornes
+supplémentaires (P.8, en bonne partie déjà couverts par P.3/P.4).
+
+## 2026-07-11 — Paramètres de plateforme, P.5 (R8 : plafond annuel de crédit par athlète)
+
+**Portée confirmée dans la spec** (`SPEC-PARAMETRES-PLATEFORME.md` §4, R8) :
+« Plafond annuel de crédit PAR ATHLÈTE » -- uniquement `beneficiary_type =
+'athlete'` ; équipes et clubs ne sont jamais plafonnés par
+`athlete_credit_annuel_max` (décision directement lue dans le titre de la
+règle, aucune ambiguïté à trancher).
+
+**Migration 0026** (déjà posée avant cette session, voir entrée P.5
+précédente/tâche #16) : nouvel enum `credit_pending_reason` (`campagne_
+inactive` | `plafond_annuel`), colonne `order_credits.pending_reason`,
+`CREATE OR REPLACE create_paid_order` (signature inchangée, extension
+mécanique de l'INSERT + du snapshot `credit_audit_log`). Vérifiée via
+`tests/integration/db-migration.test.ts` (5/5).
+
+**Découpage de la logique en 3 modules, cohérent avec le reste du moteur de
+crédits (calculate.ts = pur / credit-context.ts = I/O) :**
+- `lib/credits/persist.ts` (modifié) -- `OrderCreditInsertPayload` gagne
+  `pending_reason`, posé directement par `buildOrderCreditInserts` :
+  `'campagne_inactive'` si `status === 'pending'`, sinon `null`. Décision :
+  poser ce motif ICI plutôt que d'attendre R8, pour que la distinction entre
+  les deux causes de `pending` existe dès la première écriture (jamais un
+  `pending` sans motif après cette migration, sauf lignes historiques
+  antérieures à 0026).
+- `lib/credits/annual-cap.ts` (nouveau, PUR) -- `applyAnnualCreditCap` :
+  reçoit les lignes déjà construites + une `Map` du total déjà attribué par
+  athlète cette année civile + le plafond (centimes), et scinde toute ligne
+  `athlete`/`active` qui dépasserait le plafond en 2 lignes (portion sous
+  plafond inchangée + excédent `pending`/`plafond_annuel`). Ne touche
+  JAMAIS une ligne déjà `pending` (garde-fou explicite dans le code et les
+  tests -- empêche une double application si le moteur était un jour
+  rappelé sur les mêmes données). Inclut aussi `summarizeAnnualCapExcess` et
+  `buildAnnualCapAdminNoteFr` (notification admin, voir plus bas).
+- `lib/credits/load-annual-totals.ts` (nouveau, I/O non testé
+  unitairement -- même convention que `lib/cart/credit-context.ts`) --
+  `loadAthleteAnnualCreditTotals` interroge `order_credits` par athlète,
+  bornée à l'année civile courante, ne comptant que `status='active'` OU
+  (`status='pending'` ET `pending_reason='campagne_inactive'`). Exclut
+  explicitement tout excédent déjà `plafond_annuel` du total -- sinon un
+  excédent déjà mis en attente se re-compterait indéfiniment à chaque
+  nouvel achat de l'athlète, alors que la spec dit clairement qu'il n'a PAS
+  été « attribué ». `currentCalendarYearBoundsUtc` (fonction pure séparée,
+  testée) fixe la borne à `[1er janvier 00:00:00.000 UTC, 31 décembre
+  23:59:59.999 UTC]` de l'année en cours.
+
+**Décision — définition d'« année civile ».** La spec ne précise pas le
+fuseau horaire. Choix autonome : UTC (cohérent avec `created_at
+TIMESTAMPTZ` stocké en UTC partout ailleurs dans le schéma, et avec R7 qui
+utilise déjà `now()`/`toISOString()` sans conversion de fuseau) plutôt que
+l'heure de l'Est (Québec). Impact limité : au pire un athlète proche de la
+frontière du plafond voit un achat de fin décembre/début janvier compté
+dans l'année « adjacente » de quelques heures -- un cas limite mineur, sans
+impact sur l'exactitude globale du plafond, documenté ici plutôt que bloqué
+en question (aucun choix également plausible et incompatible au sens de
+CLAUDE.md section 9 -- juste une convention à fixer).
+
+**Notification admin (§4 : « Notification interne à l'admin, traitement
+manuel, cohérent V1 »).** Convention réutilisée telle quelle plutôt
+qu'inventée : `orders.notes_internal`, déjà le mécanisme existant pour
+signaler un cas nécessitant une action admin manuelle (précédent : « stock
+insuffisant détecté » posé directement par `create_paid_order`). Aucune
+autre infrastructure de notification (courriel, table dédiée) n'existe dans
+le projet -- en ajouter une aurait été de l'anticipation hors V1 (CLAUDE.md
+section 10). Écriture faite CÔTÉ TS (pas dans la fonction SQL) via un
+`UPDATE` séparé après `createPaidOrder`, dans un `try/catch` non bloquant
+(même philosophie que `markCartConverted`/l'envoi du courriel de
+confirmation juste après dans le même fichier) -- le crédit est de toute
+façon déjà correctement écrit dans `order_credits` quoi qu'il arrive ;
+seule la note de suivi peut échouer sans conséquence financière.
+
+**Câblage dans le webhook** (`app/api/webhooks/stripe/route.ts`) : entre
+`buildOrderCreditInserts` et `createPaidOrder`. Charge les totaux annuels
+UNIQUEMENT pour les `beneficiary_id` de type `athlete`/`active` présents
+dans la commande courante (jamais un chargement large/inutile), lit
+`athlete_credit_annuel_max` via `getParametres` (déjà en cache 5 min,
+P.2), applique `applyAnnualCreditCap`, puis note l'éventuel excédent après
+la création de la commande.
+
+**Tests.** `tests/unit/credits-persist.test.ts` : 2 tests ajoutés
+(`pending_reason` posé/absent selon le statut). Nouveau
+`tests/unit/credits-annual-cap.test.ts` (16 tests) -- bornes max-1/max/
+max+1 explicites, plafond déjà consommé, total antérieur absent, exclusion
+team/club, non-réapplication sur une ligne déjà `pending`, lignes à 0
+centime ignorées, multi-bénéficiaires indépendants, conservation du total
+(aucun centime perdu/dupliqué). Nouveau
+`tests/unit/credits-load-annual-totals.test.ts` (5 tests) sur
+`currentCalendarYearBoundsUtc` (bornes de l'année civile, y compris les
+instants exacts 1er janvier 00:00:00.000/31 décembre 23:59:59.999). Suite
+complète relancée par lots : 64/64 fichiers unitaires + 23/23 fichiers
+d'intégration verts, aucune régression. `tsc --noEmit`/`eslint` propres.
+
+**Même bug d'infrastructure mount/bash rencontré à nouveau** (voir mémoire
+`mount-staleness-ecommerce`) sur `lib/credits/persist.ts`, `app/api/
+webhooks/stripe/route.ts`, `tests/unit/credits-persist.test.ts` et
+`tests/unit/credits-annual-cap.test.ts` juste après leur édition via l'outil
+Edit -- même contournement (réécriture bash intégrale via heredoc Python à
+partir du contenu confirmé par l'outil Read).
+
+**P.6 à P.8 restent à traiter** : UI assistant -- compteurs/avertissements
+R5/R6 restants (P.6), mécanisme de dérogation admin (P.7), tests aux bornes
+supplémentaires (P.8).
+
+## 2026-07-11 (suite) — Paramètres de plateforme, P.6 (UI assistant : avertissements R5/R6)
+
+**Portée retenue, tranchée en autonomie** (CLAUDE.md section 9 : ni argent,
+ni sécurité, ni mineurs -- pas de question bloquante nécessaire). Le
+découpage §6 de la spec dit « P.6 — UI assistant de création :
+pré-remplissages, compteurs, avertissements R5/R6, messages §4 », ce qui
+pourrait aussi couvrir R1/R2/R3. Vérifié avant de coder : R1 (durée) et R2
+(date de livraison) ont déjà leur pré-remplissage/champ dans l'assistant
+depuis P.3 (`applyCampaignDefaults`, voir entrée P.3 plus haut) ; R3
+(compteur d'athlètes) n'a AUCUNE UI et reste un blocage dur validé
+uniquement à la soumission finale du récapitulatif -- mais ce fichier
+(`docs/PROGRESS.md`) documentait déjà, sur DEUX sessions consécutives
+(entrées P.4 et P.5), le reste de P.6 comme « R5/R6 restants au-delà du
+champ de date déjà ajouté » : cette interprétation déjà écrite et jamais
+corrigée par Frédéric entre-temps est retenue comme la portée réelle de
+P.6. R3 (compteur/blocage athlètes) n'est donc PAS traité ici -- resterait
+à faire dans un futur P.6bis si jugé utile, non documenté comme dette pour
+l'instant (hors scope explicite).
+
+**R6 — Objectif par athlète (pré-remplissage + avertissement souple).**
+- `lib/campaigns/defaults.ts` (`defaultObjectifDates`) : nouveau champ
+  d'options `objectifSuggereDefautCents`
+  (`parametres.campagne_objectif_athlete_suggere.defaut`). **Piège réel
+  rencontré et corrigé** : la première version utilisait
+  `data.goalCents ?? options.objectifSuggereDefautCents ?? undefined` --
+  `??` traite `null` ET `undefined` comme « absent », ce qui écrasait à
+  tort un objectif EXPLICITEMENT effacé par le gestionnaire (`goalCents:
+  null`, qui signifie « aucun objectif fixé », spec §4 : « optionnel ») en
+  le remplaçant par le défaut suggéré à chaque rendu -- régression
+  détectée par le test « respecte un objectif explicitement effacé »
+  (tests/unit/campaign-defaults.test.ts), qui a échoué avec la première
+  implémentation. Corrigé avec un test explicite `data.goalCents !==
+  undefined ? data.goalCents : options.objectifSuggereDefautCents`, qui
+  distingue correctement les deux états. Bon rappel que `??` n'est PAS un
+  substitut sûr à une vérification explicite quand `null` a un sens métier
+  propre, distinct de « absent » -- à surveiller dans tout futur champ
+  optionnel avec état « explicitement vide » significatif.
+- Avertissement (non bloquant, spec §4 : « aucune validation bloquante ») :
+  fonction pure `buildObjectifAmbitieuxMessage` (nouveau
+  `lib/campaigns/wizard-warnings.ts`), appelée après sauvegarde de l'étape
+  (`objectifAmbitieuxWarning`, `actions.ts`) si l'objectif dépasse
+  `campagne_objectif_athlete_avertissement`. Affiché via le paramètre
+  `?info=` déjà existant (Tâche 1.6.B2, `addAthletesBulkAction`) --
+  réutilisation d'un mécanisme déjà en place plutôt qu'une nouvelle
+  infrastructure d'avertissement.
+
+**R5 — Produits distincts (compteur + avertissement souple).**
+- Le blocage DUR au-delà de `campagne_produits_max` reste exclusivement
+  vérifié à la soumission finale du récapitulatif
+  (`assertPlatformParameterRules`, P.3, inchangé) -- décision délibérée de
+  NE PAS dupliquer ce blocage au niveau de l'étape « Packs » elle-même,
+  pour rester cohérent avec R1/R2/R3/R7/R9 qui suivent tous la même
+  architecture « toutes les règles dures se vérifient au récapitulatif,
+  jamais avant » dans cet assistant (aucune exception introduite pour R5).
+- Compteur statique (`{n} produit(s) sélectionné(s) — maximum {max}, dont
+  {recommande} recommandés...`) affiché sous le titre de l'étape --
+  reflète le DERNIER état sauvegardé (pas de mise à jour live au clic, cet
+  assistant n'utilise volontairement aucun Client Component/JS, principe
+  déjà établi CLAUDE.md section 6 -- cohérent avec le reste de l'assistant).
+- Avertissement (non bloquant) dès `campagne_produits_recommande + 1` :
+  fonction pure `buildProduitsRecommandeMessage`, même mécanisme `?info=`
+  que R6 ci-dessus.
+
+**Refactorisation de `saveStepAndAdvance`** (`actions.ts`) : nouveau
+paramètre optionnel `buildInfoMessage`, appelé APRÈS la sauvegarde de
+l'étape avec les données fusionnées, à l'intérieur du même `try/catch` que
+`buildRawInput` -- choix délibéré : ni R5 ni R6 ne doivent jamais faire
+échouer la sauvegarde elle-même (règles « souples »), et `getParametres`
+(lib/parametres.ts) ne lève de toute façon jamais d'exception (repli sur
+`PARAMETRES_DEFAUT`), donc aucun risque réel de blocage introduit.
+
+**Séparation pure/I-O respectée** (CLAUDE.md section 6) :
+`lib/campaigns/wizard-warnings.ts` ne contient que les DEUX fonctions de
+décision pures (aucune I/O, aucun accès Supabase) ; la lecture des
+paramètres reste dans `actions.ts` (`objectifAmbitieuxWarning`/
+`produitsRecommandeWarning`), même patron que `lib/checkout/
+campaign-order-cap.ts` (pur, R4) + son point d'appel I/O dans
+`lib/checkout/create-checkout-session.ts`.
+
+**Bug d'infrastructure mount/bash rencontré à nouveau, plusieurs fois** :
+`lib/campaigns/defaults.ts`, `app/(portails)/campagnes/nouvelle/
+actions.ts`, `app/(portails)/campagnes/nouvelle/page.tsx`,
+`tests/unit/campaign-wizard-warnings.test.ts` et
+`tests/unit/campaign-defaults.test.ts` tous tronqués côté bash après
+édition via l'outil Edit -- même contournement habituel (réécriture bash
+intégrale via heredoc Python à partir du contenu confirmé par l'outil
+Read). `lib/campaigns/defaults.ts` a même nécessité DEUX réécritures
+successives (la première correction du piège `??` ci-dessus s'est
+elle-même retrouvée tronquée côté bash immédiatement après l'avoir
+corrigée).
+
+**Tests.** Nouveau `tests/unit/campaign-wizard-warnings.test.ts` (11 tests,
+bornes seuil/seuil+1 pour R5 et R6, jamais d'exception, contenu du
+message). 4 tests ajoutés à `tests/unit/campaign-defaults.test.ts`
+(pré-remplissage/préservation/`null` explicite/absence d'option pour
+`goalCents`). Suite complète relancée par lots : 65/65 fichiers unitaires +
+23/23 fichiers d'intégration verts, aucune régression. `tsc --noEmit`/
+`eslint` propres.
+
+**P.7 et P.8 restent à traiter** : mécanisme de dérogation admin (P.7),
+tests aux bornes supplémentaires (P.8).
+
+## 2026-07-13 — Paramètres de plateforme, P.7 (mécanisme de dérogation admin)
+
+Nouveau `lib/derogations/derogations.ts` : lecture de la dérogation ACTIVE
+pour une portée (`findActive`) + écriture (`createDerogation`, réservée à
+`platform_admin`, justification obligatoire >= 10 caractères). Portée
+limitée aux 5 clés dérogeables explicitement prévues par la spec §4 : R1
+(`campagne_duree_jours`), R3 (`campagne_athletes_max`), R4
+(`campagne_commandes_max`), R5 (`campagne_produits_max`), R7
+(`equipe_campagnes_par_an_max`). R2 reste sans dérogation possible
+(obligation légale, spec §4) -- rejetée explicitement par le schéma zod. R8
+(`athlete_credit_annuel_max`) est HORS PÉRIMÈTRE de ce module : son propre
+ADM (« libération manuelle des crédits en attente après validation ») est
+un changement de statut sur des lignes `order_credits` déjà écrites (P.5,
+`credit_pending_reason = 'plafond_annuel'`), pas un relèvement prospectif
+d'un plafond -- deux mécanismes différents, volontairement non unifiés.
+
+**Décision autonome majeure -- portée (entité) de la dérogation par règle.**
+R1/R3/R5 sont validées à la CRÉATION d'une campagne
+(`assertPlatformParameterRules`, `lib/campaigns/create-campaign.ts`), donc
+AVANT qu'un id de campagne n'existe -- une dérogation pour ces trois règles
+ne peut donc PAS cibler `entite_type = 'campagne'` (aucun id disponible à ce
+stade). Décision : elle cible l'ÉQUIPE (ou le CLUB, si la campagne n'a pas
+d'équipe) porteur de la future campagne -- `entite_type = 'equipe' | 'club'`,
+`entite_id = teamId | clubId`. R7 était déjà nativement scopée équipe
+(aucune variante club, décision antérieure de P.3) : même patron. R4, à
+l'inverse, se vérifie AU PAIEMENT d'une campagne déjà EXISTANTE
+(`create-checkout-session.ts`) -- sa dérogation cible donc directement
+`entite_type = 'campagne'`, cohérent avec le libellé spec R4 (« relèvement
+possible par dérogation EN COURS de campagne »). C'était l'un des deux
+points où deux interprétations semblaient possibles (portée équipe/club vs
+attendre qu'une campagne existe pour permettre toute dérogation) ; la
+seconde aurait rendu R1/R3/R5 non dérogeables en pratique (la validation
+bloque AVANT la création), donc rejetée comme non-conforme à l'intention de
+la spec (« dérogation possible » signifie forcément « avant blocage »).
+
+**Décision autonome -- lacune de schéma corrigée (migration 0027).**
+`derogations_parametres.entite_type` (migration 0023, P.1) n'admettait que
+`'campagne' | 'equipe' | 'athlete'` -- `'club'` manquait, alors que R1 cite
+son propre exemple avec un club (spec §4 : « ex. campagne club annuelle »)
+et que la décision de portée ci-dessus en a explicitement besoin. Corrigé
+par un `DROP CONSTRAINT` / `ADD CONSTRAINT` dans la nouvelle migration 0027.
+
+**Décision autonome -- « dérogation active ».** La table est un journal
+d'audit append-only (aucune colonne de statut/expiration en base, spec §2,
+et migration 0027 ne pose QUE des policies SELECT/INSERT -- jamais
+UPDATE/DELETE). La dérogation ACTIVE pour une portée (clé + entité) est
+donc simplement la ligne la plus RÉCENTE enregistrée pour cette portée
+(`cree_le DESC LIMIT 1`) -- une nouvelle dérogation remplace implicitement
+la précédente sans jamais l'effacer, l'historique complet reste
+consultable. Documenté en tête de `lib/derogations/derogations.ts`.
+
+**Décision autonome -- forme de `valeur_appliquee`.** Un simple entier
+positif (le nouveau plafond), jamais l'objet composite `{min,max,defaut}`
+de `campagne_duree_jours` -- seul le MAX est bloquant (R1), `defaut` n'est
+qu'un confort de pré-remplissage UI sans lien avec la dérogation. Le MIN de
+`campagne_duree_jours` n'est jamais dérogeable non plus (aucun cas d'usage
+de la spec ne motive une campagne plus courte que le minimum) --
+`resolveEffectiveLimit` (pure, avec repli défensif sur la limite de base si
+la valeur stockée est corrompue/invalide, jamais d'exception) n'est
+appliquée qu'au MAX dans `assertPlatformParameterRules` (R1/R3/R5/R7) et
+dans `create-checkout-session.ts` (R4).
+
+**Piège RLS rencontré et corrigé pendant l'écriture des tests
+d'intégration.** La policy INSERT de la migration 0027 utilisait d'abord
+`public.is_platform_admin()` -- cette fonction a été déplacée dans le
+schéma `private` par la migration 0022 (« optimize_rls_and_harden_grants »,
+durcissement des fonctions SECURITY DEFINER hors de `public` pour ne plus
+être exposées à l'API REST), donc `public.is_platform_admin()` n'existe
+plus depuis. Détecté immédiatement par
+`tests/integration/platform-parameters-rls.test.ts`, qui rejoue
+RÉELLEMENT toutes les migrations (pas seulement une relecture visuelle) --
+corrigé en `private.is_platform_admin()`. Deuxième piège, dans le test
+lui-même cette fois : un test « anon ne peut pas écrire » utilisait un
+`SET ROLE anon` brut sans réinitialiser `request.jwt.claim.sub`, laissé à
+l'uuid de l'admin par un test précédent sur la MÊME connexion Postgres
+(`set_config(..., false)` = non local, persiste au-delà de la transaction)
+-- l'INSERT anon passait donc à tort. Corrigé en réutilisant le helper
+`asRole(client, 'anon', null, ...)` du fichier, qui réinitialise
+explicitement le claim à vide avant chaque requête.
+
+**Branchement dans les validations existantes.**
+`lib/campaigns/create-campaign.ts` (`CampaignRepo.getActiveDerogation`,
+implémentée via `createSupabaseDerogationsRepo(supabase).findActive`) : R1
+compare à `resolveEffectiveLimit(maxDays, dérogation équipe/club)`, R3 et
+R5 de même, R7 compare à sa propre dérogation équipe. R2 inchangé (aucune
+dérogation consultée). `lib/checkout/create-checkout-session.ts` : R4
+consulte `findActive('campagne_commandes_max', 'campagne', campaignId)`
+juste avant `isCampaignOrderCapReached` (fonction pure elle-même
+inchangée, seule la limite passée en argument devient « effective »).
+
+**Interface admin minimale** (spec §6, hors périmètre : uniquement l'écran
+de dérogation, PAS un écran d'administration de `parametres_plateforme`
+lui-même -- modification directe dans Supabase Studio, comme prévu).
+Nouvelle route `app/(admin)/derogations/` : `page.tsx` (garde `can(user,
+'create', { type: 'derogation' })`, formulaire de création + liste des 20
+dernières dérogations comme journal d'audit consultable) + `actions.ts`
+(`createDerogationAction`, même patron que
+`app/(admin)/produits/nouveau/actions.ts`). Nouvelle ressource
+`{ type: 'derogation' }` dans `lib/auth/permissions.ts` (réservée à
+`platform_admin`, même patron que `'product'`).
+
+**Bug d'infrastructure mount/bash rencontré encore une fois, sur presque
+tous les fichiers touchés** (`lib/auth/permissions.ts`,
+`lib/campaigns/create-campaign.ts`, `lib/checkout/create-checkout-session.ts`,
+`tests/unit/create-campaign.test.ts`, `tests/unit/campaign-draft.test.ts`,
+`tests/unit/derogations.test.ts`,
+`tests/integration/platform-parameters-rls.test.ts`,
+`supabase/migrations/0027_derogations_admin.sql`) -- même contournement
+habituel (réécriture bash intégrale via heredoc Python à partir du contenu
+confirmé par l'outil Read). Plusieurs fichiers ont nécessité DEUX
+réécritures (une correction post-Edit se retrouvant elle-même tronquée
+côté bash immédiatement après).
+
+**Tests.** Nouveau `tests/unit/derogations.test.ts` (18 tests : clés
+dérogeables/non dérogeables, portée valide par clé, `resolveEffectiveLimit`
+pure avec défense en profondeur, permissions, validations zod, écriture
+réussie). Nouveau bloc « P.7 — dérogations » dans
+`tests/unit/create-campaign.test.ts` (8 tests : R1/R3/R5/R7 relevés par une
+dérogation active, R1 min non affecté, R5 toujours bloqué au-delà de la
+limite dérogée, valeur corrompue ignorée). `tests/unit/campaign-draft.test.ts`
+mis à jour (nouvelle méthode `getActiveDerogation` du `CampaignRepo` simulé).
+`tests/integration/platform-parameters-rls.test.ts` étendu (7 nouveaux
+tests P.7 : `entite_type = 'club'` accepté, policies SELECT/INSERT
+`platform_admin` sur `derogations_parametres`, `authenticated` non-admin et
+`anon` toujours bloqués ; test préexistant « rejette un entite_type hors
+énumération » adapté pour utiliser une valeur réellement invalide, `'club'`
+étant désormais légitime). Suite complète relancée par lots : 66/66
+fichiers unitaires + 23/23 fichiers d'intégration verts, aucune régression.
+`tsc --noEmit`/`eslint` propres.
+
+**P.8 reste à traiter** (tests aux bornes supplémentaires, en bonne partie
+déjà couverts par les tests de P.3 à P.7).
+
+## 2026-07-13 (suite) — Paramètres de plateforme, P.8 (tests aux bornes supplémentaires)
+
+**Audit préalable** (avant d'écrire du code, CLAUDE.md section 9) de la
+couverture réelle par règle, contre le critère d'acceptation spec §6 :
+« chaque règle testée aux bornes (égal au max, max+1, dérogation active,
+fallback table absente) ».
+
+- R1 (durée) : min/min-1/max/max+1 + dérogation -- déjà couverts (P.3/P.7).
+- R2 (livraison) : max/max+1 -- déjà couvert (P.3). Aucune dérogation
+  possible (obligation légale, spec §4) -- rien à ajouter.
+- R3 (athlètes) : max/max+1 + dérogation (équipe ET club) -- déjà couverts
+  (P.3/P.7).
+- R4 (commandes) : max-1/max/max+1 déjà couverts (P.4,
+  `tests/unit/campaign-order-cap.test.ts`) MAIS la composition réelle avec
+  une dérogation active (`resolveEffectiveLimit` puis
+  `isCampaignOrderCapReached`, exactement l'ordre utilisé par
+  `create-checkout-session.ts`) n'était testée nulle part -- SEULE lacune
+  réelle trouvée par cet audit. `create-checkout-session.ts` n'étant pas
+  repo-injectable (I/O Stripe direct, pas de `CheckoutRepo`), impossible de
+  la tester unitairement autrement qu'en composant les deux fonctions déjà
+  pures et déjà testées séparément -- 5 tests ajoutés à
+  `tests/unit/campaign-order-cap.test.ts` (sans dérogation ; entre l'ancien
+  et le nouveau max ; borne exacte du nouveau max ; nouveau max + 1 ;
+  dérogation corrompue retombant sur le plafond de base).
+- R5 (produits) : max/max+1 + dérogation (relevée ET toujours bloquée
+  au-delà de la limite dérogée) -- déjà couverts (P.3/P.7).
+- R6 (objectif, souple) : seuil/seuil+1 -- déjà couverts (P.6). Aucune
+  dérogation prévue par la spec pour une règle souple -- rien à ajouter.
+- R7 (campagnes/équipe/an) : max-1/max + dérogation -- déjà couverts
+  (P.3/P.7).
+- R8 (crédit annuel) : max-1/max/max+1 -- déjà couverts (P.5, 16 tests).
+  Son ADM (« libération manuelle des crédits en attente ») est un
+  mécanisme distinct de `derogations_parametres` (voir docs/DECISIONS.md,
+  P.7) -- pas de « dérogation active » à tester ici au sens de ce module.
+- R9 (bénéficiaires/commande) : max/max+1 -- déjà couverts, mais
+  uniquement en INTÉGRATION (`tests/integration/cart.test.ts`,
+  `setCartBeneficiarySplit` a besoin d'un repo réel/simulé complexe) plutôt
+  qu'en unitaire -- cohérent avec le reste du projet (pas une lacune).
+  Aucune dérogation prévue par la spec pour R9 (§4 ne liste aucun ADM pour
+  cette règle, contrairement à R1/R3/R4/R5/R7).
+
+**Fallback « table absente ».** Non dupliqué par règle : chaque règle lit
+systématiquement via `repo.getParametres()` / `getParametres(supabase)`
+(`lib/parametres.ts`), qui NE LÈVE JAMAIS d'exception -- une table
+inaccessible retombe silencieusement sur `PARAMETRES_DEFAUT` au niveau du
+module unique (déjà testé exhaustivement, `tests/unit/parametres.test.ts`,
+P.2). Dupliquer ce test dans les 9 modules de règles n'aurait vérifié que
+la même garantie déjà prouvée à sa source -- décision délibérée de ne pas
+le faire (CLAUDE.md section 8 : cas limites couverts, pas dupliqués).
+
+**Tests.** 5 tests ajoutés à `tests/unit/campaign-order-cap.test.ts` (11
+tests au total dans ce fichier désormais). Suite complète relancée par
+lots : 66/66 fichiers unitaires + 23/23 fichiers d'intégration verts,
+aucune régression. `tsc --noEmit`/`eslint` propres.
+
+**Paramètres de plateforme (SPEC-PARAMETRES-PLATEFORME.md) : P.1 à P.8
+terminées.** Points ouverts restants (spec §8, hors code) : validation
+juridique de `athlete_credit_annuel_max`/`campagne_duree_jours` avant tout
+relèvement, valeur définitive de `campagne_commandes_max` après le pilote,
+politique de communication « campagne complète ».
+
+## 2026-07-13 (suite) — Rangement de la Phase C.10 (tirage) et de son règlement
+
+Deux fichiers reçus : `PHASE_C10_TIRAGE.md` (plan de tâche, développement
+autorisé derrière flag) et `REGLEMENT_TIRAGE_MODELE.md` (modèle de règlement
+de concours, destiné à l'avocat). Décision autonome de rangement (CLAUDE.md
+section 9(b) -- pas une question bloquante, juste un choix d'emplacement) :
+
+- **`PHASE_C10_TIRAGE.md` → `docs/prompts/phase-c10-tirage.md`.** Convention
+  déjà en place pour les plans de tâches en cours (voir historique git de
+  `docs/archive/prompts/07-prompts-refonte-visuelle.md`, initialement créé à
+  `docs/prompts/` avant d'être archivé une fois terminé). Le dossier
+  `docs/prompts/` était vide depuis le dernier archivage -- recréé pour
+  l'occasion. Renommé en kebab-case pour rester cohérent avec les autres
+  fichiers de ce dossier (`phase-0-et-1.md`, `phase-1-6.md`, etc.).
+- **`REGLEMENT_TIRAGE_MODELE.md` → `docs/dossier-avocat/reglement-tirage-
+  modele.md`.** Le fichier C.10 (section C.10.10) indique que ce règlement
+  doit rejoindre un dossier juridique existant « C.1–C.9 » avant remise à
+  l'avocat. **Recherche exhaustive dans le dépôt** (contenu de `docs/`,
+  noms de fichiers/dossiers, historique git, mentions de « avocat »,
+  « juridique », « bloquant # », « Loi 25 », « RACJ », « 248-249 ») :
+  **aucune trace d'un tel dossier C.1–C.9**. Conclusion : ce dossier est
+  tenu hors dépôt (probablement papier, courriel, ou outil externe avec
+  Frédéric/l'avocat). `docs/dossier-avocat/` créé comme point d'atterrissage
+  **local** pour les pièces produites côté code en attente de révision
+  juridique (voir `docs/dossier-avocat/README.md`, qui documente
+  explicitement cette limite). Aucune tentative de fabriquer ou de deviner
+  le contenu de C.1–C.9.
+
+**Aucun code touché.** Cette tâche est un classement de documents, pas un
+début d'implémentation de C.10.1. `docs/PROGRESS.md` mis à jour (nouvelle
+section « En file d'attente ») pour refléter les deux statuts distincts :
+développement de C.10 débloqué (flag faux par défaut) vs activation bloquée
+(gate juridique). `docs/README.md` mis à jour pour indexer les deux nouveaux
+dossiers (`prompts/`, `dossier-avocat/`).
+
+**Piège de troncature en écrivant cette entrée** (voir
+`[[mount-staleness-ecommerce]]` en mémoire) : `git show HEAD:docs/PROGRESS.md`
+et `wc -l` via le bac à sable rapportaient tous deux 1430 lignes se terminant
+mi-phrase sur « ... entre l'ancien » -- ce chiffre a été pris pour argent
+comptant et a borné une première lecture via l'outil `Read` (offset+limit
+choisis en fonction de ce total supposé). En réalité le fichier réel en fait
+1479 (les lignes 1431 à 1478, jamais lues, existaient bel et bien -- fin de la
+tâche P.8, sections `## En cours`/`## À venir`/`## Point ouvert`) : `git show`
+lu via le bac à sable est donc lui aussi sujet à la staleness de ce montage,
+pas seulement `cat`/`tail`. Un premier ajout de section a atterri au milieu du
+document (juste après « l'ancien », coupant la vraie suite). Corrigé par deux
+`Edit` ciblés : restauration du paragraphe P.8 original intact, et
+déplacement de la section sur C.10/le règlement dans `## À venir` (fin réelle
+du document). Reconfirmé par une lecture `Read` complète de la zone (offset
+1425, limite 100) après correction -- plus aucune coupure. Leçon : sur ce
+projet, ne jamais borner une lecture `Read` sur la base d'un total obtenu via
+le bac à sable (`wc -l`, `git show | wc -l`, etc.) -- lire au-delà du total
+annoncé, ou lire par blocs jusqu'à obtenir une ligne vide en fin de fichier.
+
+## 2026-07-16 — Nouveau chantier : récompenses vendeurs et acheteurs (schéma)
+
+**Contexte.** L'utilisateur a proposé de récompenser, en plus du bénéficiaire
+(athlète/équipe/club) qui reçoit déjà le crédit de financement, deux autres
+rôles : le VENDEUR (la personne qui partage son propre code/QR pour amener des
+ventes à une campagne -- pas nécessairement un compte "responsable" : un
+coéquipier, un parent, un ami) et l'ACHETEUR (le client). Deux questions
+bloquantes au sens de CLAUDE.md section 9a ont été posées explicitement à
+l'utilisateur avant de coder quoi que ce soit :
+1. Portée initiale (backlog pour plus tard vs. définir le schéma maintenant)
+   -- réponse : définir le schéma maintenant.
+2. Financement -- ça touche directement la promesse centrale du produit
+   (chaque vente = crédit pour l'athlète/club) -- réponse CONFIRMÉE : la marge
+   de la plateforme, JAMAIS en réduisant le crédit du bénéficiaire. Aucune
+   table de la migration 0028 ne touche `order_credits` ou son calcul.
+
+**Décision 1 -- code vendeur = extension de `qr_codes`, pas une nouvelle
+table.** `qr_codes` (migration 0001) a déjà une cible polymorphe
+(`target_type`/`target_id`) qui supporte `target_type='campaign'` -- un code
+vendeur cible toujours une campagne. Plutôt que dupliquer génération de code
+(`lib/qr/generate.ts`), compteur de scans (`scan_count`, migration 0012) et
+résolution de redirection (`lib/qr/resolve-target.ts`), on ajoute juste
+l'identité du vendeur (`seller_profile_id`/`seller_name`/`seller_email`,
+nullable) sur la ligne existante. `resolve-target.ts` reste INCHANGÉ (il ne
+regarde que `target_type`/`target_id`). Raison : CLAUDE.md section 1 (ne pas
+dupliquer de logique), et le principe déjà appliqué ailleurs dans le projet
+(ex. `lib/qr/resolve-target.ts` réutilisant `loadBeneficiaryPreviewIdentity`
+sans dupliquer, migration 0013 réutilisant la forme de `cart_beneficiaries`).
+
+**Décision 2 -- attribution "dernier lien cliqué", figée à la commande.** Un
+seul `seller_qr_code_id` par commande (capté sur `carts`, figé sur `orders`
+à la création -- même patron que `primary_campaign_id`/`team_id`), pas une
+attribution par ligne de panier. Raison : cohérent avec la règle "une
+commande = un seul point de livraison" (CLAUDE.md section 4) -- une seule
+attribution racine évite la complexité d'une répartition multi-vendeurs
+jamais demandée par l'utilisateur (CLAUDE.md section 1 : ne pas anticiper).
+Cohérence `seller_qr_code_id` ↔ `primary_campaign_id` (le code doit cibler la
+même campagne que la commande) laissée à l'application, pas à une contrainte
+DB -- même choix que `saved_split_items`/somme à 10000 (migration 0013).
+
+**Décision 3 -- `reward_rules`/`reward_grants` séparées de `credit_rules`/
+`order_credits`, jamais mélangées.** Une récompense n'est PAS un crédit au
+bénéficiaire -- deux tables distinctes, deux flux d'argent distincts (marge
+vs. crédit de financement), pour ne jamais risquer de confondre les deux
+calculs. `reward_grants` reprend le patron ledger de `order_credits`/
+`credit_audit_log` (solde jamais stocké en dur, journal d'audit obligatoire à
+toute modification après coup) par analogie avec CLAUDE.md section 4.
+
+**Décision 4 -- V1 volontairement non monétaire.** `reward_rules.reward_type`
+se limite à `'discount_code'` (rabais boutique) et `'recognition'` (badge/
+reconnaissance sans valeur monétaire) -- pas de `'store_credit'`/argent
+comptant tant que le mécanisme n'a pas été validé avec un volume réel. Raison :
+même principe de prudence que "versements MANUELS en V1" (CLAUDE.md section
+2) -- éviter d'ouvrir une nouvelle surface de paiement/fiscalité (relevés
+fiscaux si le "vendeur" reçoit une contrepartie qui ressemble à une commission
+en argent) avant d'en avoir besoin. Extensible plus tard par un simple ajout
+au CHECK, pas une refonte.
+
+**Portée livrée dans cette entrée : SCHÉMA SEULEMENT**
+(`code/supabase/migrations/0028_seller_buyer_rewards.sql` +
+`docs/schema-reference.sql`). Reste à faire avant de considérer la
+fonctionnalité "livrée" au sens de CLAUDE.md section 7 (code + tests + cas
+limites) : brancher `create_paid_order` (écrire `seller_qr_code_id`), calcul
+pur des règles (`lib/rewards/`, déclenché uniquement par le webhook Stripe
+confirmé -- jamais à la soumission du formulaire), capture de l'attribution
+au premier contact, UI (génération de code vendeur, palmarès, affichage de la
+récompense acheteur), tests unitaires et e2e. Ajouté comme 3e chantier au
+backlog (voir `TODO.md`, `CLAUDE.md` section "Prochaines étapes").

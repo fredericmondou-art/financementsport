@@ -5,16 +5,22 @@ import { expect, test } from '@playwright/test';
  * Comme les autres tests e2e du projet (voir tests/e2e/navigation.spec.ts),
  * non exécutable dans le bac à sable de développement (Chromium/Supabase
  * bloqués par l'allowlist réseau) -- à exécuter en CI ou en local.
+ *
+ * Mis à jour (refonte accueil, BRIEF-REFONTE-ACCUEIL.md / 2026-07-10) : le
+ * lien "Trouver un athlète" du hero est renommé "Encourager un athlète"
+ * (même destination /trouver, voir docs/PLAN-DESIGN-REFONTE-ACCUEIL.md §6 --
+ * décision validée par Frédéric). "Voir la boutique" a déménagé du hero vers
+ * la section "Produits vedettes" mais reste unique sur la page.
  */
 
 test('l’accueil affiche les trois portes d’entrée et mène à la bonne page', async ({ page }) => {
   await page.goto('/');
 
-  await expect(page.getByRole('link', { name: 'Trouver un athlète' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Encourager un athlète' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Lancer une campagne' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Voir la boutique' })).toBeVisible();
 
-  await page.getByRole('link', { name: 'Trouver un athlète' }).click();
+  await page.getByRole('link', { name: 'Encourager un athlète' }).click();
   await expect(page).toHaveURL('/trouver');
   await expect(page.getByRole('heading', { name: 'Trouver un athlète' })).toBeVisible();
 });

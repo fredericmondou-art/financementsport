@@ -23,6 +23,13 @@ Ce dossier distingue deux types de contenu :
 source de vérité des conventions) et `ORCHESTRATION.md` (comment ce projet a
 été piloté tâche par tâche).
 
+## File d'attente et pièces juridiques
+
+| Dossier | Contenu |
+|---|---|
+| `prompts/` | Le(s) plan(s) de tâches en cours de traitement (pas encore terminés) — voir `PROGRESS.md` pour l'état d'avancement exact. Une fois une tâche entièrement terminée, son fichier est déplacé vers `archive/prompts/` (même convention que les phases précédentes). |
+| `dossier-avocat/` | Pièces produites côté code qui doivent être révisées par un avocat avant activation d'une fonctionnalité (règlements de concours, textes soumis à une gate juridique, etc.). Voir `dossier-avocat/README.md` pour le détail et les limites (dossier externe éventuel non couvert). |
+
 ## Archive (`docs/archive/`)
 
 | Dossier | Contenu |

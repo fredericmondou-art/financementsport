@@ -20,6 +20,19 @@
  * la fois une équipe ET un club, le défaut préfère l'équipe (périmètre plus
  * étroit, plus simple à raisonner) — accepter tous les défauts reste une
  * campagne valide dans les deux cas, ce n'est qu'un choix de priorité.
+ *
+ * P.3 (SPEC-PARAMETRES-PLATEFORME.md, R1/R2) : la durée par défaut était
+ * auparavant une constante fixe (60 jours), qui violerait désormais R1 (max
+ * configurable, 21 jours par défaut). Les défauts de date/livraison sont
+ * maintenant sourcés depuis `parametres_plateforme` (`campagne_duree_jours.
+ * defaut`, `campagne_delai_livraison_jours_max`), chargés par l'appelant
+ * (`lib/parametres.ts`, qui a besoin d'un `SupabaseClient` — ce module reste
+ * pur/synchrone, voir `CampaignDefaultsOptions.campaignDurationDefaultDays`/
+ * `deliveryDelayMaxDays`) et transmis via `options`, PAS lus ici directement.
+ * `DEFAULT_CAMPAIGN_DURATION_DAYS`/`DEFAULT_DELIVERY_DELAY_DAYS` ci-dessous
+ * ne sont plus que des replis si l'appelant ne fournit pas ces options
+ * (ex. anciens tests) -- alignés sur `PARAMETRES_DEFAUT` (lib/parametres.ts)
+ * pour rester cohérents par défaut.
  */
 import type { CampaignDraftData } from './draft';
 import type { ManagedAthleteOption, ManagedClubOption, ManagedTeamOption } from './manager-scope';
@@ -29,12 +42,33 @@ export interface CampaignDefaultsOptions {
   clubs: ManagedClubOption[];
   athletes: ManagedAthleteOption[];
   products: Array<{ id: string; name: string }>;
+  /** P.3 : `parametres.campagne_duree_jours.defaut` -- durée par défaut
+   * (jours) d'une campagne sans dates choisies. Repli : voir
+   * `DEFAULT_CAMPAIGN_DURATION_DAYS`. */
+  campaignDurationDefaultDays?: number;
+  /** P.3 : `parametres.campagne_delai_livraison_jours_max` -- utilisé pour
+   * borner (jamais dépasser) le délai de livraison par défaut proposé.
+   * Repli : voir `DEFAULT_DELIVERY_DELAY_DAYS`. */
+  deliveryDelayMaxDays?: number;
+  /** P.6 (SPEC-PARAMETRES-PLATEFORME.md, R6) :
+   * `parametres.campagne_objectif_athlete_suggere.defaut` -- objectif
+   * pré-rempli quand le gestionnaire n'en a pas encore choisi un. Absent en
+   * environnement de test qui ne fournit pas cette option : le champ reste
+   * alors vide comme avant P.6 (règle "souple", aucune valeur imposée). */
+  objectifSuggereDefautCents?: number;
 }
 
-/** Durée par défaut d'une campagne sans dates choisies : assez longue pour ne
- * pas forcer un retour précipité sur l'assistant, assez courte pour rester
- * une « campagne » au sens normal plutôt qu'une permanence. */
-export const DEFAULT_CAMPAIGN_DURATION_DAYS = 60;
+/** Repli si `options.campaignDurationDefaultDays` est absent -- aligné sur
+ * `PARAMETRES_DEFAUT.campagne_duree_jours.defaut` (lib/parametres.ts). */
+export const DEFAULT_CAMPAIGN_DURATION_DAYS = 14;
+
+/** Délai (jours) entre la clôture par défaut et la date de livraison par
+ * défaut proposée -- choix UX autonome (voir docs/DECISIONS.md) : la spec ne
+ * définit pas de "defaut" pour `campagne_delai_livraison_jours_max` (seul un
+ * maximum est configuré), donc ce module en choisit un raisonnable, borné
+ * par `options.deliveryDelayMaxDays` pour ne jamais dépasser le plafond
+ * configuré même s'il est un jour abaissé sous 7. */
+export const DEFAULT_DELIVERY_DELAY_DAYS = 7;
 
 function defaultTypeNom(
   data: CampaignDraftData,
@@ -80,13 +114,28 @@ function defaultBeneficiaire(
 
 function defaultObjectifDates(
   data: CampaignDraftData,
-): Pick<CampaignDraftData, 'goalCents' | 'startsAt' | 'endsAt'> {
+  options: CampaignDefaultsOptions,
+): Pick<CampaignDraftData, 'goalCents' | 'startsAt' | 'endsAt' | 'deliveryDate'> {
+  const durationDays = options.campaignDurationDefaultDays ?? DEFAULT_CAMPAIGN_DURATION_DAYS;
+  const deliveryDelayDays = Math.min(
+    DEFAULT_DELIVERY_DELAY_DAYS,
+    options.deliveryDelayMaxDays ?? DEFAULT_DELIVERY_DELAY_DAYS,
+  );
   const now = new Date();
-  const end = new Date(now.getTime() + DEFAULT_CAMPAIGN_DURATION_DAYS * 24 * 60 * 60 * 1000);
+  const end = new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000);
+  const endsAt = data.endsAt ?? end.toISOString();
+  const delivery = new Date(new Date(endsAt).getTime() + deliveryDelayDays * 24 * 60 * 60 * 1000);
   return {
-    goalCents: data.goalCents,
+    // P.6 (R6) : pré-rempli au montant suggéré si le gestionnaire n'a pas
+    // encore choisi d'objectif -- `null` (objectif explicitement effacé par
+    // le gestionnaire) reste `null`, seul `undefined` (jamais saisi) reçoit
+    // le défaut. Piège évité ici : `??` traite `null` ET `undefined` comme
+    // "absent", ce qui écraserait à tort un objectif volontairement effacé
+    // -- on distingue donc explicitement les deux avec `!== undefined`.
+    goalCents: data.goalCents !== undefined ? data.goalCents : options.objectifSuggereDefautCents,
     startsAt: data.startsAt ?? now.toISOString(),
-    endsAt: data.endsAt ?? end.toISOString(),
+    endsAt,
+    deliveryDate: data.deliveryDate ?? delivery.toISOString(),
   };
 }
 
@@ -119,7 +168,7 @@ export function applyCampaignDefaults(
     ...data,
     ...defaultTypeNom(data, options),
     ...defaultBeneficiaire(data, options),
-    ...defaultObjectifDates(data),
+    ...defaultObjectifDates(data, options),
     ...defaultParticipants(data, options),
     ...defaultPacks(data, options),
   };
