@@ -804,6 +804,17 @@ textarea {
   gap: var(--space-2);
   margin-bottom: var(--space-6);
 }
+/* Titre de page premium, unifié sur tout l'intérieur du site (panier,
+   paiement, portails, back-office) — même direction que l'accueil. Les pages
+   qui veulent un traitement plus fort (boutique, profils) le surchargent plus
+   bas dans ce fichier. Ajouté 2026-07-29. */
+.page-header h1 {
+  font-family: var(--font-display);
+  font-size: clamp(1.875rem, 3vw, 2.5rem);
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+  color: var(--color-ink-strong);
+}
 .page-header p {
   color: var(--color-text-secondary);
   margin: 0;
