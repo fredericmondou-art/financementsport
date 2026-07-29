@@ -68,6 +68,23 @@ function toEditableRows(rows: BeneficiarySplitRow[]): EditableRow[] {
   return rows.map((row) => ({ ...row, key: nextRowKey() }));
 }
 
+const TYPE_LABELS: Record<'athlete' | 'team' | 'club', string> = {
+  athlete: 'Athlète',
+  team: 'Équipe',
+  club: 'Club',
+};
+
+/** Initiales pour l'avatar de la carte bénéficiaire (présentation seulement). */
+function initials(label: string): string {
+  const parts = label
+    .trim()
+    .split(/\s+/u)
+    .filter(Boolean)
+    .slice(0, 2);
+  const result = parts.map((part) => part.charAt(0).toUpperCase()).join('');
+  return result || '?';
+}
+
 /**
  * Formulaire de répartition entre bénéficiaires (Tâche 1.4), simplifié à la
  * Tâche 1.6.A4 (docs/prompts/phase-1-6.md) : « choisir plusieurs enfants,
@@ -254,23 +271,61 @@ export default function BeneficiarySplit({
       {editableRows.length === 0 ? (
         <p>Ajoutez un premier bénéficiaire pour commencer.</p>
       ) : (
-        <div className="table-wrap">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Type</th>
-                <th>Identifiant du bénéficiaire</th>
-                <th>Bénéficiaire</th>
-                <th>Part</th>
-                <th>Impact estimé</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {editableRows.map((row, index) => (
-                <tr key={row.key}>
-                  <td>
-                    <input type="hidden" name="beneficiaryType" value={row.beneficiaryType} />
+        <ul className="split-list">
+          {editableRows.map((row, index) => (
+            <li key={row.key} className="split-card">
+              <input type="hidden" name="beneficiaryType" value={row.beneficiaryType} />
+              <input type="hidden" name="beneficiaryId" value={row.beneficiaryId} />
+              <input type="hidden" name="shareBps" value={row.shareBps} />
+
+              <div className="split-card__who">
+                <span className="split-card__avatar" aria-hidden="true">
+                  {initials(row.label)}
+                </span>
+                <span className="split-card__ident">
+                  <span className="split-card__name">{row.label}</span>
+                  <span className="split-card__type">{TYPE_LABELS[row.beneficiaryType]}</span>
+                </span>
+              </div>
+
+              <div className="split-card__controls">
+                <span className="split-card__share">
+                  {editableRows.length < 2 ? (
+                    <span className="split-card__pct">100%</span>
+                  ) : (
+                    <span className="split-card__pct-field">
+                      <input
+                        type="number"
+                        aria-label={`Part (%) pour ${row.label}`}
+                        min={0}
+                        max={100}
+                        step={1}
+                        value={Math.round(row.shareBps / 100)}
+                        onChange={(event) => handlePercentChange(row.key, Number(event.target.value))}
+                      />
+                      <span aria-hidden="true">%</span>
+                    </span>
+                  )}
+                </span>
+                <span className="split-card__impact">
+                  <span className="split-card__impact-label">reçoit</span>
+                  <strong className="split-row__impact">{formatCents(liveImpact[index]?.amountCents ?? 0)}</strong>
+                </span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={editableRows.length <= 1}
+                  onClick={() => handleRemoveRow(row.key)}
+                >
+                  Retirer
+                </Button>
+              </div>
+
+              {row.beneficiaryId === '' ? (
+                <div className="split-card__manual">
+                  <label className="split-card__manual-field">
+                    <span>Type</span>
                     <select
                       aria-label="Type de bénéficiaire"
                       value={row.beneficiaryType}
@@ -280,56 +335,26 @@ export default function BeneficiarySplit({
                       <option value="team">Équipe</option>
                       <option value="club">Club</option>
                     </select>
-                  </td>
-                  <td>
-                    <input type="hidden" name="beneficiaryId" value={row.beneficiaryId} />
+                  </label>
+                  <label className="split-card__manual-field split-card__manual-field--grow">
+                    <span>Identifiant du bénéficiaire</span>
                     <input
                       type="text"
                       aria-label="Identifiant du bénéficiaire"
-                      placeholder="UUID du bénéficiaire"
+                      placeholder="Colle l'identifiant du bénéficiaire"
                       value={row.beneficiaryId}
                       onChange={(event) => handleIdentityChange(row.key, 'beneficiaryId', event.target.value)}
                     />
-                  </td>
-                  <td>{row.label}</td>
-                  <td>
-                    <input type="hidden" name="shareBps" value={row.shareBps} />
-                    {editableRows.length < 2 ? (
-                      <span>100%</span>
-                    ) : (
-                      <>
-                        <input
-                          type="number"
-                          aria-label={`Part (%) pour ${row.label}`}
-                          min={0}
-                          max={100}
-                          step={1}
-                          value={Math.round(row.shareBps / 100)}
-                          onChange={(event) => handlePercentChange(row.key, Number(event.target.value))}
-                        />
-                        <span>{Math.round(row.shareBps / 100)}%</span>
-                      </>
-                    )}
-                  </td>
-                  <td>
-                    <strong className="split-row__impact">{formatCents(liveImpact[index]?.amountCents ?? 0)}</strong>
-                  </td>
-                  <td>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      disabled={editableRows.length <= 1}
-                      onClick={() => handleRemoveRow(row.key)}
-                    >
-                      Retirer
-                    </Button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                  </label>
+                  <p className="split-card__hint">
+                    Astuce : le plus simple est d&apos;ajouter un bénéficiaire en cliquant «&nbsp;Encourager&nbsp;»
+                    sur sa page.
+                  </p>
+                </div>
+              ) : null}
+            </li>
+          ))}
+        </ul>
       )}
 
       <Button type="button" variant="outline" size="sm" onClick={handleAddRow}>

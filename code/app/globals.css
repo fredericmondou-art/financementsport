@@ -2422,3 +2422,158 @@ textarea {
   font-size: 1.375rem;
   color: var(--color-accent-dark);
 }
+
+/* ==========================================================================
+   Panier — ajustements (2026-07-29) : champ quantité compact + détail des
+   taxes en liste alignée (libellé à gauche, montant à droite). Scopé
+   `.panier` : ne touche ni l'assistant de campagne ni les pages légales qui
+   utilisent aussi `.recap-list`.
+   ========================================================================== */
+.panier .table input[type='number'] {
+  width: 72px;
+  text-align: center;
+}
+.panier .table td form {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.panier .recap-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-width: 420px;
+}
+.panier .recap-list > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+.panier .recap-list dt {
+  margin-top: 0;
+}
+.panier .recap-list dd {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ==========================================================================
+   Répartition entre bénéficiaires — présentation claire et conviviale
+   (2026-07-29). Remplace la table technique (qui exposait un UUID brut) par
+   des cartes lisibles : avatar + nom + type, part, impact. Voir
+   components/beneficiary-split.tsx.
+   ========================================================================== */
+.split-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.split-card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+.split-card__who {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex: 1 1 220px;
+  min-width: 0;
+}
+.split-card__avatar {
+  width: 44px;
+  height: 44px;
+  flex: none;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--color-accent-tint);
+  color: var(--color-accent);
+  font-family: var(--font-metric);
+  font-weight: 800;
+  font-size: 0.9375rem;
+}
+.split-card__ident {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.split-card__name {
+  font-weight: 600;
+  color: var(--color-text);
+}
+.split-card__type {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-text-secondary);
+}
+.split-card__controls {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  margin-left: auto;
+}
+.split-card__pct-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 600;
+}
+.split-card__pct-field input {
+  width: 64px;
+  text-align: center;
+}
+.split-card__pct {
+  font-weight: 600;
+}
+.split-card__impact {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.15;
+}
+.split-card__impact-label {
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+}
+.split-card__manual {
+  flex: 1 1 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px dashed var(--color-border);
+}
+.split-card__manual-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+}
+.split-card__manual-field--grow {
+  flex: 1 1 220px;
+}
+.split-card__hint {
+  flex: 1 1 100%;
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+}
+@media (max-width: 560px) {
+  .split-card__controls {
+    margin-left: 0;
+    flex: 1 1 100%;
+    justify-content: space-between;
+  }
+}

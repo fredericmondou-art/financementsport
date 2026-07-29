@@ -173,7 +173,7 @@ export default async function PanierPage({ searchParams }: PanierPageProps): Pro
   );
 
   return (
-    <main className="page stack">
+    <main className="page stack panier">
       <div className="page-header">
         <h1>Mon panier</h1>
       </div>
