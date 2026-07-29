@@ -180,7 +180,6 @@ export default async function HomePage(): Promise<JSX.Element> {
       <section className="home-hero">
         <div className="page page--wide home-hero__inner">
           <div className="home-hero__content stack stack--sm">
-            <span className="home-hero__eyebrow">Plateforme québécoise de financement sportif</span>
             <h1>Achetez vos essentiels. Financez le sport des jeunes.</h1>
             <p className="home-hero__lead">
               Chaque achat sur notre boutique génère un crédit de financement versé directement à
