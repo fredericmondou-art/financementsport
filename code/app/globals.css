@@ -2073,14 +2073,17 @@ textarea {
    ils ne recouvrent plus le contenu (en-tête, libellés) et ne dépassent pas
    latéralement, donc ne sont plus rognés par l'overflow du hero. */
 .home-impact {
-  margin-block: 22px;
+  margin-block: 26px;
+  /* Marge intérieure haut/bas généreuse : les badges chevauchent les bords
+     sans jamais atteindre l'en-tête (nom d'équipe) ni la barre du bas. */
+  padding-block: var(--space-7);
 }
 .home-impact__badge--a {
-  top: -22px;
+  top: -26px;
   left: 14px;
 }
 .home-impact__badge--b {
-  bottom: -22px;
+  bottom: -26px;
   right: 14px;
 }
 @media (max-width: 900px) {
