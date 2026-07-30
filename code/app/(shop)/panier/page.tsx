@@ -95,6 +95,7 @@ import { createSupabaseTaxRatesRepo } from '@/lib/taxes/rates';
 import { Card } from '@/components/ui/card';
 import { Alert } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { CartQuantityInput } from '@/components/cart-quantity-input';
 import { checkoutAction, removeItemAction, updateQuantityAction } from './actions';
 
 const DEFAULT_BILLING_PROVINCE = 'QC';
@@ -211,10 +212,12 @@ export default async function PanierPage({ searchParams }: PanierPageProps): Pro
                     <form action={updateQuantityAction}>
                       <input type="hidden" name="cartId" value={cart.id} />
                       <input type="hidden" name="itemId" value={item.id} />
-                      <input type="number" name="quantity" defaultValue={item.quantity} min={1} />
-                      <Button type="submit" variant="outline" size="sm">
-                        Mettre à jour
-                      </Button>
+                      <CartQuantityInput defaultValue={item.quantity} />
+                      <noscript>
+                        <button type="submit" className="btn btn--outline btn--sm">
+                          Mettre à jour
+                        </button>
+                      </noscript>
                     </form>
                   </td>
                   <td>{formatCents(item.unit_price_cents * item.quantity)}</td>
